@@ -1,40 +1,4 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8" />
-<title>Quiz Templating Engine — Year 11 Set 2</title>
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
-<style>
-  html, body { margin: 0; padding: 0; background: #e9e9e4; }
-  #root { min-height: 100vh; }
-  #err-box { display:none; font-family: monospace; padding: 20px; color: #b00; white-space: pre-wrap; background: #fff; border: 2px solid #b00; margin: 20px; max-width: 900px; }
-</style>
-</head>
-<body>
-<div id="root"></div>
-<div id="err-box"></div>
-<script>
-  window.__lastErr = '';
-  window.addEventListener('error', function(ev) {
-    window.__lastErr = (ev.error && ev.error.stack) || ev.message || 'unknown error';
-    var box = document.getElementById('err-box');
-    box.style.display = 'block';
-    box.textContent = 'Script error caught:\n\n' + window.__lastErr;
-  });
-  setTimeout(function() {
-    var root = document.getElementById('root');
-    if (root && !root.hasChildNodes() && !window.__lastErr) {
-      var box = document.getElementById('err-box');
-      box.style.display = 'block';
-      box.textContent = 'App did not render but no JS error caught. Likely the CDN (cdnjs.cloudflare.com) is blocked by your network.';
-    }
-  }, 4000);
-</script>
-<script type="text/babel" data-presets="react">
-const { useState, useMemo, useCallback, useId, useEffect, useRef } = React;
+import React, { useState, useMemo, useCallback, useId, useEffect, useRef } from "react";
 /* ---------- seeded RNG so a quiz is reproducible from its seed ---------- */
 function mulberry32(seed) {
   let a = seed;
@@ -54,6 +18,12 @@ const pm = (n, sym = "") => (n >= 0 ? `+ ${n}${sym}` : `- ${Math.abs(n)}${sym}`)
 const pm0 = (n, sym = "") => (n === 0 ? "" : ` ${pm(n, sym)}`);
 // Coefficient-of-x display that avoids "1x"/"-1x" (should read "x"/"-x").
 const coefX = (m, sym = "x") => (m === 1 ? sym : m === -1 ? `-${sym}` : `${m}${sym}`);
+const pmX = (n, sym) => `${n >= 0 ? "+" : "-"} ${coefX(Math.abs(n), sym)}`;
+// Friendly labels for the V1/V2/V3 same-skills-fresh-numbers follow-up
+// quizzes (feature 6) — used both on the version-switch buttons and on the
+// printed page's version banner, so a teacher can tell handouts apart at a
+// glance. Internal ids stay "V1"/"V2"/"V3" (encoded into quiz codes).
+const VERSION_LABELS = { V1: "Version 1", V2: "Version 2", V3: "Version 3" };
 
 function partitionFour(rng, total) {
   let a = seededInt(rng, 2, Math.floor(total * 0.35));
@@ -599,6 +569,79 @@ function QuadrilateralSVG({ shape }) {
   );
 }
 
+function parallelTick(cx, cy) {
+  return (
+    <g stroke="#000" strokeWidth="1.3">
+      <line x1={cx - 4} y1={cy - 4} x2={cx + 3} y2={cy} />
+      <line x1={cx - 4} y1={cy + 4} x2={cx + 3} y2={cy} />
+    </g>
+  );
+}
+
+function sideTicks(p1, p2, count) {
+  const dx = p2[0] - p1[0], dy = p2[1] - p1[1];
+  const len = Math.sqrt(dx * dx + dy * dy) || 1;
+  const ux = dx / len, uy = dy / len;
+  const px = -uy, py = ux;
+  const mx = (p1[0] + p2[0]) / 2, my = (p1[1] + p2[1]) / 2;
+  const spacing = 4.5;
+  const marks = [];
+  for (let i = 0; i < count; i++) {
+    const offset = (i - (count - 1) / 2) * spacing;
+    const cx = mx + ux * offset, cy = my + uy * offset;
+    marks.push(
+      <line key={i} x1={cx - px * 4} y1={cy - py * 4} x2={cx + px * 4} y2={cy + py * 4} stroke="#000" strokeWidth="1.3" />
+    );
+  }
+  return marks;
+}
+
+function TrapeziumAnglesSVG({ a }) {
+  const pad = 26;
+  const A = [15, 0], B = [75, 0], C = [95, 55], D = [0, 55];
+  const ptsStr = [A, B, C, D].map(([x, y]) => `${x + pad},${y + pad}`).join(" ");
+  return (
+    <svg viewBox={`0 0 ${95 + 2 * pad} ${55 + 2 * pad}`} width="100%" style={{ maxWidth: 240, display: "block" }}>
+      <polygon points={ptsStr} fill="none" stroke="#000" strokeWidth="1.6" />
+      {parallelTick((A[0] + B[0]) / 2 + pad, (A[1] + B[1]) / 2 + pad)}
+      {parallelTick((C[0] + D[0]) / 2 + pad, (C[1] + D[1]) / 2 + pad)}
+      <text x={A[0] + pad - 6} y={A[1] + pad - 8} fontSize="13" fontFamily="Arial, sans-serif" textAnchor="end" fill="#000">A</text>
+      <text x={B[0] + pad + 6} y={B[1] + pad - 8} fontSize="13" fontFamily="Arial, sans-serif" textAnchor="start" fill="#000">B</text>
+      <text x={C[0] + pad + 6} y={C[1] + pad + 14} fontSize="13" fontFamily="Arial, sans-serif" textAnchor="start" fill="#000">C</text>
+      <text x={D[0] + pad - 6} y={D[1] + pad + 14} fontSize="13" fontFamily="Arial, sans-serif" textAnchor="end" fill="#000">D</text>
+      <text x={A[0] + pad + 10} y={A[1] + pad + 16} fontSize="12" fontFamily="Arial, sans-serif" fill="#000">{a}°</text>
+      <text x={D[0] + pad + 10} y={D[1] + pad - 6} fontSize="12" fontFamily="Arial, sans-serif" fill="#000">?</text>
+    </svg>
+  );
+}
+
+function KiteAnglesSVG({ angleA, angleBD }) {
+  const pad = 22;
+  const A = [45, 0], B = [80, 40], C = [45, 95], D = [10, 40];
+  const centre = [45, 43.75];
+  const labelPos = ([vx, vy]) => [vx + 0.35 * (centre[0] - vx), vy + 0.35 * (centre[1] - vy)];
+  const [lax, lay] = labelPos(A), [lbx, lby] = labelPos(B), [ldx, ldy] = labelPos(D), [lcx, lcy] = labelPos(C);
+  const ptsStr = [A, B, C, D].map(([x, y]) => `${x + pad},${y + pad}`).join(" ");
+  const shift = ([x, y]) => [x + pad, y + pad];
+  return (
+    <svg viewBox={`0 0 ${90 + 2 * pad} ${95 + 2 * pad}`} width="100%" style={{ maxWidth: 200, display: "block" }}>
+      <polygon points={ptsStr} fill="none" stroke="#000" strokeWidth="1.6" />
+      {sideTicks(shift(A), shift(B), 1)}
+      {sideTicks(shift(A), shift(D), 1)}
+      {sideTicks(shift(C), shift(B), 2)}
+      {sideTicks(shift(C), shift(D), 2)}
+      <text x={A[0] + pad} y={A[1] + pad - 8} fontSize="13" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#000">A</text>
+      <text x={B[0] + pad + 8} y={B[1] + pad + 4} fontSize="13" fontFamily="Arial, sans-serif" textAnchor="start" fill="#000">B</text>
+      <text x={C[0] + pad} y={C[1] + pad + 16} fontSize="13" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#000">C</text>
+      <text x={D[0] + pad - 8} y={D[1] + pad + 4} fontSize="13" fontFamily="Arial, sans-serif" textAnchor="end" fill="#000">D</text>
+      <text x={lax + pad} y={lay + pad} fontSize="11.5" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#000">{angleA}°</text>
+      <text x={lbx + pad} y={lby + pad} fontSize="11.5" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#000">{angleBD}°</text>
+      <text x={ldx + pad} y={ldy + pad} fontSize="11.5" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#000">{angleBD}°</text>
+      <text x={lcx + pad} y={lcy + pad} fontSize="11.5" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#000">?</text>
+    </svg>
+  );
+}
+
 function RegularPolygonSVG({ sides }) {
   const cx = 60, cy = 60, r = 50;
   const offset = sides % 2 === 0 ? 90 + 180 / sides : 90;
@@ -920,14 +963,14 @@ const SUBTOPIC_BANK = {
     topic: "Expanding Brackets", title: "Double brackets, both positive", marks: 2,
     build(rng) {
       const a = seededInt(rng, 2, 9), b = seededInt(rng, 2, 9);
-      return { prompt: `Expand and simplify (x + ${a})(x + ${b})`, answer: `x² ${pm(a + b, "x")} ${pm(a * b)}` };
+      return { prompt: `Expand and simplify (x + ${a})(x + ${b})`, answer: `x² ${pmX(a + b, "x")} ${pm(a * b)}` };
     },
   },
   "eb-double-mixed": {
     topic: "Expanding Brackets", title: "Double brackets, mixed signs", marks: 2,
     build(rng) {
       const a = seededInt(rng, 2, 9), b = seededInt(rng, 2, 9);
-      return { prompt: `Expand and simplify (x + ${a})(x - ${b})`, answer: `x² ${pm(a - b, "x")} ${pm(-a * b)}` };
+      return { prompt: `Expand and simplify (x + ${a})(x - ${b})`, answer: `x² ${pmX(a - b, "x")} ${pm(-a * b)}` };
     },
   },
   "eb-double-neg": {
@@ -941,7 +984,7 @@ const SUBTOPIC_BANK = {
     topic: "Expanding Brackets", title: "Repeated (squared) bracket", marks: 2,
     build(rng) {
       const a = seededInt(rng, 2, 9);
-      return { prompt: `Expand and simplify (x - ${a})²`, answer: `x² ${pm(-2 * a, "x")} ${pm(a * a)}` };
+      return { prompt: `Expand and simplify (x - ${a})²`, answer: `x² ${pmX(-2 * a, "x")} ${pm(a * a)}` };
     },
   },
 
@@ -956,7 +999,7 @@ const SUBTOPIC_BANK = {
     topic: "Factorising", title: "Simple quadratic (coefficient 1)", marks: 2,
     build(rng) {
       const a = seededInt(rng, 1, 7), b = seededInt(rng, 1, 7);
-      return { prompt: `Factorise x² ${pm(a + b, "x")} ${pm(a * b)}`, answer: `(x + ${a})(x + ${b})` };
+      return { prompt: `Factorise x² ${pmX(a + b, "x")} ${pm(a * b)}`, answer: `(x + ${a})(x + ${b})` };
     },
   },
   "fac-dots": {
@@ -1152,7 +1195,7 @@ SUBTOPIC_BANK["expanding-triple-brackets"] = {
     const p = a + b + c, q = a * b + b * c + c * a, r = a * b * c;
     return {
       prompt: `Expand and simplify ${bracket(a)}${bracket(b)}${bracket(c)}`,
-      answer: `x³ ${pm(p, "x²")} ${pm(q, "x")} ${pm(r)}`,
+      answer: `x³ ${pmX(p, "x²")} ${pmX(q, "x")} ${pm(r)}`,
     };
   },
 };
@@ -1162,7 +1205,7 @@ SUBTOPIC_BANK["fac-quadratic-agt1"] = {
     const p = seededInt(rng, 2, 3), q = seededInt(rng, 2, 3), m = seededInt(rng, 1, 6), n = seededInt(rng, 1, 6);
     const lead = p * q, xc = p * n + q * m, con = m * n;
     return {
-      prompt: `Factorise ${lead}x² ${pm(xc, "x")} ${pm(con)}`,
+      prompt: `Factorise ${lead}x² ${pmX(xc, "x")} ${pm(con)}`,
       answer: `(${p}x + ${m})(${q}x + ${n})`,
     };
   },
@@ -1183,7 +1226,7 @@ SUBTOPIC_BANK["fac-monic-neg"] = {
   topic: "Factorising", title: "Quadratic with negative terms (coefficient 1)", marks: 2,
   build(rng) {
     const a = seededInt(rng, 1, 9), b = seededInt(rng, 1, 9);
-    return { prompt: `Factorise x² ${pm(a - b, "x")} ${pm(-a * b)}`, answer: `(x + ${a})(x - ${b})` };
+    return { prompt: `Factorise x² ${pmX(a - b, "x")} ${pm(-a * b)}`, answer: `(x + ${a})(x - ${b})` };
   },
 };
 SUBTOPIC_BANK["fac-monic-perfect-square"] = {
@@ -1192,7 +1235,7 @@ SUBTOPIC_BANK["fac-monic-perfect-square"] = {
     const a = seededInt(rng, 2, 9);
     const sign = pick(rng, [1, -1]);
     return {
-      prompt: `Factorise x² ${pm(sign * 2 * a, "x")} ${pm(a * a)}`,
+      prompt: `Factorise x² ${pmX(sign * 2 * a, "x")} ${pm(a * a)}`,
       answer: sign === 1 ? `(x + ${a})²` : `(x - ${a})²`,
     };
   },
@@ -1203,7 +1246,7 @@ SUBTOPIC_BANK["fac-nonmonic-neg"] = {
     const p = seededInt(rng, 2, 3), q = seededInt(rng, 2, 3), m = seededInt(rng, 1, 6), n = seededInt(rng, 1, 6);
     const lead = p * q, xc = q * m - p * n, con = -(m * n);
     return {
-      prompt: `Factorise ${lead}x² ${pm(xc, "x")} ${pm(con)}`,
+      prompt: `Factorise ${lead}x² ${pmX(xc, "x")} ${pm(con)}`,
       answer: `(${p}x + ${m})(${q}x - ${n})`,
     };
   },
@@ -1215,7 +1258,7 @@ SUBTOPIC_BANK["fac-nonmonic-perfect-square"] = {
     const sign = pick(rng, [1, -1]);
     const lead = p * p, xc = sign * 2 * p * m, con = m * m;
     return {
-      prompt: `Factorise ${lead}x² ${pm(xc, "x")} ${pm(con)}`,
+      prompt: `Factorise ${lead}x² ${pmX(xc, "x")} ${pm(con)}`,
       answer: sign === 1 ? `(${p}x + ${m})²` : `(${p}x - ${m})²`,
     };
   },
@@ -1244,7 +1287,7 @@ SUBTOPIC_BANK["fac-negative-leading"] = {
   build(rng) {
     const a = seededInt(rng, 1, 8), b = seededInt(rng, 1, 8);
     return {
-      prompt: `Factorise -x² ${pm(a + b, "x")} ${pm(-a * b)}`,
+      prompt: `Factorise -x² ${pmX(a + b, "x")} ${pm(-a * b)}`,
       answer: `-(x - ${a})(x - ${b})`,
     };
   },
@@ -1268,19 +1311,64 @@ SUBTOPIC_BANK["fac-two-variables"] = {
   build(rng) {
     const a = seededInt(rng, 1, 7), b = seededInt(rng, 1, 7);
     return {
-      prompt: `Factorise x² ${pm(a + b, "xy")} ${pm(a * b, "y²")}`,
+      prompt: `Factorise x² ${pmX(a + b, "xy")} ${pmX(a * b, "y²")}`,
       answer: `(x + ${a}y)(x + ${b}y)`,
     };
   },
 };
 
 SUBTOPIC_BANK["solve-quadratic-factorise"] = {
-  topic: "Solving Quadratics", title: "Solve by factorising", marks: 2,
+  topic: "Solving Quadratics", title: "Solve by factorising (a = 1)", marks: 2,
   build(rng) {
     const a = seededInt(rng, 1, 7), b = seededInt(rng, 1, 7);
     return {
-      prompt: `Solve by factorising: x² ${pm(a + b, "x")} ${pm(a * b)} = 0`,
+      prompt: `Solve by factorising: x² ${pmX(a + b, "x")} ${pm(a * b)} = 0`,
       answer: `x = -${a} or x = -${b}`,
+    };
+  },
+};
+SUBTOPIC_BANK["solve-quadratic-factorise-agt1"] = {
+  topic: "Solving Quadratics", title: "Solve by factorising (a ≠ 1)", marks: 3,
+  build(rng) {
+    const p = seededInt(rng, 2, 3), q = seededInt(rng, 2, 3), m = seededInt(rng, 1, 6), n = seededInt(rng, 1, 6);
+    const lead = p * q, xc = p * n + q * m, con = m * n;
+    // Roots are -m/p and -n/q — reduce each fraction so answers like "x = -1/2"
+    // come out in lowest terms rather than e.g. "x = -2/4".
+    const fracStr = (num, den) => {
+      const g = gcd(num, den);
+      const rn = num / g, rd = den / g;
+      return rd === 1 ? `${rn}` : `${rn}/${rd}`;
+    };
+    return {
+      prompt: `Solve by factorising: ${lead}x² ${pmX(xc, "x")} ${pm(con)} = 0`,
+      answer: `(${p}x + ${m})(${q}x + ${n}) = 0, so x = -${fracStr(m, p)} or x = -${fracStr(n, q)}`,
+    };
+  },
+};
+SUBTOPIC_BANK["solve-quadratic-rearrange"] = {
+  topic: "Solving Quadratics", title: "Rearrange to = 0, then solve by factorising", marks: 3,
+  build(rng) {
+    // Roots p and -q (p ≠ q so the x-coefficient isn't 0), presented with a
+    // constant split across both sides so the student has to combine/move
+    // terms before the equation is in the usual "= 0" form to factorise.
+    let p, q;
+    do {
+      p = seededInt(rng, 1, 8);
+      q = seededInt(rng, 1, 8);
+    } while (p === q);
+    const xCoeff = q - p;
+    const con = p * q;
+    const a = seededInt(rng, 1, 9);
+    const b = a + con;
+    // pm0(n, "x") would render a coefficient of 1 or -1 as "1x"/"-1x" — write
+    // the x-term by hand so it reads "x"/"-x" instead, same idea as coefX().
+    const xTerm = (() => {
+      const abs = Math.abs(xCoeff);
+      return ` ${xCoeff > 0 ? "+" : "-"} ${abs === 1 ? "x" : `${abs}x`}`;
+    })();
+    return {
+      prompt: `Solve: x²${xTerm} + ${a} = ${b}`,
+      answer: `Rearrange to x²${xTerm} - ${con} = 0, then factorise: (x - ${p})(x + ${q}) = 0, so x = ${p} or x = -${q}`,
     };
   },
 };
@@ -1365,7 +1453,7 @@ SUBTOPIC_BANK["completing-the-square"] = {
     const k = seededInt(rng, 1, 6) * pick(rng, [1, -1]);
     const c = seededInt(rng, -10, 10);
     const p = k, q = c - k * k;
-    return { prompt: `Write x² ${pm(2 * k, "x")} ${pm(c)} in the form (x + p)² + q.`, answer: `(x ${pm(p)})² ${pm(q)}` };
+    return { prompt: `Write x² ${pmX(2 * k, "x")} ${pm(c)} in the form (x + p)² + q.`, answer: `(x ${pm(p)})² ${pm(q)}` };
   },
 };
 SUBTOPIC_BANK["solve-completing-square"] = {
@@ -1374,7 +1462,7 @@ SUBTOPIC_BANK["solve-completing-square"] = {
     const p = seededInt(rng, 1, 5) * pick(rng, [1, -1]);
     const m = seededInt(rng, 2, 20);
     const b = 2 * p, c = p * p - m;
-    return { prompt: `Solve x² ${pm(b, "x")} ${pm(c)} = 0 by completing the square. Give your answer in surd form.`, answer: `x = ${-p} ± √${m}` };
+    return { prompt: `Solve x² ${pmX(b, "x")} ${pm(c)} = 0 by completing the square. Give your answer in surd form.`, answer: `x = ${-p} ± √${m}` };
   },
 };
 SUBTOPIC_BANK["solve-quadratic-formula"] = {
@@ -1388,7 +1476,7 @@ SUBTOPIC_BANK["solve-quadratic-formula"] = {
     const x1 = ((-b + Math.sqrt(D)) / (2 * a)).toFixed(2);
     const x2 = ((-b - Math.sqrt(D)) / (2 * a)).toFixed(2);
     return {
-      prompt: `Solve ${a === 1 ? "" : a}x² ${pm(b, "x")} ${pm(c)} = 0 using the quadratic formula. Give your answers to 2 decimal places.`,
+      prompt: `Solve ${a === 1 ? "" : a}x² ${pmX(b, "x")} ${pm(c)} = 0 using the quadratic formula. Give your answers to 2 decimal places.`,
       answer: `x = ${x1} or x = ${x2}`,
     };
   },
@@ -1428,7 +1516,7 @@ SUBTOPIC_BANK["simultaneous-linear-scaling"] = {
     const x0 = seededInt(rng, -6, 6), y0 = seededInt(rng, -6, 6);
     const c1 = p1 * x0 + q1 * y0, c2 = p2 * x0 + q2 * y0;
     return {
-      prompt: `Solve the simultaneous equations: ${p1}x ${pm(q1, "y")} = ${c1}; ${p2}x ${pm(q2, "y")} = ${c2}. You will need to scale one or both equations.`,
+      prompt: `Solve the simultaneous equations: ${p1}x ${pmX(q1, "y")} = ${c1}; ${p2}x ${pmX(q2, "y")} = ${c2}. You will need to scale one or both equations.`,
       answer: `x = ${x0}, y = ${y0}`,
     };
   },
@@ -1504,7 +1592,7 @@ SUBTOPIC_BANK["quadratic-sequences"] = {
   topic: "Sequences", title: "Evaluate a term of a quadratic sequence", marks: 2,
   build(rng) {
     const a = seededInt(rng, 1, 4), b = seededInt(rng, -5, 5), c = seededInt(rng, -5, 5), n = seededInt(rng, 5, 10);
-    return { prompt: `The nth term of a sequence is ${a}n² ${pm(b, "n")} ${pm(c)}. Find the ${n}th term.`, answer: `${a * n * n + b * n + c}` };
+    return { prompt: `The nth term of a sequence is ${a}n² ${pmX(b, "n")} ${pm(c)}. Find the ${n}th term.`, answer: `${a * n * n + b * n + c}` };
   },
 };
 SUBTOPIC_BANK["algebraic-fractions-simplify"] = {
@@ -2388,7 +2476,7 @@ SUBTOPIC_BANK["inequality-quadratic-solve"] = {
     const wantOutside = pick(rng, [true, false]);
     const symbol = wantOutside ? ">" : "<";
     return {
-      prompt: `Solve the inequality x² ${pm(b, "x")} ${pm(c)} ${symbol} 0`,
+      prompt: `Solve the inequality x² ${pmX(b, "x")} ${pm(c)} ${symbol} 0`,
       answer: wantOutside
         ? `(x - ${r2})(x + ${-r1}) ${symbol} 0, roots at x = ${r1} and x = ${r2}; x < ${r1} or x > ${r2}`
         : `(x - ${r2})(x + ${-r1}) ${symbol} 0, roots at x = ${r1} and x = ${r2}; ${r1} < x < ${r2}`,
@@ -2722,7 +2810,7 @@ SUBTOPIC_BANK["collect-like-terms-multi"] = {
   topic: "Algebraic Notation & Manipulation", title: "Collect like terms with multiple variables", marks: 2,
   build(rng) {
     const a1 = seededInt(rng, 1, 8), b1 = seededInt(rng, 1, 8), a2 = seededInt(rng, 1, 8), b2 = seededInt(rng, 1, 8);
-    return { prompt: `Simplify ${a1}x + ${b1}y + ${a2}x - ${b2}y`, answer: `${a1 + a2}x ${pm(b1 - b2, "y")}` };
+    return { prompt: `Simplify ${a1}x + ${b1}y + ${a2}x - ${b2}y`, answer: `${a1 + a2}x ${pmX(b1 - b2, "y")}` };
   },
 };
 SUBTOPIC_BANK["multiply-algebraic-terms"] = {
@@ -4139,6 +4227,7 @@ SUBTOPIC_BANK["curve-transform-translate"] = {
 const SET2_WEEKS = {
   "HT1 · Week 1 (07/09/26) — Expanding Triple Brackets, Factorising & Solving Quadratics": [
     "expanding-triple-brackets", "fac-quadratic", "fac-quadratic-agt1", "solve-quadratic-factorise",
+    "solve-quadratic-factorise-agt1", "solve-quadratic-rearrange",
   ],
   "HT1 · Week 2 (14/09/26) — Completing the Square, Quadratic Formula, Graphs": [
     "completing-the-square", "solve-completing-square", "solve-quadratic-formula", "plot-nonlinear-graph",
@@ -4230,7 +4319,7 @@ SUBTOPIC_BANK["algebraic-fractions-simplify-factorise"] = {
   build(rng) {
     const a = seededInt(rng, 1, 7), b = seededInt(rng, 1, 7);
     return {
-      prompt: <>Simplify fully <Frac n={<>x² {pm(a + b, "x")} {pm(a * b)}</>} d={<>x {pm(a)}</>} /></>,
+      prompt: <>Simplify fully <Frac n={<>x² {pmX(a + b, "x")} {pm(a * b)}</>} d={<>x {pm(a)}</>} /></>,
       answer: <>x {pm(b)}</>,
     };
   },
@@ -4724,7 +4813,7 @@ SUBTOPIC_BANK["completing-square-non-monic"] = {
     const b = 2 * k * p;
     const c = q + k * p * p;
     return {
-      prompt: `Write ${k}x² ${pm(b, "x")}${pm0(c)} in the form ${k}(x ${pm(p)})² + q`,
+      prompt: `Write ${k}x² ${pmX(b, "x")}${pm0(c)} in the form ${k}(x ${pm(p)})² + q`,
       answer: `${k}(x ${pm(p)})²${pm0(q)}`,
     };
   },
@@ -5409,6 +5498,7 @@ SUBTOPIC_BANK["angles-trapezium"] = {
     const b = 180 - a;
     return {
       prompt: `ABCD is a trapezium with AB parallel to DC. Angle A = ${a}°. Find the size of angle D, given that angles A and D are co-interior angles between the parallel sides.`,
+      render: <TrapeziumAnglesSVG a={a} />,
       answer: `Co-interior angles sum to 180°, so angle D = 180° - ${a}° = ${b}°`,
     };
   },
@@ -5425,6 +5515,7 @@ SUBTOPIC_BANK["angles-kite"] = {
     } while ((angleC < 20 || angleC > 150) && guard < 40);
     return {
       prompt: `ABCD is a kite, with AB = AD and CB = CD. Angle A = ${angleA}° and angle B = angle D = ${angleBD}°. Find the size of angle C.`,
+      render: <KiteAnglesSVG angleA={angleA} angleBD={angleBD} />,
       answer: `360° - ${angleA}° - 2 × ${angleBD}° = ${angleC}°`,
     };
   },
@@ -5986,6 +6077,8 @@ const SUBTOPIC_TO_SPEC = {
   "expanding-triple-brackets": "Algebra → Brackets → Expanding Brackets",
   "fac-quadratic-agt1": "Algebra → Brackets → Factorising",
   "solve-quadratic-factorise": "Algebra → Quadratic Equations → Solving Quadratics",
+  "solve-quadratic-factorise-agt1": "Algebra → Quadratic Equations → Solving Quadratics",
+  "solve-quadratic-rearrange": "Algebra → Quadratic Equations → Solving Quadratics",
   "completing-the-square": "Algebra → Quadratic Equations → Completing the Square",
   "solve-completing-square": "Algebra → Quadratic Equations → Completing the Square",
   "solve-quadratic-formula": "Algebra → Quadratic Equations → Solving Quadratics",
@@ -6345,19 +6438,47 @@ function seedFor(idsKey, version, salt) {
    file with no backend/database, so a code can't be a short DB lookup key
    the way a server-backed tool's would be — instead it self-encodes the
    exact state needed to reproduce the quiz (which subtopics, practice mode,
-   fixed length, regeneration salt, and active version) as compact base-36
-   indices into the subtopic bank. Decoding it is a pure function of the
-   bank itself, so a code keeps working even if this file is opened fresh
-   with no server round-trip, and can be shared as a "?code=" link too. ---------- */
+   fixed length, regeneration salt, and active version) as a compact string.
+   Decoding it is a pure function of the bank itself, so a code keeps working
+   even if this file is opened fresh with no server round-trip, and can be
+   shared as a "?code=" link too.
+   The subtopic body used to store positional indices into
+   ALL_SUBTOPIC_IDS = Object.keys(SUBTOPIC_BANK) — compact, but silently
+   wrong for any code saved before a new subtopic got inserted anywhere in
+   the middle of SUBTOPIC_BANK's definition (which reshuffles every index
+   after it), rather than appended at the very end. A teacher who saved a
+   code, then this file gained a mid-list subtopic, would reload that code
+   into different subtopics without any error. Codes are now written with
+   the literal subtopic ID strings instead (format version 2, below), which
+   can never be invalidated by later edits to this file — only ids that no
+   longer exist get silently dropped. ALL_SUBTOPIC_IDS/the index scheme is
+   kept only so old, already-shared codes keep decoding as before. ---------- */
 const ALL_SUBTOPIC_IDS = Object.keys(SUBTOPIC_BANK);
-function encodeQuizCode({ ids, mode, length, salt, version }) {
-  const idxs = ids.map((id) => ALL_SUBTOPIC_IDS.indexOf(id)).filter((i) => i >= 0);
-  if (idxs.length === 0) return "";
+// No subtopic id uses "~", so it's a safe delimiter for the id-string body
+// (ids themselves are hyphenated, e.g. "solve-quadratic-rearrange", so "-"
+// can't be reused as the separator the way the old index-based body did).
+const ID_BODY_SEP = "~";
+function encodeQuizCode({ ids, mode, length, lengthMode, salt, version }) {
+  const validIds = ids.filter((id) => Object.prototype.hasOwnProperty.call(SUBTOPIC_BANK, id));
+  if (validIds.length === 0) return "";
   const modeBit = mode === "blocked" ? 1 : 0;
-  const lengthCode = length == null ? 2 : length === 6 ? 1 : 0;
+  // lengthCode keeps its original 3 values for backward compatibility with
+  // codes saved before Custom took an arbitrary count: 0 = Do Now (4),
+  // 1 = Weekly Quiz (6), 2 = Custom. This is now driven directly by
+  // lengthMode (not by sniffing the numeric length) so a Custom count that
+  // happens to equal 4 or 6 doesn't get misfiled as Do Now/Weekly on reload.
+  // For Custom, the actual chosen count also rides along as a 5th header
+  // field (customLen) so it survives a save/copy round-trip instead of
+  // always reopening as "however many subtopics happen to be ticked" — see
+  // decodeQuizCode below.
+  const lengthCode = lengthMode === "donow" ? 0 : lengthMode === "weekly" ? 1 : 2;
+  const customLen = lengthCode === 2 ? Math.max(1, Math.round(length) || 5) : 0;
   const versionNum = { V1: 0, V2: 1, V3: 2 }[version] || 0;
-  const header = [modeBit, lengthCode, versionNum, salt].map((n) => Math.max(0, n | 0).toString(36)).join("_");
-  const body = idxs.map((n) => n.toString(36)).join("-");
+  // formatVersion=2 marks the body below as literal subtopic-id strings
+  // rather than positional indices — see the block comment above.
+  const formatVersion = 2;
+  const header = [modeBit, lengthCode, versionNum, salt, customLen, formatVersion].map((n) => Math.max(0, n | 0).toString(36)).join("_");
+  const body = validIds.join(ID_BODY_SEP);
   return `${header}.${body}`;
 }
 function decodeQuizCode(code) {
@@ -6378,13 +6499,40 @@ function decodeQuizCode(code) {
     const header = raw.slice(0, dotIdx);
     const body = raw.slice(dotIdx + 1);
     if (!header || !body) return null;
-    const [modeBit, lengthCode, versionNum, salt] = header.split("_").map((s) => parseInt(s, 36));
-    const idxs = body.split("-").map((s) => parseInt(s, 36));
-    const ids = idxs.map((i) => ALL_SUBTOPIC_IDS[i]).filter(Boolean);
+    const [modeBit, lengthCode, versionNum, salt, customLen, formatVersion] = header.split("_").map((s) => parseInt(s, 36));
+    // formatVersion === 2 is the current, order-independent encoding (literal
+    // id strings). Anything else (missing/older codes) falls back to the
+    // legacy positional-index decode — best-effort only, since a code saved
+    // under the old scheme may already have been invalidated by a later
+    // mid-list subtopic insertion; there's no way to recover that after the
+    // fact, but at least newly-saved codes can never break again this way.
+    let ids = formatVersion === 2
+      ? body.split(ID_BODY_SEP).filter((id) => Object.prototype.hasOwnProperty.call(SUBTOPIC_BANK, id))
+      : body.split("-").map((s) => parseInt(s, 36)).map((i) => ALL_SUBTOPIC_IDS[i]).filter(Boolean);
     if (ids.length === 0) return null;
+    // A code saved before Custom took an arbitrary count has no 5th field
+    // (customLen parses to NaN) — length falls back to null exactly like
+    // before, and loadCode's own fallback matches it to the ticked subtopics.
+    const length = lengthCode === 0 ? 4 : lengthCode === 1 ? 6 : Number.isFinite(customLen) && customLen > 0 ? customLen : null;
+    // lengthMode is derived from lengthCode directly, not by sniffing the
+    // numeric length value — a Custom quiz whose count happens to be exactly
+    // 4 or 6 would otherwise be misread as Do Now/Weekly Quiz on reload.
+    const lengthMode = lengthCode === 0 ? "donow" : lengthCode === 1 ? "weekly" : "custom";
+    // A Custom-mode code saved under formatVersion 1 (only unique ids, with
+    // the actual quiz reconstructed by cycling them to fill customLen) needs
+    // that cycling reproduced explicitly now, since Custom no longer cycles
+    // at all — it treats `ids` as the exact quiz already (see effectiveIds).
+    // Without this, an older saved code with e.g. 3 ticked subtopics cycled
+    // up to 5 questions would reload as just those 3 subtopics/questions.
+    if (formatVersion !== 2 && lengthCode === 2 && length && length > ids.length) {
+      const cycled = [];
+      for (let i = 0; i < length; i++) cycled.push(ids[i % ids.length]);
+      ids = cycled;
+    }
     return {
       mode: modeBit ? "blocked" : "interleaved",
-      length: lengthCode === 0 ? 4 : lengthCode === 1 ? 6 : null,
+      length,
+      lengthMode,
       version: ["V1", "V2", "V3"][versionNum] || "V1",
       salt: Number.isFinite(salt) ? salt : 1,
       ids,
@@ -6468,7 +6616,7 @@ function buildNegativeSpeedCheck(rng) {
   return items;
 }
 
-function QuizEngine() {
+export default function QuizEngine() {
   const initialDecoded = useMemo(() => {
     if (typeof window === "undefined") return null;
     const code = new URLSearchParams(window.location.search).get("code");
@@ -6489,11 +6637,25 @@ function QuizEngine() {
   const [activeVersion, setActiveVersion] = useState(initialDecoded?.version ?? "V1");
   // Feature 3: blocked practice repeats one skill; interleaved mixes several.
   const [practiceMode, setPracticeMode] = useState(initialDecoded?.mode ?? "interleaved");
-  // Feature 2: null = legacy "however many are selected" behaviour (cap 5, unchanged
-  // for anyone not opting in); 4 = "Do Now", 6 = "Weekly Quiz" — both fixed counts.
-  const [quizLength, setQuizLength] = useState(initialDecoded?.length ?? null);
+  // Feature 2: the fixed question count for the Do Now (4) and Weekly Quiz
+  // (6) presets. Custom mode no longer uses this at all — its question count
+  // is simply derived from how many entries are in `selected` (each ticked
+  // topic contributing 1 or more via the +/− stepper; see setTopicCount and
+  // effectiveIds below) — but this still needs a sane starting value for
+  // when the teacher switches to a preset. A quiz code saved before Custom
+  // took an arbitrary count may carry length: null (the old "one question
+  // per ticked subtopic" custom behaviour) — fall back to however many
+  // subtopics that code had, so old links still open to the same quiz.
+  const [quizLength, setQuizLength] = useState(initialDecoded?.length ?? initialDecoded?.ids?.length ?? 5);
+  // Which of the three "Quiz length" buttons is highlighted — and, for
+  // Custom, it's what actually drives quiz generation now (see effectiveIds
+  // above), so this has to come from the decoded lengthMode field directly
+  // rather than being re-guessed from the numeric length (a Custom quiz
+  // whose count happens to be exactly 4 or 6 would otherwise misload as Do
+  // Now/Weekly Quiz).
+  const [lengthMode, setLengthMode] = useState(initialDecoded?.lengthMode ?? "custom");
   // Do Now (4) can be projected full-screen as a 2x2 grid, and printed as-is
-  // for the teacher's own copy — only ever meaningful when quizLength === 4.
+  // for the teacher's own copy — only ever meaningful when lengthMode === "donow".
   const [fullScreenDoNow, setFullScreenDoNow] = useState(false);
   // Feature 8: Negative Numbers Speed Check — a fixed 24-question fluency
   // sheet, generated and viewed entirely separately from the subtopic
@@ -6567,25 +6729,15 @@ function QuizEngine() {
   // can't be accidentally regenerated or changed once a teacher is ready to
   // print or project it. Loading a different quiz code always unlocks.
   const [locked, setLocked] = useState(false);
-  // Lets a teacher drop one specific question out of the generated quiz
-  // (e.g. a duplicate topic, or one that doesn't fit today's lesson)
-  // without having to hunt down and untick its subtopic checkbox — which,
-  // in blocked practice mode especially, would remove every copy of that
-  // subtopic rather than just the one question. Indexes into the current
-  // (unfiltered) effectiveIds/active.questions array. Resets whenever the
-  // underlying topic selection changes (a genuinely different quiz), but
-  // survives a numbers reroll or single-question regenerate.
-  const [removedIndices, setRemovedIndices] = useState(new Set());
   // Feature 7: lets a teacher drag a question card to reorder it within the
   // generated quiz (e.g. put the hardest question last, or group two
   // questions on the same subtopic together). Stores the underlying
   // (unfiltered) active.questions indices in the order they should display;
   // see orderedVisibleQuestions below for how a partial/stale list here is
-  // reconciled against whatever's actually still visible. Deliberately does
-  // NOT reset when the topic selection changes (only when the quiz is
-  // regenerated from scratch — see the idsKeyBase-keyed effect below) so a
-  // teacher's custom order survives ticking/unticking a subtopic; any
-  // newly-added question is appended at the end automatically by
+  // reconciled against whatever's actually still visible. Deliberately never
+  // reset on a topic-selection change, so a teacher's custom order survives
+  // ticking/unticking a subtopic (including the auto-untick a delete now
+  // does); any newly-added question is appended at the end automatically by
   // orderedVisibleQuestions's own reconciliation logic.
   const [questionOrder, setQuestionOrder] = useState([]);
   const [draggingIndex, setDraggingIndex] = useState(null);
@@ -6600,26 +6752,22 @@ function QuizEngine() {
 
   const idsKey = selected.join(",") + "|" + practiceMode + "|" + (quizLength ?? "custom");
 
-  useEffect(() => {
-    setRemovedIndices(new Set());
-    // questionOrder is deliberately left alone here: a teacher's custom drag
-    // order should survive ticking/unticking a subtopic, not just quantity
-    // (quizLength) or practice-mode changes. orderedVisibleQuestions already
-    // drops any now-invalid indices and appends any new ones at the end, so
-    // no explicit reset is needed for the common cases (adding a subtopic,
-    // switching practice mode, changing quiz length).
-  }, [idsKey]);
-
-  // Feature 2/3 combined: the selected (unique) subtopics are cycled — with
-  // fresh numbers each pass — to exactly fill the fixed question count. With
-  // quizLength left as "custom" this is a no-op and matches the old behaviour.
-  const targetCount = quizLength ?? selected.length;
+  // Feature 2/3 combined: for Do Now/Weekly Quiz, the selected (unique)
+  // subtopics are cycled — with fresh numbers each pass — to exactly fill
+  // the fixed question count.
+  // Custom mode works differently: `selected` is allowed to contain the same
+  // subtopic id more than once (one entry per "copy" the teacher asked for
+  // via the +/− stepper next to that topic — see setTopicCount below), so it
+  // IS the exact quiz already; no cycling/fill-to-a-target-count is applied,
+  // and the total question count is simply however many entries are in it.
+  const targetCount = quizLength;
   const effectiveIds = useMemo(() => {
     if (selected.length === 0) return [];
+    if (lengthMode === "custom") return selected;
     const out = [];
     for (let i = 0; i < targetCount; i++) out.push(selected[i % selected.length]);
     return out;
-  }, [selected, targetCount]);
+  }, [selected, targetCount, lengthMode]);
 
   const versions = useMemo(() => {
     return ["V1", "V2", "V3"].map((v) => {
@@ -6640,17 +6788,64 @@ function QuizEngine() {
   };
   const toggleSubtopic = (id) => {
     if (locked) return;
+    // In Custom mode, ticking/unticking a checkbox is just "how many of this
+    // do I want" collapsed to a single click: off -> 1, on -> 0. Anything
+    // beyond 1 is set with the +/− stepper next to the ticked topic (see
+    // setTopicCount) rather than by clicking the checkbox repeatedly.
+    if (lengthMode === "custom") {
+      setTopicCount(id, selected.includes(id) ? 0 : 1);
+      return;
+    }
     setQuestionNonces({});
     setCustomLabel(null);
     if (practiceMode === "blocked") {
       setSelected((prev) => (prev.length === 1 && prev[0] === id ? [] : [id]));
       return;
     }
-    const cap = quizLength ?? 5;
     setSelected((prev) => {
       if (prev.includes(id)) return prev.filter((x) => x !== id);
-      if (prev.length >= cap) return prev;
+      if (prev.length >= quizLength) return prev;
       return [...prev, id];
+    });
+  };
+  // Custom mode lets a teacher put the same subtopic in the quiz more than
+  // once (e.g. "3 of these, please") instead of ticking one box always
+  // meaning exactly one question. `selected` carries this as a genuine
+  // multiset — the same id repeated `n` times — rather than a separate count
+  // map, so effectiveIds/versions/deleteQuestion above and below can all keep
+  // treating it as a plain ordered list of "one question slot per entry"
+  // with no extra bookkeeping. New copies are inserted right after the
+  // topic's existing entries (not at the very end of the whole list) so a
+  // topic's questions stay grouped together as its count changes; extra
+  // copies beyond a 60-question overall cap are silently dropped, matching
+  // the sane-size cap Custom always enforced before this feature existed.
+  const setTopicCount = (id, newCount) => {
+    if (locked) return;
+    setQuestionNonces({});
+    setCustomLabel(null);
+    const n = Math.max(0, Math.round(newCount) || 0);
+    setSelected((prev) => {
+      if (practiceMode === "blocked") {
+        // Blocked mode only ever has one distinct topic ticked at a time —
+        // setting a count for a different topic replaces whatever was there.
+        return n <= 0 ? [] : Array(Math.min(n, 60)).fill(id);
+      }
+      const existingCount = prev.filter((x) => x === id).length;
+      if (n === existingCount) return prev;
+      if (n < existingCount) {
+        let kept = 0;
+        return prev.filter((x) => {
+          if (x !== id) return true;
+          kept++;
+          return kept <= n;
+        });
+      }
+      const room = Math.max(0, 60 - prev.length);
+      const addCount = Math.min(n - existingCount, room);
+      if (addCount <= 0) return prev;
+      const extra = Array(addCount).fill(id);
+      const lastIdx = prev.lastIndexOf(id);
+      return lastIdx === -1 ? [...prev, ...extra] : [...prev.slice(0, lastIdx + 1), ...extra, ...prev.slice(lastIdx + 1)];
     });
   };
   const applyWeek = (scheme, week) => {
@@ -6667,16 +6862,37 @@ function QuizEngine() {
     setQuestionNonces({});
     if (mode === "blocked") setSelected((prev) => (prev.length > 0 ? [prev[0]] : prev));
   };
-  const setQuizLengthSafe = (len) => {
+  // mode is one of "donow" | "weekly" — this is only ever called for the two
+  // fixed-length presets now that Custom derives its length from the topic
+  // stepper counts instead of a typed number (see switchToCustomMode below
+  // and setTopicCount above). len is clamped to a sane range: at least 1,
+  // and capped at 60 so a mistyped number doesn't try to render an
+  // unreasonably huge sheet.
+  const setQuizLengthSafe = (len, mode) => {
     if (locked) return;
-    setQuizLength(len);
-    if (len !== 4) setFullScreenDoNow(false);
+    const n = Math.max(1, Math.min(60, Math.round(len) || 1));
+    setQuizLength(n);
+    setLengthMode(mode);
+    if (mode !== "donow") setFullScreenDoNow(false);
     setQuestionNonces({});
     setSelected((prev) => {
       if (practiceMode === "blocked") return prev.slice(0, 1);
-      const cap = len ?? 5;
-      return prev.slice(0, cap);
+      // Coming from Custom mode, `selected` may contain a subtopic more than
+      // once (one entry per copy the teacher asked for) — Do Now/Weekly only
+      // ever tick distinct topics and cycle them to fill the fixed length,
+      // so dedupe before applying the usual cap.
+      return [...new Set(prev)].slice(0, n);
     });
+  };
+  // Switching to Custom mode doesn't change the current topic selection —
+  // whatever was ticked (each still counting as 1 copy) carries over as-is,
+  // and the total question count is simply derived from how many entries
+  // that leaves in `selected` (see effectiveIds above) rather than from a
+  // separate typed number.
+  const switchToCustomMode = () => {
+    if (locked) return;
+    setLengthMode("custom");
+    setFullScreenDoNow(false);
   };
   const loadCode = () => {
     const decoded = decodeQuizCode(codeInput);
@@ -6687,7 +6903,11 @@ function QuizEngine() {
     setLocked(false);
     setSelected(decoded.ids);
     setPracticeMode(decoded.mode);
-    setQuizLength(decoded.length);
+    // A code saved before Custom took a real number may carry length: null
+    // (the old "one question per ticked subtopic" behaviour) — fall back to
+    // however many subtopics it has so the loaded quiz still matches.
+    setQuizLength(decoded.length ?? decoded.ids.length ?? 5);
+    setLengthMode(decoded.lengthMode ?? "custom");
     setSalt(decoded.salt);
     setActiveVersion(decoded.version);
     setQuestionNonces({});
@@ -6710,32 +6930,39 @@ function QuizEngine() {
   };
 
   const active = versions.find((v) => v.id === activeVersion);
-  // Questions the teacher has deleted from THIS generated quiz are dropped
-  // here, before pagination/marks ever see them; original indices are kept
-  // so regenerate-this-question and the delete button still target the
-  // right underlying question.
-  const visibleQuestions = active.questions.map((q, index) => ({ q, index })).filter(({ index }) => !removedIndices.has(index));
+  // Every generated question maps onto a slot in effectiveIds/active.questions
+  // (1:1 by index) — there's no separate "hidden question" list any more (see
+  // deleteQuestion below for why), so nothing needs filtering here before
+  // pagination/marks see it.
+  const visibleQuestions = active.questions.map((q, index) => ({ q, index }));
   const deleteQuestion = (index) => {
     if (locked) return;
-    // When every visible question maps 1:1 onto a selected subtopic — true
-    // whenever there's no cycling, i.e. quiz length is "custom", or a fixed
-    // length (Do Now/Weekly Quiz) with at least that many subtopics ticked —
-    // deleting the question also unticks its subtopic. Without this, the
-    // subtopic count/cap stayed unchanged after a delete, so a teacher who
-    // deleted a question they didn't want would then find the topic picker
-    // silently refusing to let them tick a replacement (the cap was still
-    // "full" even though a question had just vanished from the quiz).
-    // When cycling IS in effect (fewer subtopics ticked than the fixed quiz
-    // length, e.g. blocked practice mode's single repeated subtopic), that
-    // subtopic also powers other visible questions, so only this one
-    // rendered instance is dropped instead.
-    if (selected.length >= effectiveIds.length && index < selected.length) {
+    // Deleting a question always keeps the topic picker in sync with what's
+    // actually still in the quiz, rather than leaving a checkbox ticked (or
+    // a stepper count) for a question that's no longer on screen.
+    // (An earlier version of this instead hid just the one clicked question
+    // behind a separate `removedIndices` set — but that hidden state got
+    // silently wiped, resurrecting "deleted" questions, the moment any other
+    // subtopic was ticked/unticked afterwards. Driving everything off
+    // `selected` alone removes that failure mode entirely.)
+    setQuestionNonces({});
+    setCustomLabel(null);
+    if (lengthMode === "custom") {
+      // Custom mode: effectiveIds is `selected` itself with no cycling (see
+      // above), so `index` is a real position in `selected` — drop just that
+      // one entry. If that subtopic only had a count of 1, this naturally
+      // unticks its checkbox too; if it had 3, this leaves 2, exactly
+      // matching the +/− stepper's per-copy counting instead of wiping every
+      // copy of that topic out for a single delete.
       setSelected((prev) => prev.filter((_, i) => i !== index));
-      setQuestionNonces({});
-      setCustomLabel(null);
       return;
     }
-    setRemovedIndices((prev) => new Set(prev).add(index));
+    // Do Now / Weekly Quiz: still one tick = one topic (no per-topic
+    // counts), so deleting unticks it entirely and the quiz refills back up
+    // to the fixed length by cycling whichever topics remain ticked.
+    const subtopicId = effectiveIds[index];
+    if (subtopicId == null) return;
+    setSelected((prev) => prev.filter((id) => id !== subtopicId));
   };
   // Applies the drag-reorder state on top of visibleQuestions. questionOrder
   // only needs to record indices the teacher has actually dragged; anything
@@ -6843,8 +7070,11 @@ function QuizEngine() {
     };
   }, [draggingIndex]);
   const currentCode = useMemo(
-    () => encodeQuizCode({ ids: selected, mode: practiceMode, length: quizLength, salt, version: activeVersion }),
-    [selected, practiceMode, quizLength, salt, activeVersion]
+    // In Custom mode the real question count is however many entries are in
+    // `selected` (its per-topic counts, including repeats) rather than the
+    // now-vestigial quizLength state — see effectiveIds above.
+    () => encodeQuizCode({ ids: selected, mode: practiceMode, length: lengthMode === "custom" ? selected.length : quizLength, lengthMode, salt, version: activeVersion }),
+    [selected, practiceMode, quizLength, lengthMode, salt, activeVersion]
   );
   const currentLink = typeof window !== "undefined" && currentCode
     ? `${window.location.origin}${window.location.pathname}?code=${encodeURIComponent(currentCode)}`
@@ -7207,7 +7437,7 @@ function QuizEngine() {
           </div>
         </div>
       </div>
-      ) : fullScreenDoNow && quizLength === 4 ? (
+      ) : fullScreenDoNow && lengthMode === "donow" ? (
       <div className="donow-fullscreen" style={{ position: "fixed", inset: 0, background: "#fff", zIndex: 1000, display: "flex", flexDirection: "column", padding: "18px 26px", boxSizing: "border-box" }}>
         <div className="no-print" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexShrink: 0 }}>
           <div style={{ fontSize: 14, fontWeight: 700, color: "#1c1c1c" }}>
@@ -7343,11 +7573,18 @@ function QuizEngine() {
 
             <label style={{ fontSize: 11, color: "#bbb" }}>Quiz length</label>
             <div style={{ display: "flex", gap: 6, marginTop: 5, marginBottom: 10, opacity: locked ? 0.5 : 1 }}>
-              <button disabled={locked} onClick={() => setQuizLengthSafe(4)} style={darkPill(quizLength === 4)} title="4 questions — fits a Do Now, one A4 side (feature 2)">Do Now (4)</button>
-              <button disabled={locked} onClick={() => setQuizLengthSafe(6)} style={darkPill(quizLength === 6)} title="6 questions — a weekly quiz, three per printed page (feature 2)">Weekly Quiz (6)</button>
-              <button disabled={locked} onClick={() => setQuizLengthSafe(null)} style={darkPill(quizLength == null)} title="However many subtopics you tick, up to 5 (legacy behaviour)">Custom</button>
+              <button disabled={locked} onClick={() => setQuizLengthSafe(4, "donow")} style={darkPill(lengthMode === "donow")} title="4 questions — fits a Do Now, one A4 side (feature 2)">Do Now (4)</button>
+              <button disabled={locked} onClick={() => setQuizLengthSafe(6, "weekly")} style={darkPill(lengthMode === "weekly")} title="6 questions — a weekly quiz, three per printed page (feature 2)">Weekly Quiz (6)</button>
+              <button disabled={locked} onClick={switchToCustomMode} style={darkPill(lengthMode === "custom")} title="Tick topics below (and use +/− for extra copies) to build any size quiz you want">Custom</button>
             </div>
-            {quizLength === 4 && (
+            {lengthMode === "custom" && (
+              <div style={{ fontSize: 11, color: "#bbb", marginBottom: 10, opacity: locked ? 0.5 : 1, lineHeight: 1.4 }}>
+                Tick topics below, then use the +/− next to a ticked one to include it more than once.
+                <br />
+                Total: <strong style={{ color: "#fff" }}>{selected.length}</strong> question{selected.length === 1 ? "" : "s"}.
+              </div>
+            )}
+            {lengthMode === "donow" && (
               <button
                 onClick={() => setFullScreenDoNow(true)}
                 title="Project the 4 questions as a full-screen 2x2 grid — still prints cleanly as one page for the teacher"
@@ -7359,7 +7596,9 @@ function QuizEngine() {
           </div>
 
           <div style={{ fontSize: 11, color: "#bbb", marginBottom: 8, paddingTop: 8, borderTop: "1px solid #444" }}>
-            {selected.length}/{practiceMode === "blocked" ? 1 : (quizLength ?? 5)} subtopics selected · full spec below
+            {lengthMode === "custom"
+              ? `${new Set(selected).size} topic${new Set(selected).size === 1 ? "" : "s"} · ${selected.length} question${selected.length === 1 ? "" : "s"} total · full spec below`
+              : `${selected.length}/${practiceMode === "blocked" ? 1 : quizLength} subtopics selected · full spec below`}
           </div>
 
           <div style={{ maxHeight: 380, overflowY: "auto", paddingRight: 4 }}>
@@ -7407,12 +7646,49 @@ function QuizEngine() {
                                   return (
                                     <div key={g} style={{ marginBottom: 4 }}>
                                       <div style={{ fontSize: 11.5, color: "#ddd", fontWeight: 600 }}>{g}</div>
-                                      {subIds.map((id) => (
-                                        <label key={id} style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 12, padding: "2px 0 2px 8px", cursor: locked ? "not-allowed" : "pointer", opacity: locked ? 0.5 : 1 }}>
-                                          <input type="checkbox" checked={selected.includes(id)} onChange={() => toggleSubtopic(id)} disabled={locked} />
-                                          {SUBTOPIC_BANK[id].title} <span style={{ color: "#999", fontSize: 10.5 }}>[{SUBTOPIC_BANK[id].marks}m]</span>
-                                        </label>
-                                      ))}
+                                      {subIds.map((id) => {
+                                        const isTicked = selected.includes(id);
+                                        const topicCount = selected.filter((x) => x === id).length;
+                                        return (
+                                          <label key={id} style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 12, padding: "2px 0 2px 8px", cursor: locked ? "not-allowed" : "pointer", opacity: locked ? 0.5 : 1 }}>
+                                            <input type="checkbox" checked={isTicked} onChange={() => toggleSubtopic(id)} disabled={locked} />
+                                            <span style={{ flex: 1 }}>
+                                              {SUBTOPIC_BANK[id].title} <span style={{ color: "#999", fontSize: 10.5 }}>[{SUBTOPIC_BANK[id].marks}m]</span>
+                                            </span>
+                                            {lengthMode === "custom" && isTicked && (
+                                              // How many copies of this one topic to include — lets a
+                                              // teacher ask for "3 of these" instead of one tick always
+                                              // meaning one question. preventDefault on each button stops
+                                              // the browser's native "click inside a <label> toggles its
+                                              // checkbox" behaviour from also firing here.
+                                              <span
+                                                style={{ display: "inline-flex", alignItems: "center", gap: 3, marginLeft: 6 }}
+                                                title="How many of this question to include"
+                                              >
+                                                <button
+                                                  type="button"
+                                                  disabled={locked || topicCount <= 1}
+                                                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); setTopicCount(id, topicCount - 1); }}
+                                                  title="One fewer of this question"
+                                                  style={stepperBtnStyle(locked || topicCount <= 1)}
+                                                >
+                                                  −
+                                                </button>
+                                                <span style={{ minWidth: 14, textAlign: "center", fontVariantNumeric: "tabular-nums", color: "#ddd" }}>{topicCount}</span>
+                                                <button
+                                                  type="button"
+                                                  disabled={locked}
+                                                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); setTopicCount(id, topicCount + 1); }}
+                                                  title="One more of this question"
+                                                  style={stepperBtnStyle(locked)}
+                                                >
+                                                  +
+                                                </button>
+                                              </span>
+                                            )}
+                                          </label>
+                                        );
+                                      })}
                                     </div>
                                   );
                                 })}
@@ -7430,7 +7706,7 @@ function QuizEngine() {
 
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 14, paddingTop: 12, borderTop: "1px solid #444" }}>
             {versions.map((v) => (
-              <button key={v.id} onClick={() => setActiveVersion(v.id)} style={darkPill(v.id === activeVersion)}>{v.id}</button>
+              <button key={v.id} onClick={() => setActiveVersion(v.id)} style={darkPill(v.id === activeVersion)}>{VERSION_LABELS[v.id] || v.id}</button>
             ))}
             <button onClick={regenerate} disabled={locked} style={{ ...darkPill(false), opacity: locked ? 0.4 : 1, cursor: locked ? "not-allowed" : "pointer" }} title={locked ? "Unlock the quiz first to generate new numbers" : "Reroll every question with fresh numbers"}>↻ New numbers</button>
             <button onClick={() => setShowAnswers((s) => !s)} style={{ ...darkPill(showAnswers), borderColor: "#5a9b73", color: showAnswers ? "#fff" : "#5a9b73", background: showAnswers ? "#3f6b52" : "transparent" }}>
@@ -7486,6 +7762,13 @@ function QuizEngine() {
                 className="quiz-page"
                 style={{ background: "#fff", border: "1px solid #999", padding: "26px 30px 30px", boxShadow: "0 1px 3px rgba(0,0,0,0.15)", width: "210mm", minHeight: "267mm", boxSizing: "border-box", display: "flex", flexDirection: "column" }}
               >
+                {/* Printed on every page (not just page 1) so a version stays
+                    identifiable even if pages get separated once printed. */}
+                <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
+                  <div style={{ fontSize: 13, fontWeight: 800, letterSpacing: 0.4, textTransform: "uppercase", color: "#fff", background: "#2b2b2b", padding: "5px 14px", borderRadius: 4 }}>
+                    {VERSION_LABELS[activeVersion] || activeVersion}
+                  </div>
+                </div>
                 {pageIdx === 0 && (
                   <div style={{ display: "flex", gap: 24, fontSize: 12, borderBottom: "2px solid #000", paddingBottom: 10, marginBottom: 18, alignItems: "center" }}>
                     <div>Name: <span style={{ display: "inline-block", borderBottom: "1px solid #000", width: 150 }}>&nbsp;</span></div>
@@ -7501,9 +7784,11 @@ function QuizEngine() {
                   <div style={{ fontSize: 13, color: "#888" }}>
                     {active.questions.length > 0
                       ? "Every question has been deleted from this quiz — untick and re-tick a subtopic, or generate new numbers, to start over."
+                      : lengthMode === "custom"
+                      ? "Tick one or more subtopics below to build your quiz — use the +/− next to a ticked topic to include it more than once."
                       : practiceMode === "blocked"
-                      ? `Select 1 subtopic — it repeats ${quizLength ?? 5} times with fresh numbers each round (blocked practice).`
-                      : `Select up to ${quizLength ?? 5} subtopics${quizLength ? ` to build a ${quizLength}-question quiz` : " to build a quiz"} (interleaved practice).`}
+                      ? `Select 1 subtopic — it repeats ${quizLength} times with fresh numbers each round (blocked practice).`
+                      : `Select up to ${quizLength} subtopics to build a ${quizLength}-question quiz (interleaved practice).`}
                   </div>
                 )}
 
@@ -7555,9 +7840,19 @@ function darkPill(active) {
     cursor: "pointer",
   };
 }
-
-ReactDOM.createRoot(document.getElementById('root')).render(<QuizEngine />);
-
-</script>
-</body>
-</html>
+// Small +/- buttons for the per-topic question count in Custom mode (see the
+// subtopic checkbox list).
+function stepperBtnStyle(disabled) {
+  return {
+    border: "1px solid #666",
+    background: disabled ? "#2f2f2f" : "#3a3a3a",
+    color: disabled ? "#777" : "#ddd",
+    borderRadius: 3,
+    fontSize: 11,
+    width: 16,
+    height: 16,
+    lineHeight: "14px",
+    padding: 0,
+    cursor: disabled ? "not-allowed" : "pointer",
+  };
+}

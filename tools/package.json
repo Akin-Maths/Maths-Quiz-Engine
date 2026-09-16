@@ -1,0 +1,15 @@
+{
+  "name": "quiz-engine-tools",
+  "private": true,
+  "description": "Build + verification scripts for QuizEngine.jsx / quiz_engine.html. Run `npm install` in this folder once, then see CLAUDE.md at the project root for how/when to use each script.",
+  "scripts": {
+    "build": "node build.js",
+    "check": "node build.js --check",
+    "fuzz": "node fuzz3.js",
+    "cosmetic": "node cosmetic_scan.js"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.23.5",
+    "@babel/preset-react": "^7.23.3"
+  }
+}
