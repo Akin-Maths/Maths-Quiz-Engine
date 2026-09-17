@@ -6616,7 +6616,47 @@ const ALL_SUBTOPIC_IDS = Object.keys(SUBTOPIC_BANK);
 // (ids themselves are hyphenated, e.g. "solve-quadratic-rearrange", so "-"
 // can't be reused as the separator the way the old index-based body did).
 const ID_BODY_SEP = "~";
-function encodeQuizCode({ ids, mode, length, lengthMode, salt, version }) {
+
+// formatVersion 3: each subtopic id is packed down to a short, FIXED-LENGTH
+// hash instead of its full slug (e.g. "circle-theorem-cyclic-quadrilateral"
+// -> 5 base36 chars) — a full-length id per question made a 6-question
+// Weekly Quiz code ~160 chars and a 60-question Custom one 1300+, way too
+// long to read aloud, type, or fit comfortably in a shared link.
+// Deliberately NOT a positional index (see the block comment above this one
+// for why that broke every previously-shared code the moment a subtopic got
+// inserted mid-bank) — the hash is a pure function of the id's own text, so
+// it can never shift when other subtopics are added. It's also deliberately
+// NOT a dynamic-length scheme with runtime collision-bumping: that would
+// still let inserting a new, colliding id silently reassign an *existing*
+// id's short code later, breaking old shared codes the same way. A fixed
+// 5-char hash (36^5 ≈ 60 million slots) accepts a fixed, vanishingly small
+// collision risk instead — verified zero collisions across all current
+// subtopics — the same trade-off short git hashes/YouTube IDs make.
+const SHORT_ID_CODE_LEN = 5;
+function fnv1aHash(str) {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return h >>> 0;
+}
+let _idShortCodeMaps = null;
+function getIdShortCodeMaps() {
+  if (_idShortCodeMaps) return _idShortCodeMaps;
+  const idToCode = new Map();
+  const codeToId = new Map();
+  const space = Math.pow(36, SHORT_ID_CODE_LEN);
+  for (const id of Object.keys(SUBTOPIC_BANK)) {
+    const code = (fnv1aHash(id) % space).toString(36).padStart(SHORT_ID_CODE_LEN, "0");
+    idToCode.set(id, code);
+    if (!codeToId.has(code)) codeToId.set(code, id); // first-write-wins on the accepted rare collision
+  }
+  _idShortCodeMaps = { idToCode, codeToId };
+  return _idShortCodeMaps;
+}
+
+function encodeQuizCode({ ids, mode, length, lengthMode, salt, version, nonces }) {
   const validIds = ids.filter((id) => Object.prototype.hasOwnProperty.call(SUBTOPIC_BANK, id));
   if (validIds.length === 0) return "";
   const modeBit = mode === "blocked" ? 1 : 0;
@@ -6632,12 +6672,29 @@ function encodeQuizCode({ ids, mode, length, lengthMode, salt, version }) {
   const lengthCode = lengthMode === "donow" ? 0 : lengthMode === "weekly" ? 1 : 2;
   const customLen = lengthCode === 2 ? Math.max(1, Math.round(length) || 5) : 0;
   const versionNum = { V1: 0, V2: 1, V3: 2 }[version] || 0;
-  // formatVersion=2 marks the body below as literal subtopic-id strings
-  // rather than positional indices — see the block comment above.
-  const formatVersion = 2;
+  // formatVersion=3 marks the body as short hashed codes (see above);
+  // formatVersion=2 (literal id strings) and the legacy positional-index
+  // scheme are still understood on decode so old shared codes never break.
+  const formatVersion = 3;
   const header = [modeBit, lengthCode, versionNum, salt, customLen, formatVersion].map((n) => Math.max(0, n | 0).toString(36)).join("_");
-  const body = validIds.join(ID_BODY_SEP);
-  return `${header}.${body}`;
+  const { idToCode } = getIdShortCodeMaps();
+  const body = validIds.map((id) => idToCode.get(id) || id).join(ID_BODY_SEP);
+  // Per-question "regenerate this one" nonces (see questionNonces) aren't
+  // captured by ids/salt alone — without them, locking a quiz after
+  // regenerating a single question produces a code that reloads the
+  // *original* un-regenerated version of that question, not the one that
+  // was actually locked/printed. Only non-zero entries are included, so a
+  // quiz with no individually-regenerated questions (the common case) pays
+  // no length cost for this at all.
+  const nonceEntries = nonces ? Object.entries(nonces).filter(([, n]) => n > 0) : [];
+  const nonceBody = nonceEntries
+    .map(([key, n]) => {
+      const [v, i] = key.split("-");
+      const vNum = { V1: 0, V2: 1, V3: 2 }[v] ?? 0;
+      return `${vNum.toString(36)}-${Math.max(0, i | 0).toString(36)}-${Math.max(0, n | 0).toString(36)}`;
+    })
+    .join(",");
+  return nonceBody ? `${header}.${body}.${nonceBody}` : `${header}.${body}`;
 }
 function decodeQuizCode(code) {
   try {
@@ -6648,25 +6705,34 @@ function decodeQuizCode(code) {
     const linkMatch = raw.match(/[?&]code=([^&#\s]+)/);
     if (linkMatch) raw = decodeURIComponent(linkMatch[1]);
     // Strip any stray whitespace/newlines a copy-paste (especially on mobile)
-    // can introduce, and split on the FIRST "." only — a raw code never
-    // contains more than one, but be defensive rather than let a stray dot
-    // silently produce an empty body.
+    // can introduce. Split on up to two "."s: header.body[.nonces] — no
+    // subtopic id or short code ever contains a literal ".", so an older
+    // 2-part code (no nonces segment) is still split correctly.
     raw = raw.replace(/\s+/g, "");
     const dotIdx = raw.indexOf(".");
     if (dotIdx === -1) return null;
     const header = raw.slice(0, dotIdx);
-    const body = raw.slice(dotIdx + 1);
+    const rest = raw.slice(dotIdx + 1);
+    const dot2Idx = rest.indexOf(".");
+    const body = dot2Idx === -1 ? rest : rest.slice(0, dot2Idx);
+    const noncesRaw = dot2Idx === -1 ? "" : rest.slice(dot2Idx + 1);
     if (!header || !body) return null;
     const [modeBit, lengthCode, versionNum, salt, customLen, formatVersion] = header.split("_").map((s) => parseInt(s, 36));
-    // formatVersion === 2 is the current, order-independent encoding (literal
-    // id strings). Anything else (missing/older codes) falls back to the
-    // legacy positional-index decode — best-effort only, since a code saved
-    // under the old scheme may already have been invalidated by a later
-    // mid-list subtopic insertion; there's no way to recover that after the
-    // fact, but at least newly-saved codes can never break again this way.
-    let ids = formatVersion === 2
-      ? body.split(ID_BODY_SEP).filter((id) => Object.prototype.hasOwnProperty.call(SUBTOPIC_BANK, id))
-      : body.split("-").map((s) => parseInt(s, 36)).map((i) => ALL_SUBTOPIC_IDS[i]).filter(Boolean);
+    // formatVersion 3 = short hashed codes (current); 2 = literal id strings
+    // (still shareable from before this fix); anything else = the legacy
+    // positional-index scheme — best-effort only, since a code saved under
+    // that scheme may already have been invalidated by a later mid-list
+    // subtopic insertion; there's no way to recover that after the fact, but
+    // at least codes saved under 2 or 3 can never break again this way.
+    let ids;
+    if (formatVersion === 3) {
+      const { codeToId } = getIdShortCodeMaps();
+      ids = body.split(ID_BODY_SEP).map((c) => codeToId.get(c)).filter((id) => id && Object.prototype.hasOwnProperty.call(SUBTOPIC_BANK, id));
+    } else if (formatVersion === 2) {
+      ids = body.split(ID_BODY_SEP).filter((id) => Object.prototype.hasOwnProperty.call(SUBTOPIC_BANK, id));
+    } else {
+      ids = body.split("-").map((s) => parseInt(s, 36)).map((i) => ALL_SUBTOPIC_IDS[i]).filter(Boolean);
+    }
     if (ids.length === 0) return null;
     // A code saved before Custom took an arbitrary count has no 5th field
     // (customLen parses to NaN) — length falls back to null exactly like
@@ -6676,16 +6742,26 @@ function decodeQuizCode(code) {
     // numeric length value — a Custom quiz whose count happens to be exactly
     // 4 or 6 would otherwise be misread as Do Now/Weekly Quiz on reload.
     const lengthMode = lengthCode === 0 ? "donow" : lengthCode === 1 ? "weekly" : "custom";
-    // A Custom-mode code saved under formatVersion 1 (only unique ids, with
-    // the actual quiz reconstructed by cycling them to fill customLen) needs
-    // that cycling reproduced explicitly now, since Custom no longer cycles
-    // at all — it treats `ids` as the exact quiz already (see effectiveIds).
-    // Without this, an older saved code with e.g. 3 ticked subtopics cycled
-    // up to 5 questions would reload as just those 3 subtopics/questions.
-    if (formatVersion !== 2 && lengthCode === 2 && length && length > ids.length) {
+    // A Custom-mode code saved under the original positional-index scheme
+    // (only unique ids, with the actual quiz reconstructed by cycling them
+    // to fill customLen) needs that cycling reproduced explicitly now, since
+    // Custom no longer cycles at all — it treats `ids` as the exact quiz
+    // already (see effectiveIds). Without this, an older saved code with
+    // e.g. 3 ticked subtopics cycled up to 5 questions would reload as just
+    // those 3 subtopics/questions.
+    if (formatVersion !== 2 && formatVersion !== 3 && lengthCode === 2 && length && length > ids.length) {
       const cycled = [];
       for (let i = 0; i < length; i++) cycled.push(ids[i % ids.length]);
       ids = cycled;
+    }
+    const nonces = {};
+    if (noncesRaw) {
+      for (const entry of noncesRaw.split(",")) {
+        const [vStr, iStr, nStr] = entry.split("-");
+        const vName = ["V1", "V2", "V3"][parseInt(vStr, 36)];
+        const idx = parseInt(iStr, 36), n = parseInt(nStr, 36);
+        if (vName && Number.isFinite(idx) && Number.isFinite(n)) nonces[`${vName}-${idx}`] = n;
+      }
     }
     return {
       mode: modeBit ? "blocked" : "interleaved",
@@ -6694,6 +6770,7 @@ function decodeQuizCode(code) {
       version: ["V1", "V2", "V3"][versionNum] || "V1",
       salt: Number.isFinite(salt) ? salt : 1,
       ids,
+      nonces,
     };
   } catch (e) {
     return null;
@@ -6908,7 +6985,17 @@ export default function QuizEngine() {
   const draggingIndexRef = useRef(null);
   const dragOverIndexRef = useRef(null);
 
-  const idsKey = selected.join(",") + "|" + practiceMode + "|" + (quizLength ?? "custom");
+  // In Custom mode, quizLength is vestigial (see setTopicCount/effectiveIds)
+  // and never tracks the real question count — it only changes via the Do
+  // Now/Weekly presets or loadCode, so it can silently disagree with
+  // selected.length. Baking the raw state into idsKey meant a saved Custom
+  // code, loaded fresh, restored the right subtopics but reseeded every
+  // question with different numbers the moment quizLength happened to land
+  // on a different value than it held at save time — a quiz code that
+  // didn't actually reproduce the quiz it was saved from. Mirror
+  // encodeQuizCode's own "effective length" here so the two can never drift
+  // apart from each other.
+  const idsKey = selected.join(",") + "|" + practiceMode + "|" + (lengthMode === "custom" ? selected.length : quizLength ?? "custom");
 
   // Feature 2/3 combined: for Do Now/Weekly Quiz, the selected (unique)
   // subtopics are cycled — with fresh numbers each pass — to exactly fill
@@ -7078,7 +7165,10 @@ export default function QuizEngine() {
     setLengthMode(decoded.lengthMode ?? "custom");
     setSalt(decoded.salt);
     setActiveVersion(decoded.version);
-    setQuestionNonces({});
+    // Restores any individually-regenerated questions the code captured —
+    // see encodeQuizCode's nonces handling — so a locked/loaded quiz is the
+    // exact one that was printed, not the un-regenerated original.
+    setQuestionNonces(decoded.nonces ?? {});
     setCustomLabel("Custom quiz (loaded from code)");
     setCodeMessage("Quiz loaded.");
   };
@@ -7241,8 +7331,8 @@ export default function QuizEngine() {
     // In Custom mode the real question count is however many entries are in
     // `selected` (its per-topic counts, including repeats) rather than the
     // now-vestigial quizLength state — see effectiveIds above.
-    () => encodeQuizCode({ ids: selected, mode: practiceMode, length: lengthMode === "custom" ? selected.length : quizLength, lengthMode, salt, version: activeVersion }),
-    [selected, practiceMode, quizLength, lengthMode, salt, activeVersion]
+    () => encodeQuizCode({ ids: selected, mode: practiceMode, length: lengthMode === "custom" ? selected.length : quizLength, lengthMode, salt, version: activeVersion, nonces: questionNonces }),
+    [selected, practiceMode, quizLength, lengthMode, salt, activeVersion, questionNonces]
   );
   const currentLink = typeof window !== "undefined" && currentCode
     ? `${window.location.origin}${window.location.pathname}?code=${encodeURIComponent(currentCode)}`
@@ -7958,12 +8048,12 @@ export default function QuizEngine() {
                   </div>
                 </div>
                 {pageIdx === 0 && (
-                  <div style={{ display: "flex", gap: 24, fontSize: 12, borderBottom: "2px solid #000", paddingBottom: 10, marginBottom: 18, alignItems: "center" }}>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 24, fontSize: 12, borderBottom: "2px solid #000", paddingBottom: 10, marginBottom: 18, alignItems: "center" }}>
                     <div>Name: <span style={{ display: "inline-block", borderBottom: "1px solid #000", width: 150 }}>&nbsp;</span></div>
                     <div>Date: <span style={{ display: "inline-block", borderBottom: "1px solid #000", width: 100 }}>&nbsp;</span></div>
                     <div>Class: <span style={{ display: "inline-block", borderBottom: "1px solid #000", width: 80 }}>&nbsp;</span></div>
                     {locked && (
-                      <div style={{ marginLeft: "auto", fontFamily: "monospace", fontSize: 11, color: "#555" }}>Code: {currentCode || "—"}</div>
+                      <div style={{ marginLeft: "auto", fontFamily: "monospace", fontSize: 11, color: "#555", wordBreak: "break-all", maxWidth: "100%" }}>Code: {currentCode || "—"}</div>
                     )}
                   </div>
                 )}
