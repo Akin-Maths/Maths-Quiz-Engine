@@ -959,6 +959,18 @@ const SUBTOPIC_BANK = {
       return { prompt: `Expand and simplify -${a}(x + ${b})`, answer: `-${a}x ${pm(-a * b)}` };
     },
   },
+  "eb-single-term-outside": {
+    topic: "Expanding Brackets", title: "Single bracket, algebraic term outside", marks: 2,
+    build(rng) {
+      const coeff = seededInt(rng, 2, 6), bAbs = seededInt(rng, 2, 9);
+      const sign = pick(rng, ["+", "-"]);
+      const bSigned = sign === "+" ? bAbs : -bAbs;
+      return {
+        prompt: `Expand and simplify ${coeff}x(x ${sign} ${bAbs})`,
+        answer: `${coeff}x² ${pmX(coeff * bSigned, "x")}`,
+      };
+    },
+  },
   "eb-double-pos": {
     topic: "Expanding Brackets", title: "Double brackets, both positive", marks: 2,
     build(rng) {
@@ -977,7 +989,7 @@ const SUBTOPIC_BANK = {
     topic: "Expanding Brackets", title: "Double brackets, both negative", marks: 2,
     build(rng) {
       const a = seededInt(rng, 2, 9), b = seededInt(rng, 2, 9);
-      return { prompt: `Expand and simplify (x - ${a})(x - ${b})`, answer: `x² ${pm(-(a + b), "x")} ${pm(a * b)}` };
+      return { prompt: `Expand and simplify (x - ${a})(x - ${b})`, answer: `x² ${pmX(-(a + b), "x")} ${pm(a * b)}` };
     },
   },
   "eb-squared": {
@@ -4290,8 +4302,139 @@ const SET2_WEEKS = {
     "vectors-column-arithmetic", "vectors-route-midpoint", "vectors-parallel-proof", "algebraic-proof-odd-even", "algebraic-proof-multiple",
   ],
 };
+
+// Auto-suggested from the Set 1 tab of Year_11_Timeline_26-27.xlsx. Weeks
+// that are PPE/feedback/INSET-only with no gradable topic (e.g. HT2 Weeks
+// 1-2, most of HT3 Weeks 2-6) are omitted entirely, matching SET2_WEEKS'
+// own convention. Picking a week just pre-ticks a starting selection — the
+// teacher can freely tick/untick afterwards (see applyWeek).
+const SET1_WEEKS = {
+  "HT1 · Week 1 (07/09/26) — Factorising & Rearranging Review, Proof, Solving Quadratics": [
+    "fac-quadratic-agt1", "changing-subject-expand", "algebraic-proof-odd-even", "solve-quadratic-formula",
+  ],
+  "HT1 · Week 2 (14/09/26) — Sketching Quadratics, Turning Points, Plotting Graphs": [
+    "quadratic-roots-and-intercept", "turning-point-from-completed-square", "plot-nonlinear-graph",
+  ],
+  "HT1 · Week 3 (21/09/26) — Simultaneous Equations Graphically, Straight Line Graphs Review": [
+    "quadratic-simultaneous", "linear-graph-two-points",
+  ],
+  "HT1 · Week 4 (28/09/26) — Equation of a Tangent": [
+    "estimate-gradient-tangent", "linear-graph-perpendicular",
+  ],
+  "HT1 · Week 5 (05/10/26) — Graphing Inequalities, Iteration": [
+    "inequality-linear-twostep", "inequality-both-sides", "iterations-fixed-point",
+  ],
+  "HT1 · Week 6 (12/10/26) — Iteration, Algebraic Fractions": [
+    "iteration-rearrange-first", "algebraic-fractions-simplify-basic", "algebraic-fractions-addsub-diffvars",
+  ],
+  "HT1 · Week 7 (19/10/26) — Evaluating Functions, Inverse & Composite Functions, Graph Transformations": [
+    "functions-substitution-solving", "inverse-functions", "composite-functions", "curve-transform-translate",
+  ],
+  "HT2 · Week 3 (23/11/26) — Speed-Time Graphs, Vectors": [
+    "distance-time-graph-read", "vectors-column-arithmetic",
+  ],
+  "HT2 · Week 4 (30/11/26) — Vectors, Trig & Exponential Graphs, Congruent Triangles": [
+    "vectors-parallel-proof", "trig-graph-max-min", "exponential-graph-features", "congruence-criteria",
+  ],
+  "HT2 · Week 5 (07/12/26) — Boxplots, Cumulative Frequency, Histograms": [
+    "boxplot-range", "cf-median-class", "histogram-freq-density",
+  ],
+  "HT2 · Week 6 (14/12/26) — Histograms, Assess & Review": [
+    "histogram-read-bar", "histogram-total-frequency",
+  ],
+  "HT3 · Week 1 (04/01/27) — Venn Diagrams, Loci": [
+    "venn-complete",
+  ],
+  // HT4's Set 1 content was added to the timeline by copying Set 2's own
+  // HT4 weeks verbatim (Set 1 had nothing past HT3 — see CLAUDE.md), so
+  // these four weeks intentionally match SET2_WEEKS' HT4 selections closely.
+  "HT4 · Week 2 (01/03/27) — Circle Theorems": [
+    "circle-theorem-centre-circumference", "circle-theorem-semicircle",
+  ],
+  "HT4 · Week 3 (08/03/27) — Congruence, Similar Shapes": [
+    "congruence-criteria", "similar-shapes-identify",
+  ],
+  "HT4 · Week 4 (15/03/27) — Similar Shapes (Area & Volume), Iterations": [
+    "similar-shapes-area-scale", "similar-shapes-volume-scale", "iterations-fixed-point",
+  ],
+  "HT4 · Week 5 (22/03/27) — Linear Graphs Recap, Equation of a Circle": [
+    "linear-graph-two-points", "circle-eq-radius-from-eq",
+  ],
+  "HT5 · Week 1 (12/04/27) — Equation of a Circle, Inequalities": [
+    "circle-eq-write-given-radius", "inequality-linear-twostep", "inequality-quadratic-solve", "inequality-from-number-line",
+  ],
+  "HT5 · Week 2 (19/04/27) — Vectors, Algebraic Proof": [
+    "vectors-route-midpoint", "algebraic-proof-multiple",
+  ],
+};
+
+// Auto-suggested from the Foundation tab of Year_11_Timeline_26-27.xlsx,
+// same convention as SET1_WEEKS above (PPE/feedback/revision-only weeks
+// omitted; picking a week just pre-ticks a starting selection).
+const FOUNDATION_WEEKS = {
+  "HT1 · Week 1 (07/09/26) — Manipulating Expressions": [
+    "collect-like-terms-multi", "eb-double-pos", "fac-common",
+  ],
+  "HT1 · Week 2 (14/09/26) — Factorising & Solving Quadratics, Substitution, Equations": [
+    "fac-quadratic", "solve-quadratic-factorise", "substitution-one-variable", "solve-two-step-equation",
+  ],
+  "HT1 · Week 3 (21/09/26) — Equations and Formulae": [
+    "solve-equation-both-sides-brackets", "form-solve-perimeter-equation", "changing-subject-expand",
+  ],
+  "HT1 · Week 4 (28/09/26) — Ratio": [
+    "ratio-simplify", "ratio-share-amount", "ratio-total-parts", "ratio-quantity-one-part-given",
+  ],
+  "HT1 · Week 5 (05/10/26) — Fractions": [
+    "frac-simplify", "fdp-percent-to-decimal", "frac-multiply-mixed", "frac-add-different-denom",
+  ],
+  "HT1 · Week 6 (12/10/26) — Fractions of an Amount, LCM and HCF": [
+    "frac-of-amount", "fmp-hcf-lcm",
+  ],
+  "HT1 · Week 7 (19/10/26) — Percentages": [
+    "percent-of-amount", "percent-one-of-another",
+  ],
+  "HT2 · Week 4 (30/11/26) — Percentage Change, Reverse Percentages": [
+    "percent-compound-increase", "percent-reverse",
+  ],
+  "HT2 · Week 5 (07/12/26) — Compound & Simple Interest, Indices and Standard Form": [
+    "percent-simple-interest", "powers-laws-multiply", "sf-large-to-sf",
+  ],
+  "HT2 · Week 6 (14/12/26) — Standard Form: Converting & Operations": [
+    "sf-multiply", "sf-divide", "sf-add-subtract",
+  ],
+  "HT3 · Week 1 (04/01/27) — Averages": [
+    "averages-range-listed",
+  ],
+  "HT3 · Week 2 (11/01/27) — Probability, Grouped Frequency Tables": [
+    "theoretical-probability-single", "mean-from-grouped-table", "relative-frequency-from-data",
+  ],
+  "HT3 · Week 3 (18/01/27) — Transformations, Tree Diagrams, Venn Diagrams": [
+    "transform-translate-shape", "tree-replacement", "venn-complete",
+  ],
+  "HT3 · Week 4 (25/01/27) — Reflection, Rotation, Enlargement": [
+    "transform-reflect-shape", "transform-rotate-shape", "transform-enlarge-shape",
+  ],
+  "HT3 · Week 5 (01/02/27) — Angles, Angles in Parallel Lines, Polygons": [
+    "angles-on-a-line", "angles-alternate", "angles-interior-polygon-sum",
+  ],
+  "HT4 · Week 3 (08/03/27) — Area, Perimeter and Volume": [
+    "area-rectangle-triangle", "composite-rectilinear-area-perimeter", "circle-facts-circumference-area",
+  ],
+  "HT4 · Week 5 (22/03/27) — Data: Bar Charts, Scatter Graphs, Pie Charts": [
+    "bar-chart-read-frequency", "scatter-correlation-type", "pie-chart-angle-to-frequency",
+  ],
+  "HT5 · Week 1 (12/04/27) — Pythagoras, Trigonometry": [
+    "pythagoras-hypotenuse", "pythagoras-shorter-side", "trig-find-side",
+  ],
+  "HT5 · Week 2 (19/04/27) — Simultaneous Equations": [
+    "simultaneous-linear-basic",
+  ],
+};
+
 const SCHEMES = {
   "Year 11 · Set 2 (2026/27)": SET2_WEEKS,
+  "Year 11 · Set 1 (2026/27)": SET1_WEEKS,
+  "Year 11 · Foundation (2026/27)": FOUNDATION_WEEKS,
 };
 
 /* =====================================================================
@@ -4371,6 +4514,19 @@ SUBTOPIC_BANK["algebraic-notation-index-form"] = {
     return {
       prompt: `Write ${Array(power).fill(letter).join(" × ")} in index form.`,
       answer: `${letter}^${power}`,
+    };
+  },
+};
+SUBTOPIC_BANK["divide-algebraic-terms-basic"] = {
+  topic: "Algebraic Notation & Manipulation", title: "Divide algebraic terms (no powers)", marks: 1,
+  build(rng) {
+    const q = seededInt(rng, 2, 6);
+    const coeffDen = seededInt(rng, 2, 6);
+    const coeffNum = coeffDen * q;
+    const vars = pick(rng, [["x", "y"], ["a", "b"], ["p", "q"]]);
+    return {
+      prompt: `Simplify ${coeffNum}${vars[0]}${vars[1]} ÷ ${coeffDen}${vars[0]}`,
+      answer: `${q}${vars[1]}`,
     };
   },
 };
@@ -6346,6 +6502,7 @@ const SUBTOPIC_TO_SPEC = {
   "set-notation-membership": "Number → Venn Diagrams & Sets → Venn Diagrams & Set Notation",
   "eb-single-pos": "Algebra → Brackets → Expanding Brackets",
   "eb-single-neg": "Algebra → Brackets → Expanding Brackets",
+  "eb-single-term-outside": "Algebra → Brackets → Expanding Brackets",
   "eb-double-pos": "Algebra → Brackets → Expanding Brackets",
   "eb-double-mixed": "Algebra → Brackets → Expanding Brackets",
   "eb-double-neg": "Algebra → Brackets → Expanding Brackets",
@@ -6393,6 +6550,7 @@ const SUBTOPIC_TO_SPEC = {
   "algebraic-fractions-solve-equation": "Algebra → Algebraic Fractions → Adding & Subtracting Algebraic Fractions",
   "algebraic-notation-index-form": "Algebra → Introduction to Algebra → Algebraic Notation",
   "divide-algebraic-terms": "Algebra → Introduction to Algebra → Collecting Like Terms & Simplifying",
+  "divide-algebraic-terms-basic": "Algebra → Introduction to Algebra → Collecting Like Terms & Simplifying",
   "collect-like-terms-brackets": "Algebra → Introduction to Algebra → Collecting Like Terms & Simplifying",
   "expand-two-single-brackets": "Algebra → Brackets → Expanding Brackets",
   "substitution-two-variables": "Algebra → Introduction to Algebra → Substitution",
@@ -6763,7 +6921,7 @@ export default function QuizEngine() {
   const targetCount = quizLength;
   const effectiveIds = useMemo(() => {
     if (selected.length === 0) return [];
-    if (lengthMode === "custom") return selected;
+    if (lengthMode === "custom" || lengthMode === "weekly") return selected;
     const out = [];
     for (let i = 0; i < targetCount; i++) out.push(selected[i % selected.length]);
     return out;
@@ -6792,7 +6950,7 @@ export default function QuizEngine() {
     // do I want" collapsed to a single click: off -> 1, on -> 0. Anything
     // beyond 1 is set with the +/− stepper next to the ticked topic (see
     // setTopicCount) rather than by clicking the checkbox repeatedly.
-    if (lengthMode === "custom") {
+    if (lengthMode === "custom" || lengthMode === "weekly") {
       setTopicCount(id, selected.includes(id) ? 0 : 1);
       return;
     }
@@ -6824,11 +6982,16 @@ export default function QuizEngine() {
     setQuestionNonces({});
     setCustomLabel(null);
     const n = Math.max(0, Math.round(newCount) || 0);
+    // Weekly Quiz reuses this same per-topic stepper as Custom (see
+    // toggleSubtopic/effectiveIds above) but is always a fixed 6-question
+    // quiz, not an open-ended one — cap at quizLength (6) instead of
+    // Custom's generous 60-question sanity cap.
+    const cap = lengthMode === "weekly" ? quizLength : 60;
     setSelected((prev) => {
       if (practiceMode === "blocked") {
         // Blocked mode only ever has one distinct topic ticked at a time —
         // setting a count for a different topic replaces whatever was there.
-        return n <= 0 ? [] : Array(Math.min(n, 60)).fill(id);
+        return n <= 0 ? [] : Array(Math.min(n, cap)).fill(id);
       }
       const existingCount = prev.filter((x) => x === id).length;
       if (n === existingCount) return prev;
@@ -6840,7 +7003,7 @@ export default function QuizEngine() {
           return kept <= n;
         });
       }
-      const room = Math.max(0, 60 - prev.length);
+      const room = Math.max(0, cap - prev.length);
       const addCount = Math.min(n - existingCount, room);
       if (addCount <= 0) return prev;
       const extra = Array(addCount).fill(id);
@@ -6877,10 +7040,15 @@ export default function QuizEngine() {
     setQuestionNonces({});
     setSelected((prev) => {
       if (practiceMode === "blocked") return prev.slice(0, 1);
-      // Coming from Custom mode, `selected` may contain a subtopic more than
-      // once (one entry per copy the teacher asked for) — Do Now/Weekly only
-      // ever tick distinct topics and cycle them to fill the fixed length,
-      // so dedupe before applying the usual cap.
+      if (mode === "weekly") {
+        // Weekly Quiz uses the same per-topic stepper multiset as Custom
+        // (see toggleSubtopic/effectiveIds above), just capped at a fixed
+        // 6 — so coming from Custom, keep whatever counts were already
+        // there instead of collapsing to one-of-each, just truncated to fit.
+        return prev.slice(0, n);
+      }
+      // Do Now only ever ticks distinct topics and cycles them to fill the
+      // fixed length, so a Custom/Weekly multiset needs deduping first.
       return [...new Set(prev)].slice(0, n);
     });
   };
@@ -6947,19 +7115,19 @@ export default function QuizEngine() {
     // `selected` alone removes that failure mode entirely.)
     setQuestionNonces({});
     setCustomLabel(null);
-    if (lengthMode === "custom") {
-      // Custom mode: effectiveIds is `selected` itself with no cycling (see
-      // above), so `index` is a real position in `selected` — drop just that
-      // one entry. If that subtopic only had a count of 1, this naturally
-      // unticks its checkbox too; if it had 3, this leaves 2, exactly
-      // matching the +/− stepper's per-copy counting instead of wiping every
-      // copy of that topic out for a single delete.
+    if (lengthMode === "custom" || lengthMode === "weekly") {
+      // Custom and Weekly Quiz: effectiveIds is `selected` itself with no
+      // cycling (see above), so `index` is a real position in `selected` —
+      // drop just that one entry. If that subtopic only had a count of 1,
+      // this naturally unticks its checkbox too; if it had 3, this leaves 2,
+      // exactly matching the +/− stepper's per-copy counting instead of
+      // wiping every copy of that topic out for a single delete.
       setSelected((prev) => prev.filter((_, i) => i !== index));
       return;
     }
-    // Do Now / Weekly Quiz: still one tick = one topic (no per-topic
-    // counts), so deleting unticks it entirely and the quiz refills back up
-    // to the fixed length by cycling whichever topics remain ticked.
+    // Do Now: still one tick = one topic (no per-topic counts), so deleting
+    // unticks it entirely and the quiz refills back up to the fixed length
+    // by cycling whichever topics remain ticked.
     const subtopicId = effectiveIds[index];
     if (subtopicId == null) return;
     setSelected((prev) => prev.filter((id) => id !== subtopicId));
@@ -7577,11 +7745,18 @@ export default function QuizEngine() {
               <button disabled={locked} onClick={() => setQuizLengthSafe(6, "weekly")} style={darkPill(lengthMode === "weekly")} title="6 questions — a weekly quiz, three per printed page (feature 2)">Weekly Quiz (6)</button>
               <button disabled={locked} onClick={switchToCustomMode} style={darkPill(lengthMode === "custom")} title="Tick topics below (and use +/− for extra copies) to build any size quiz you want">Custom</button>
             </div>
-            {lengthMode === "custom" && (
+            {(lengthMode === "custom" || lengthMode === "weekly") && (
               <div style={{ fontSize: 11, color: "#bbb", marginBottom: 10, opacity: locked ? 0.5 : 1, lineHeight: 1.4 }}>
                 Tick topics below, then use the +/− next to a ticked one to include it more than once.
                 <br />
-                Total: <strong style={{ color: "#fff" }}>{selected.length}</strong> question{selected.length === 1 ? "" : "s"}.
+                {lengthMode === "weekly" ? (
+                  <>
+                    Total: <strong style={{ color: selected.length === quizLength ? "#8fd9a8" : "#fff" }}>{selected.length}/{quizLength}</strong> questions.
+                    {selected.length < quizLength && <> Printing unlocks once you reach {quizLength}.</>}
+                  </>
+                ) : (
+                  <>Total: <strong style={{ color: "#fff" }}>{selected.length}</strong> question{selected.length === 1 ? "" : "s"}.</>
+                )}
               </div>
             )}
             {lengthMode === "donow" && (
@@ -7598,6 +7773,8 @@ export default function QuizEngine() {
           <div style={{ fontSize: 11, color: "#bbb", marginBottom: 8, paddingTop: 8, borderTop: "1px solid #444" }}>
             {lengthMode === "custom"
               ? `${new Set(selected).size} topic${new Set(selected).size === 1 ? "" : "s"} · ${selected.length} question${selected.length === 1 ? "" : "s"} total · full spec below`
+              : lengthMode === "weekly"
+              ? `${new Set(selected).size} topic${new Set(selected).size === 1 ? "" : "s"} · ${selected.length}/${quizLength} questions total · full spec below`
               : `${selected.length}/${practiceMode === "blocked" ? 1 : quizLength} subtopics selected · full spec below`}
           </div>
 
@@ -7655,7 +7832,7 @@ export default function QuizEngine() {
                                             <span style={{ flex: 1 }}>
                                               {SUBTOPIC_BANK[id].title} <span style={{ color: "#999", fontSize: 10.5 }}>[{SUBTOPIC_BANK[id].marks}m]</span>
                                             </span>
-                                            {lengthMode === "custom" && isTicked && (
+                                            {(lengthMode === "custom" || lengthMode === "weekly") && isTicked && (
                                               // How many copies of this one topic to include — lets a
                                               // teacher ask for "3 of these" instead of one tick always
                                               // meaning one question. preventDefault on each button stops
@@ -7677,10 +7854,10 @@ export default function QuizEngine() {
                                                 <span style={{ minWidth: 14, textAlign: "center", fontVariantNumeric: "tabular-nums", color: "#ddd" }}>{topicCount}</span>
                                                 <button
                                                   type="button"
-                                                  disabled={locked}
+                                                  disabled={locked || (lengthMode === "weekly" && selected.length >= quizLength)}
                                                   onClick={(e) => { e.preventDefault(); e.stopPropagation(); setTopicCount(id, topicCount + 1); }}
-                                                  title="One more of this question"
-                                                  style={stepperBtnStyle(locked)}
+                                                  title={lengthMode === "weekly" && selected.length >= quizLength ? `Weekly Quiz is capped at ${quizLength} questions` : "One more of this question"}
+                                                  style={stepperBtnStyle(locked || (lengthMode === "weekly" && selected.length >= quizLength))}
                                                 >
                                                   +
                                                 </button>
@@ -7712,7 +7889,18 @@ export default function QuizEngine() {
             <button onClick={() => setShowAnswers((s) => !s)} style={{ ...darkPill(showAnswers), borderColor: "#5a9b73", color: showAnswers ? "#fff" : "#5a9b73", background: showAnswers ? "#3f6b52" : "transparent" }}>
               {showAnswers ? "Hide mark scheme" : "Show mark scheme"}
             </button>
-            <button onClick={() => window.print()} style={{ ...darkPill(false), borderColor: "#5a8bd6", color: "#5a8bd6" }}>
+            <button
+              onClick={() => window.print()}
+              disabled={lengthMode === "weekly" && selected.length < quizLength}
+              style={{
+                ...darkPill(false),
+                borderColor: "#5a8bd6",
+                color: "#5a8bd6",
+                opacity: lengthMode === "weekly" && selected.length < quizLength ? 0.4 : 1,
+                cursor: lengthMode === "weekly" && selected.length < quizLength ? "not-allowed" : "pointer",
+              }}
+              title={lengthMode === "weekly" && selected.length < quizLength ? `Pick ${quizLength - selected.length} more question${quizLength - selected.length === 1 ? "" : "s"} before printing (${selected.length}/${quizLength})` : undefined}
+            >
               🖨 Print quiz
             </button>
           </div>
@@ -7786,6 +7974,8 @@ export default function QuizEngine() {
                       ? "Every question has been deleted from this quiz — untick and re-tick a subtopic, or generate new numbers, to start over."
                       : lengthMode === "custom"
                       ? "Tick one or more subtopics below to build your quiz — use the +/− next to a ticked topic to include it more than once."
+                      : lengthMode === "weekly"
+                      ? `Tick subtopics below to build your weekly quiz — use the +/− next to a ticked topic for extra copies. Printing unlocks once you reach ${quizLength} questions.`
                       : practiceMode === "blocked"
                       ? `Select 1 subtopic — it repeats ${quizLength} times with fresh numbers each round (blocked practice).`
                       : `Select up to ${quizLength} subtopics to build a ${quizLength}-question quiz (interleaved practice).`}
