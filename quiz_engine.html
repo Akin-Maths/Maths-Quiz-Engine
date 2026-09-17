@@ -6652,11 +6652,12 @@ const ALL_SUBTOPIC_IDS = Object.keys(SUBTOPIC_BANK);
 // can't be reused as the separator the way the old index-based body did).
 const ID_BODY_SEP = "~";
 
-// formatVersion 3: each subtopic id is packed down to a short, FIXED-LENGTH
-// hash instead of its full slug (e.g. "circle-theorem-cyclic-quadrilateral"
-// -> 5 base36 chars) — a full-length id per question made a 6-question
-// Weekly Quiz code ~160 chars and a 60-question Custom one 1300+, way too
-// long to read aloud, type, or fit comfortably in a shared link.
+// formatVersion 3 (superseded by 4 below, still decodable): each subtopic id
+// packed down to a short, FIXED-LENGTH hash instead of its full slug (e.g.
+// "circle-theorem-cyclic-quadrilateral" -> 5 base36 chars) — a full-length id
+// per question made a 6-question Weekly Quiz code ~160 chars and a
+// 60-question Custom one 1300+, way too long to read aloud, type, or fit
+// comfortably in a shared link.
 // Deliberately NOT a positional index (see the block comment above this one
 // for why that broke every previously-shared code the moment a subtopic got
 // inserted mid-bank) — the hash is a pure function of the id's own text, so
@@ -6664,10 +6665,20 @@ const ID_BODY_SEP = "~";
 // NOT a dynamic-length scheme with runtime collision-bumping: that would
 // still let inserting a new, colliding id silently reassign an *existing*
 // id's short code later, breaking old shared codes the same way. A fixed
-// 5-char hash (36^5 ≈ 60 million slots) accepts a fixed, vanishingly small
-// collision risk instead — verified zero collisions across all current
-// subtopics — the same trade-off short git hashes/YouTube IDs make.
-const SHORT_ID_CODE_LEN = 5;
+// N-char hash accepts a fixed, vanishingly small collision risk instead —
+// the same trade-off short git hashes/YouTube IDs make.
+//
+// formatVersion 4 shortens this further still (4 chars instead of 5, still
+// zero collisions across the current bank) and drops the "~" separator
+// entirely in favour of fixed-width chunking, and packs the header's three
+// small fields (mode/length-code/version) into a single base36 digit instead
+// of three underscore-joined ones — a 6-question code: 163 chars (full
+// slugs) -> 47 (v3) -> 32 (v4). formatVersion is deliberately kept as its
+// own always-last, never-repacked header field (see encode/decode) so a
+// *future* format 5 can still change how the other fields are packed
+// without breaking the ability to even recognise which format a code is.
+const SHORT_ID_CODE_LEN_V3 = 5;
+const SHORT_ID_CODE_LEN = 4;
 function fnv1aHash(str) {
   let h = 0x811c9dc5;
   for (let i = 0; i < str.length; i++) {
@@ -6676,19 +6687,20 @@ function fnv1aHash(str) {
   }
   return h >>> 0;
 }
-let _idShortCodeMaps = null;
-function getIdShortCodeMaps() {
-  if (_idShortCodeMaps) return _idShortCodeMaps;
+const _idShortCodeMapsByLen = new Map();
+function getIdShortCodeMaps(len = SHORT_ID_CODE_LEN) {
+  if (_idShortCodeMapsByLen.has(len)) return _idShortCodeMapsByLen.get(len);
   const idToCode = new Map();
   const codeToId = new Map();
-  const space = Math.pow(36, SHORT_ID_CODE_LEN);
+  const space = Math.pow(36, len);
   for (const id of Object.keys(SUBTOPIC_BANK)) {
-    const code = (fnv1aHash(id) % space).toString(36).padStart(SHORT_ID_CODE_LEN, "0");
+    const code = (fnv1aHash(id) % space).toString(36).padStart(len, "0");
     idToCode.set(id, code);
     if (!codeToId.has(code)) codeToId.set(code, id); // first-write-wins on the accepted rare collision
   }
-  _idShortCodeMaps = { idToCode, codeToId };
-  return _idShortCodeMaps;
+  const maps = { idToCode, codeToId };
+  _idShortCodeMapsByLen.set(len, maps);
+  return maps;
 }
 
 function encodeQuizCode({ ids, mode, length, lengthMode, salt, version, nonces }) {
@@ -6707,13 +6719,25 @@ function encodeQuizCode({ ids, mode, length, lengthMode, salt, version, nonces }
   const lengthCode = lengthMode === "donow" ? 0 : lengthMode === "weekly" ? 1 : 2;
   const customLen = lengthCode === 2 ? Math.max(1, Math.round(length) || 5) : 0;
   const versionNum = { V1: 0, V2: 1, V3: 2 }[version] || 0;
-  // formatVersion=3 marks the body as short hashed codes (see above);
-  // formatVersion=2 (literal id strings) and the legacy positional-index
-  // scheme are still understood on decode so old shared codes never break.
-  const formatVersion = 3;
-  const header = [modeBit, lengthCode, versionNum, salt, customLen, formatVersion].map((n) => Math.max(0, n | 0).toString(36)).join("_");
+  // formatVersion=4 marks the body as fixed-width (SHORT_ID_CODE_LEN-char),
+  // separator-free hashed codes with a packed meta digit (see above);
+  // formatVersion 3/2 (hashed-with-separator / literal id strings) and the
+  // legacy positional-index scheme are still understood on decode so no
+  // previously-shared code ever breaks.
+  const formatVersion = 4;
+  // mode/lengthCode/version each only ever take 2-3 values, so pack them
+  // into one base36 digit (max 1 + 2*2 + 2*6 = 17) instead of three
+  // underscore-joined ones. formatVersion itself stays its own field,
+  // always last — see the comment above this function.
+  const packedMeta = modeBit + lengthCode * 2 + versionNum * 6;
+  const header = [packedMeta, salt, customLen, formatVersion].map((n) => Math.max(0, n | 0).toString(36)).join("_");
+  // validIds is already filtered to ids that exist in SUBTOPIC_BANK, and
+  // idToCode covers every key in SUBTOPIC_BANK, so idToCode.get(id) always
+  // succeeds here — no fallback needed (and none would be safe: the body is
+  // fixed-width chunked on decode, so anything other than an exact
+  // SHORT_ID_CODE_LEN-char code would corrupt every id after it).
   const { idToCode } = getIdShortCodeMaps();
-  const body = validIds.map((id) => idToCode.get(id) || id).join(ID_BODY_SEP);
+  const body = validIds.map((id) => idToCode.get(id)).join("");
   // Per-question "regenerate this one" nonces (see questionNonces) aren't
   // captured by ids/salt alone — without them, locking a quiz after
   // regenerating a single question produces a code that reloads the
@@ -6752,16 +6776,38 @@ function decodeQuizCode(code) {
     const body = dot2Idx === -1 ? rest : rest.slice(0, dot2Idx);
     const noncesRaw = dot2Idx === -1 ? "" : rest.slice(dot2Idx + 1);
     if (!header || !body) return null;
-    const [modeBit, lengthCode, versionNum, salt, customLen, formatVersion] = header.split("_").map((s) => parseInt(s, 36));
-    // formatVersion 3 = short hashed codes (current); 2 = literal id strings
-    // (still shareable from before this fix); anything else = the legacy
+    // formatVersion 4's header packs mode/lengthCode/version into one field
+    // (4 header fields total) instead of format <=3's six separate ones —
+    // branch on field count, since formatVersion itself lives inside the
+    // packed field for the old layout and can't be read until unpacked.
+    const headerParts = header.split("_").map((s) => parseInt(s, 36));
+    let modeBit, lengthCode, versionNum, salt, customLen, formatVersion;
+    if (headerParts.length === 4) {
+      const [packedMeta, saltV, customLenV, fv] = headerParts;
+      formatVersion = fv;
+      salt = saltV;
+      customLen = customLenV;
+      modeBit = packedMeta % 2;
+      lengthCode = Math.floor(packedMeta / 2) % 3;
+      versionNum = Math.floor(packedMeta / 6) % 3;
+    } else {
+      [modeBit, lengthCode, versionNum, salt, customLen, formatVersion] = headerParts;
+    }
+    // formatVersion 4 = fixed-width, separator-free hashed codes (current);
+    // 3 = hashed codes with a "~" separator; 2 = literal id strings (still
+    // shareable from before the hashing fix); anything else = the legacy
     // positional-index scheme — best-effort only, since a code saved under
     // that scheme may already have been invalidated by a later mid-list
     // subtopic insertion; there's no way to recover that after the fact, but
-    // at least codes saved under 2 or 3 can never break again this way.
+    // at least codes saved under 2, 3 or 4 can never break again this way.
     let ids;
-    if (formatVersion === 3) {
-      const { codeToId } = getIdShortCodeMaps();
+    if (formatVersion === 4) {
+      const { codeToId } = getIdShortCodeMaps(SHORT_ID_CODE_LEN);
+      const chunks = [];
+      for (let i = 0; i < body.length; i += SHORT_ID_CODE_LEN) chunks.push(body.slice(i, i + SHORT_ID_CODE_LEN));
+      ids = chunks.map((c) => codeToId.get(c)).filter((id) => id && Object.prototype.hasOwnProperty.call(SUBTOPIC_BANK, id));
+    } else if (formatVersion === 3) {
+      const { codeToId } = getIdShortCodeMaps(SHORT_ID_CODE_LEN_V3);
       ids = body.split(ID_BODY_SEP).map((c) => codeToId.get(c)).filter((id) => id && Object.prototype.hasOwnProperty.call(SUBTOPIC_BANK, id));
     } else if (formatVersion === 2) {
       ids = body.split(ID_BODY_SEP).filter((id) => Object.prototype.hasOwnProperty.call(SUBTOPIC_BANK, id));
@@ -6784,7 +6830,7 @@ function decodeQuizCode(code) {
     // already (see effectiveIds). Without this, an older saved code with
     // e.g. 3 ticked subtopics cycled up to 5 questions would reload as just
     // those 3 subtopics/questions.
-    if (formatVersion !== 2 && formatVersion !== 3 && lengthCode === 2 && length && length > ids.length) {
+    if (formatVersion !== 2 && formatVersion !== 3 && formatVersion !== 4 && lengthCode === 2 && length && length > ids.length) {
       const cycled = [];
       for (let i = 0; i < length; i++) cycled.push(ids[i % ids.length]);
       ids = cycled;
