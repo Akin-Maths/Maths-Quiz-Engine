@@ -6950,6 +6950,23 @@ function QuizEngine() {
   const [openDomains, setOpenDomains] = useState(new Set());
   const [salt, setSalt] = useState(initialDecoded?.salt ?? 1);
   const [showAnswers, setShowAnswers] = useState(false);
+  // "Save all versions as PDF" (see the button near Print quiz below): while
+  // true, the printable area renders V1/V2/V3 back-to-back — each forcing
+  // its own mark-scheme visibility (V1 off, V2 on, V3 off) — instead of just
+  // the currently active version, so printing produces one combined PDF
+  // with all three. Reset automatically once the browser's print dialog
+  // closes (afterprint fires whether the user actually printed or cancelled).
+  const [savingAllVersionsPdf, setSavingAllVersionsPdf] = useState(false);
+  useEffect(() => {
+    if (!savingAllVersionsPdf) return;
+    const t = setTimeout(() => window.print(), 50);
+    const onAfterPrint = () => setSavingAllVersionsPdf(false);
+    window.addEventListener("afterprint", onAfterPrint);
+    return () => {
+      clearTimeout(t);
+      window.removeEventListener("afterprint", onAfterPrint);
+    };
+  }, [savingAllVersionsPdf]);
   const [activeVersion, setActiveVersion] = useState(initialDecoded?.version ?? "V1");
   // Feature 3: blocked practice repeats one skill; interleaved mixes several.
   const [practiceMode, setPracticeMode] = useState(initialDecoded?.mode ?? "interleaved");
@@ -7554,7 +7571,11 @@ function QuizEngine() {
     );
   }
 
-  function QuestionBlock({ q, number, onRegenerate, onDelete, handleProps, cardProps, isDragging, isDragOver }) {
+  function QuestionBlock({ q, number, onRegenerate, onDelete, handleProps, cardProps, isDragging, isDragOver, forceShowAnswers }) {
+    // forceShowAnswers lets the "Save all versions as PDF" view show a
+    // different mark-scheme visibility per version (see savingAllVersionsPdf
+    // below) independent of the global Show/Hide mark scheme toggle.
+    const answersVisible = forceShowAnswers !== undefined ? forceShowAnswers : showAnswers;
     return (
       <div
         className="quiz-question"
@@ -7612,7 +7633,7 @@ function QuizEngine() {
 
         <div style={{ flex: 1, minHeight: 16 }} />
 
-        {showAnswers && (
+        {answersVisible && (
           <div style={{ background: "#f2f6f3", border: "1px solid #b9d3c2", borderRadius: 2, padding: "4px 7px", fontSize: 10.5, marginTop: 4, overflow: "auto" }}>
             <strong style={{ color: "#2f5b41" }}>Mark scheme:</strong> {q.answer}
             {q.answerRender && <div style={{ marginTop: 4 }}>{q.answerRender}</div>}
@@ -7620,6 +7641,97 @@ function QuizEngine() {
         )}
       </div>
     );
+  }
+
+  // Renders one version's full set of printable pages. Shared by the normal
+  // single-active-version view and "Save all versions as PDF" (which calls
+  // this once per version, back to back, each with its own forced
+  // mark-scheme visibility — see savingAllVersionsPdf above). Reorders each
+  // version's own questions using the SAME index order as
+  // orderedVisibleQuestions: dragging/deletion always operate on
+  // effectiveIds' shared index space, so the order is identical across
+  // versions even though the actual question content at each index differs.
+  // interactive=false (used for the combined PDF view) drops the
+  // regenerate/delete/drag handlers entirely rather than risk them
+  // mutating the wrong version — they're print-hidden either way, but this
+  // avoids relying on that alone.
+  function renderVersionPages(versionData, forceShowAnswersForThisVersion, interactive) {
+    const orderedForVersion = orderedVisibleQuestions.map(({ index }) => ({ q: versionData.questions[index], index }));
+    const pageSizes = distributeQuestionsAcrossPages(orderedForVersion.length);
+    let cursor = 0;
+    const pages = pageSizes.map((size) => {
+      const group = orderedForVersion.slice(cursor, cursor + size);
+      cursor += size;
+      return group;
+    });
+    let displayNumber = 0;
+    return pages.map((pageQuestions, pageIdx) => (
+      <div
+        key={`${versionData.id}-${pageIdx}`}
+        className="quiz-page"
+        style={{ background: "#fff", border: "1px solid #999", padding: "26px 30px 30px", boxShadow: "0 1px 3px rgba(0,0,0,0.15)", width: "210mm", minHeight: "267mm", boxSizing: "border-box", display: "flex", flexDirection: "column" }}
+      >
+        {/* Printed on every page (not just page 1) so a version stays
+            identifiable even if pages get separated once printed. */}
+        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
+          <div style={{ fontSize: 13, fontWeight: 800, letterSpacing: 0.4, textTransform: "uppercase", color: "#fff", background: "#2b2b2b", padding: "5px 14px", borderRadius: 4 }}>
+            {VERSION_LABELS[versionData.id] || versionData.id}
+          </div>
+        </div>
+        {pageIdx === 0 && (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 24, fontSize: 12, borderBottom: "2px solid #000", paddingBottom: 10, marginBottom: 18, alignItems: "center" }}>
+            <div>Name: <span style={{ display: "inline-block", borderBottom: "1px solid #000", width: 150 }}>&nbsp;</span></div>
+            <div>Date: <span style={{ display: "inline-block", borderBottom: "1px solid #000", width: 100 }}>&nbsp;</span></div>
+            <div>Class: <span style={{ display: "inline-block", borderBottom: "1px solid #000", width: 80 }}>&nbsp;</span></div>
+            {locked && (
+              <div style={{ marginLeft: "auto", fontFamily: "monospace", fontSize: 11, color: "#555", wordBreak: "break-all", maxWidth: "100%" }}>Code: {currentCode || "—"}</div>
+            )}
+          </div>
+        )}
+
+        {orderedForVersion.length === 0 && pageIdx === 0 && (
+          <div style={{ fontSize: 13, color: "#888" }}>
+            {versionData.questions.length > 0
+              ? "Every question has been deleted from this quiz — untick and re-tick a subtopic, or generate new numbers, to start over."
+              : lengthMode === "custom"
+              ? "Tick one or more subtopics below to build your quiz — use the +/− next to a ticked topic to include it more than once."
+              : lengthMode === "weekly"
+              ? `Tick subtopics below to build your weekly quiz — use the +/− next to a ticked topic for extra copies. Printing unlocks once you reach ${quizLength} questions.`
+              : practiceMode === "blocked"
+              ? `Select 1 subtopic — it repeats ${quizLength} times with fresh numbers each round (blocked practice).`
+              : `Select up to ${quizLength} subtopics to build a ${quizLength}-question quiz (interleaved practice).`}
+          </div>
+        )}
+
+        {orderedForVersion.length > 0 && (
+          <div style={{ flex: 1, display: "grid", gridTemplateColumns: "1fr", gridTemplateRows: "repeat(3, 1fr)", gap: 10, minHeight: 0 }}>
+            {pageQuestions.map(({ q, index }) => {
+              displayNumber += 1;
+              const { handleProps, cardProps, isDragging, isDragOver } = interactive
+                ? makeDragProps(index)
+                : { handleProps: {}, cardProps: {}, isDragging: false, isDragOver: false };
+              return (
+                <QuestionBlock
+                  key={index}
+                  q={q}
+                  number={displayNumber}
+                  onRegenerate={interactive ? () => regenerateQuestion(index) : undefined}
+                  onDelete={interactive ? () => deleteQuestion(index) : undefined}
+                  handleProps={handleProps}
+                  cardProps={cardProps}
+                  isDragging={isDragging}
+                  isDragOver={isDragOver}
+                  forceShowAnswers={forceShowAnswersForThisVersion}
+                />
+              );
+            })}
+            {Array.from({ length: 3 - pageQuestions.length }).map((_, i) => (
+              <div key={`filler-${versionData.id}-${pageIdx}-${i}`} style={{ border: "1px dashed #ccc", borderRadius: 3 }} />
+            ))}
+          </div>
+        )}
+      </div>
+    ));
   }
 
   return (
@@ -8074,9 +8186,27 @@ function QuizEngine() {
             >
               🖨 Print quiz
             </button>
+            <button
+              onClick={() => setSavingAllVersionsPdf(true)}
+              disabled={(lengthMode === "weekly" && selected.length < quizLength) || savingAllVersionsPdf}
+              style={{
+                ...darkPill(false),
+                borderColor: "#5a8bd6",
+                color: "#5a8bd6",
+                opacity: (lengthMode === "weekly" && selected.length < quizLength) || savingAllVersionsPdf ? 0.4 : 1,
+                cursor: (lengthMode === "weekly" && selected.length < quizLength) || savingAllVersionsPdf ? "not-allowed" : "pointer",
+              }}
+              title={
+                lengthMode === "weekly" && selected.length < quizLength
+                  ? `Pick ${quizLength - selected.length} more question${quizLength - selected.length === 1 ? "" : "s"} before saving (${selected.length}/${quizLength})`
+                  : "Opens the print dialog with all 3 versions together — Version 1 with no mark scheme, Version 2 with the mark scheme, Version 3 with no mark scheme. Choose \"Save as PDF\" as the destination."
+              }
+            >
+              {savingAllVersionsPdf ? "Preparing…" : "💾 Save all versions as PDF"}
+            </button>
           </div>
           <div style={{ fontSize: 10, color: "#888", marginTop: 6 }}>
-            Prints only the quiz itself — this panel is left out automatically. V1/V2/V3 are follow-up quizzes: same skills, same order, fresh numbers each time (feature 6). Drag a question's ⠿ handle to reorder it (feature 7).
+            Prints only the quiz itself — this panel is left out automatically. V1/V2/V3 are follow-up quizzes: same skills, same order, fresh numbers each time (feature 6). Drag a question's ⠿ handle to reorder it (feature 7). "Save all versions as PDF" bundles all three into one file — V1 with no mark scheme, V2 with it, V3 without — via your browser's print dialog.
           </div>
 
           <div style={{ marginTop: 14, paddingTop: 12, borderTop: "1px solid #444" }}>
@@ -8106,80 +8236,9 @@ function QuizEngine() {
         </div>
 
         <div>
-          {(() => {
-            const pageSizes = distributeQuestionsAcrossPages(orderedVisibleQuestions.length);
-            let cursor = 0;
-            const pages = pageSizes.map((size) => {
-              const group = orderedVisibleQuestions.slice(cursor, cursor + size);
-              cursor += size;
-              return group;
-            });
-            let displayNumber = 0;
-            return pages.map((pageQuestions, pageIdx) => (
-              <div
-                key={pageIdx}
-                className="quiz-page"
-                style={{ background: "#fff", border: "1px solid #999", padding: "26px 30px 30px", boxShadow: "0 1px 3px rgba(0,0,0,0.15)", width: "210mm", minHeight: "267mm", boxSizing: "border-box", display: "flex", flexDirection: "column" }}
-              >
-                {/* Printed on every page (not just page 1) so a version stays
-                    identifiable even if pages get separated once printed. */}
-                <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
-                  <div style={{ fontSize: 13, fontWeight: 800, letterSpacing: 0.4, textTransform: "uppercase", color: "#fff", background: "#2b2b2b", padding: "5px 14px", borderRadius: 4 }}>
-                    {VERSION_LABELS[activeVersion] || activeVersion}
-                  </div>
-                </div>
-                {pageIdx === 0 && (
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 24, fontSize: 12, borderBottom: "2px solid #000", paddingBottom: 10, marginBottom: 18, alignItems: "center" }}>
-                    <div>Name: <span style={{ display: "inline-block", borderBottom: "1px solid #000", width: 150 }}>&nbsp;</span></div>
-                    <div>Date: <span style={{ display: "inline-block", borderBottom: "1px solid #000", width: 100 }}>&nbsp;</span></div>
-                    <div>Class: <span style={{ display: "inline-block", borderBottom: "1px solid #000", width: 80 }}>&nbsp;</span></div>
-                    {locked && (
-                      <div style={{ marginLeft: "auto", fontFamily: "monospace", fontSize: 11, color: "#555", wordBreak: "break-all", maxWidth: "100%" }}>Code: {currentCode || "—"}</div>
-                    )}
-                  </div>
-                )}
-
-                {orderedVisibleQuestions.length === 0 && pageIdx === 0 && (
-                  <div style={{ fontSize: 13, color: "#888" }}>
-                    {active.questions.length > 0
-                      ? "Every question has been deleted from this quiz — untick and re-tick a subtopic, or generate new numbers, to start over."
-                      : lengthMode === "custom"
-                      ? "Tick one or more subtopics below to build your quiz — use the +/− next to a ticked topic to include it more than once."
-                      : lengthMode === "weekly"
-                      ? `Tick subtopics below to build your weekly quiz — use the +/− next to a ticked topic for extra copies. Printing unlocks once you reach ${quizLength} questions.`
-                      : practiceMode === "blocked"
-                      ? `Select 1 subtopic — it repeats ${quizLength} times with fresh numbers each round (blocked practice).`
-                      : `Select up to ${quizLength} subtopics to build a ${quizLength}-question quiz (interleaved practice).`}
-                  </div>
-                )}
-
-                {orderedVisibleQuestions.length > 0 && (
-                  <div style={{ flex: 1, display: "grid", gridTemplateColumns: "1fr", gridTemplateRows: "repeat(3, 1fr)", gap: 10, minHeight: 0 }}>
-                    {pageQuestions.map(({ q, index }) => {
-                      displayNumber += 1;
-                      const { handleProps, cardProps, isDragging, isDragOver } = makeDragProps(index);
-                      return (
-                        <QuestionBlock
-                          key={index}
-                          q={q}
-                          number={displayNumber}
-                          onRegenerate={() => regenerateQuestion(index)}
-                          onDelete={() => deleteQuestion(index)}
-                          handleProps={handleProps}
-                          cardProps={cardProps}
-                          isDragging={isDragging}
-                          isDragOver={isDragOver}
-                        />
-                      );
-                    })}
-                    {Array.from({ length: 3 - pageQuestions.length }).map((_, i) => (
-                      <div key={`filler-${pageIdx}-${i}`} style={{ border: "1px dashed #ccc", borderRadius: 3 }} />
-                    ))}
-                  </div>
-                )}
-              </div>
-            ));
-          })()}
+          {savingAllVersionsPdf
+            ? versions.map((v, vi) => renderVersionPages(v, [false, true, false][vi], false))
+            : renderVersionPages(active, showAnswers, true)}
         </div>
 
       </div>
