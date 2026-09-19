@@ -1559,7 +1559,10 @@ SUBTOPIC_BANK["simultaneous-linear-basic"] = {
     const q = seededInt(rng, 1, 5), p1 = seededInt(rng, 1, 5), p2 = seededInt(rng, 1, 5);
     const x0 = seededInt(rng, -6, 6), y0 = seededInt(rng, -6, 6);
     const c1 = p1 * x0 + q * y0, c2 = p2 * x0 - q * y0;
-    return { prompt: `Solve the simultaneous equations: ${p1}x + ${q}y = ${c1}; ${p2}x - ${q}y = ${c2}`, answer: `x = ${x0}, y = ${y0}` };
+    return {
+      prompt: <>Solve the simultaneous equations:<br />{coefX(p1)} + {coefX(q, "y")} = {c1}<br />{coefX(p2)} - {coefX(q, "y")} = {c2}</>,
+      answer: `x = ${x0}, y = ${y0}`,
+    };
   },
 };
 SUBTOPIC_BANK["simultaneous-linear-scaling"] = {
@@ -1569,7 +1572,7 @@ SUBTOPIC_BANK["simultaneous-linear-scaling"] = {
     const x0 = seededInt(rng, -6, 6), y0 = seededInt(rng, -6, 6);
     const c1 = p1 * x0 + q1 * y0, c2 = p2 * x0 + q2 * y0;
     return {
-      prompt: `Solve the simultaneous equations: ${p1}x ${pmX(q1, "y")} = ${c1}; ${p2}x ${pmX(q2, "y")} = ${c2}. You will need to scale one or both equations.`,
+      prompt: <>Solve the simultaneous equations:<br />{p1}x {pmX(q1, "y")} = {c1}<br />{p2}x {pmX(q2, "y")} = {c2}</>,
       answer: `x = ${x0}, y = ${y0}`,
     };
   },
