@@ -3094,21 +3094,23 @@ SUBTOPIC_BANK["mean-from-grouped-table"] = {
     const totalFX = fx.reduce((a, b) => a + b, 0);
     return {
       prompt: `The table shows the time, t (minutes), taken by a group of runners to finish a race. Estimate the mean time. Give your answer to 2 decimal places.`,
+      // No Midpoint/f × x columns — the whole point of "estimate the mean"
+      // is finding the midpoints and multiplying by frequency yourself;
+      // handing those over as blank-but-labelled columns just turns it into
+      // fill-in-the-blanks.
       render: (
         <table style={{ borderCollapse: "collapse", fontSize: 12, fontFamily: "Arial, sans-serif" }}>
           <thead>
-            <tr><th style={cellStyle}>Time (t)</th><th style={cellStyle}>Frequency (f)</th><th style={cellStyle}>Midpoint (x)</th><th style={cellStyle}>f × x</th></tr>
+            <tr><th style={cellStyle}>Time (t)</th><th style={cellStyle}>Frequency (f)</th></tr>
           </thead>
           <tbody>
             {freqs.map((f, i) => (
               <tr key={i}>
                 <td style={cellStyle}>{bounds[i]} &lt; t ≤ {bounds[i + 1]}</td>
                 <td style={cellStyle}>{f}</td>
-                <td style={cellStyle}>{mids[i]}</td>
-                <td style={cellStyle}>&nbsp;</td>
               </tr>
             ))}
-            <tr><td style={cellStyle}><strong>Total</strong></td><td style={cellStyle}><strong>{totalF}</strong></td><td style={cellStyle}></td><td style={cellStyle}></td></tr>
+            <tr><td style={cellStyle}><strong>Total</strong></td><td style={cellStyle}><strong>{totalF}</strong></td></tr>
           </tbody>
         </table>
       ),
