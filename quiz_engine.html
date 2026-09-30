@@ -1575,7 +1575,38 @@ SUBTOPIC_BANK["plot-nonlinear-graph"] = {
     const c = seededInt(rng, -5, 5);
     const xs = [-2, -1, 0, 1, 2];
     const ys = xs.map((x) => x * x + c);
-    return { prompt: `Complete the table of values for y = x² ${pm(c)} when x = -2, -1, 0, 1, 2.`, answer: `y = ${ys.join(", ")}` };
+    return {
+      prompt: `Complete the table of values for y = x² ${pm(c)}.`,
+      render: (
+        <table style={{ borderCollapse: "collapse", fontSize: 12, fontFamily: "Arial, sans-serif" }}>
+          <tbody>
+            <tr><th style={cellStyle}>x</th>{xs.map((x, i) => <td key={i} style={cellStyle}>{x}</td>)}</tr>
+            <tr><th style={cellStyle}>y</th>{xs.map((_, i) => <td key={i} style={cellStyle}>&nbsp;</td>)}</tr>
+          </tbody>
+        </table>
+      ),
+      answer: `y = ${ys.join(", ")}`,
+    };
+  },
+};
+SUBTOPIC_BANK["plot-cubic-graph"] = {
+  topic: "Graphs", title: "Complete a table of values for a cubic", marks: 2,
+  build(rng) {
+    const c = seededInt(rng, -5, 5);
+    const xs = [-2, -1, 0, 1, 2];
+    const ys = xs.map((x) => x * x * x + c);
+    return {
+      prompt: `Complete the table of values for y = x³ ${pm(c)}.`,
+      render: (
+        <table style={{ borderCollapse: "collapse", fontSize: 12, fontFamily: "Arial, sans-serif" }}>
+          <tbody>
+            <tr><th style={cellStyle}>x</th>{xs.map((x, i) => <td key={i} style={cellStyle}>{x}</td>)}</tr>
+            <tr><th style={cellStyle}>y</th>{xs.map((_, i) => <td key={i} style={cellStyle}>&nbsp;</td>)}</tr>
+          </tbody>
+        </table>
+      ),
+      answer: `y = ${ys.join(", ")}`,
+    };
   },
 };
 
@@ -1600,6 +1631,25 @@ SUBTOPIC_BANK["simultaneous-linear-basic"] = {
     };
   },
 };
+SUBTOPIC_BANK["simultaneous-linear-scale-one"] = {
+  topic: "Simultaneous Equations", title: "Linear simultaneous equations (scale one equation only)", marks: 3,
+  build(rng) {
+    const k = pick(rng, [2, 3]);
+    const q2 = seededInt(rng, 1, 4);
+    const q1 = q2 * k; // eq1's y-coefficient already equals eq2's scaled by k, so only eq2 ever needs multiplying
+    let p1, p2;
+    do {
+      p1 = seededInt(rng, 1, 6);
+      p2 = seededInt(rng, 1, 6);
+    } while (p1 * q2 - p2 * q1 === 0); // avoid a degenerate (no unique solution) system
+    const x0 = seededInt(rng, -6, 6), y0 = seededInt(rng, -6, 6);
+    const c1 = p1 * x0 + q1 * y0, c2 = p2 * x0 + q2 * y0;
+    return {
+      prompt: <>Solve the simultaneous equations:<br />{coefX(p1)} {pmX(q1, "y")} = {c1}<br />{coefX(p2)} {pmX(q2, "y")} = {c2}</>,
+      answer: `x = ${x0}, y = ${y0}`,
+    };
+  },
+};
 SUBTOPIC_BANK["simultaneous-linear-scaling"] = {
   topic: "Simultaneous Equations", title: "Linear simultaneous equations (needs scaling)", marks: 4,
   build(rng) {
@@ -1614,6 +1664,28 @@ SUBTOPIC_BANK["simultaneous-linear-scaling"] = {
 };
 
 /* --- HT1 Week 4: Quadratic Simultaneous Equations, Functions - Substitution and Solving --- */
+SUBTOPIC_BANK["quadratic-simultaneous-circle"] = {
+  topic: "Quadratic Simultaneous Equations", title: "Simultaneous equations with the equation of a circle", marks: 4,
+  build(rng) {
+    // Built from two points (p, q) and (q, p) — both on the circle
+    // x² + y² = p² + q² (swapping x/y in that equation changes nothing),
+    // and both on the line x + y = p + q. Substituting y = s - x into the
+    // circle equation always simplifies to x² - sx + pq = 0, which factors
+    // as (x - p)(x - q) = 0 by construction — clean integers every time,
+    // with the working actually worth showing (unlike guessing p,q and
+    // hoping the quadratic happens to factor).
+    let p, q;
+    do {
+      p = seededInt(rng, 1, 8);
+      q = seededInt(rng, 1, 8);
+    } while (p === q);
+    const R = p * p + q * q, s = p + q;
+    return {
+      prompt: <>Solve the simultaneous equations:<br />x² + y² = {R}<br />x + y = {s}</>,
+      answer: `From x + y = ${s}, y = ${s} - x. Substituting into the circle equation: x² + (${s} - x)² = ${R}, which simplifies to x² - ${s}x + ${p * q} = 0, so (x - ${p})(x - ${q}) = 0. This gives x = ${p}, y = ${q} or x = ${q}, y = ${p}.`,
+    };
+  },
+};
 SUBTOPIC_BANK["quadratic-simultaneous"] = {
   topic: "Quadratic Simultaneous Equations", title: "Linear and quadratic simultaneous equations", marks: 4,
   build(rng) {
@@ -1904,11 +1976,21 @@ SUBTOPIC_BANK["estimation-calculation"] = {
   build(rng) {
     const a = seededInt(rng, 20, 99);
     const b = parseFloat((seededInt(rng, 15, 95) / 10).toFixed(1));
-    const ra = Math.round(a / 10) * 10;
-    const rb = Math.round(b);
+    // The prompt no longer states "round to 1 s.f." explicitly, so at an
+    // exact halfway point — a's units digit is 5 (e.g. 45), or b's tenths
+    // digit is 5 (e.g. 3.5) — rounding either direction is defensible;
+    // cover both instead of marking only one "correct". Away from a
+    // halfway point there's only one reasonable 1 s.f. rounding, so this
+    // collapses back to a single exact answer as before.
+    const aCandidates = a % 10 === 5 ? [a - 5, a + 5] : [Math.round(a / 10) * 10];
+    const bCandidates = Math.round(b * 10) % 10 === 5 ? [Math.floor(b), Math.ceil(b)] : [Math.round(b)];
+    const products = aCandidates.flatMap((ra) => bCandidates.map((rb) => ra * rb));
+    const lo = Math.min(...products), hi = Math.max(...products);
     return {
-      prompt: `Estimate the value of ${a} × ${b} by rounding each number to 1 significant figure.`,
-      answer: `${ra} × ${rb} = ${ra * rb}`,
+      prompt: `Estimate the value of ${a} × ${b}.`,
+      answer: lo === hi
+        ? `${aCandidates[0]} × ${bCandidates[0]} = ${lo} (rounding each number to 1 significant figure)`
+        : `Rounding each number to 1 significant figure — accept any answer from ${lo} to ${hi} (e.g. ${aCandidates[0]} × ${bCandidates[0]} = ${aCandidates[0] * bCandidates[0]})`,
     };
   },
 };
@@ -4761,6 +4843,45 @@ SUBTOPIC_BANK["turning-point-from-completed-square"] = {
     };
   },
 };
+SUBTOPIC_BANK["sketch-quadratic-a1"] = {
+  topic: "Quadratic Graphs", title: "Sketch a quadratic graph (a = 1)", marks: 4,
+  build(rng) {
+    // Roots p, q kept the same parity so the axis of symmetry (p+q)/2 and
+    // the turning point are always whole numbers, not half-integers.
+    let p, q;
+    do {
+      p = seededInt(rng, -6, 6);
+      q = seededInt(rng, -6, 6);
+    } while (p === q || (p + q) % 2 !== 0);
+    const b = -(p + q), c = p * q;
+    const turningX = (p + q) / 2, half = (p - q) / 2;
+    const turningY = -(half * half);
+    const lo = Math.min(p, q), hi = Math.max(p, q);
+    return {
+      prompt: `Sketch the graph of y = x² ${pmX(b, "x")} ${pm(c)}. Show the coordinates of where the graph crosses the axes, and the coordinates of the turning point.`,
+      answer: `Crosses the x-axis at (${lo}, 0) and (${hi}, 0); crosses the y-axis at (0, ${c}); turning point at (${turningX}, ${turningY}).`,
+    };
+  },
+};
+SUBTOPIC_BANK["sketch-quadratic-agt1"] = {
+  topic: "Quadratic Graphs", title: "Sketch a quadratic graph (a ≠ 1)", marks: 4,
+  build(rng) {
+    const a = seededInt(rng, 2, 3);
+    let p, q;
+    do {
+      p = seededInt(rng, -6, 6);
+      q = seededInt(rng, -6, 6);
+    } while (p === q || (p + q) % 2 !== 0);
+    const b = -a * (p + q), c = a * p * q;
+    const turningX = (p + q) / 2, half = (p - q) / 2;
+    const turningY = -a * half * half;
+    const lo = Math.min(p, q), hi = Math.max(p, q);
+    return {
+      prompt: `Sketch the graph of y = ${a}x² ${pmX(b, "x")} ${pm(c)}. Show the coordinates of where the graph crosses the axes, and the coordinates of the turning point.`,
+      answer: `Crosses the x-axis at (${lo}, 0) and (${hi}, 0); crosses the y-axis at (0, ${c}); turning point at (${turningX}, ${turningY}).`,
+    };
+  },
+};
 SUBTOPIC_BANK["cubic-graph-features"] = {
   topic: "Other Graphs", title: "Identify features of a cubic graph from its equation", marks: 2,
   build(rng) {
@@ -6321,10 +6442,13 @@ const SUBTOPIC_TO_SPEC = {
   "solve-completing-square": "Algebra → Quadratic Equations → Completing the Square",
   "solve-quadratic-formula": "Algebra → Quadratic Equations → Solving Quadratics",
   "plot-nonlinear-graph": "Algebra → Quadratic & Other Graphs → Quadratic Graphs",
+  "plot-cubic-graph": "Algebra → Quadratic & Other Graphs → Other Graph Types",
   "significant-points": "Algebra → Quadratic & Other Graphs → Quadratic Graphs",
   "simultaneous-linear-basic": "Algebra → Other Equations → Simultaneous Equations",
+  "simultaneous-linear-scale-one": "Algebra → Other Equations → Simultaneous Equations",
   "simultaneous-linear-scaling": "Algebra → Other Equations → Simultaneous Equations",
   "quadratic-simultaneous": "Algebra → Other Equations → Simultaneous Equations",
+  "quadratic-simultaneous-circle": "Algebra → Other Equations → Simultaneous Equations",
   "functions-substitution-solving": "Algebra → Functions → Functions",
   "composite-functions": "Algebra → Functions → Functions",
   "inverse-functions": "Algebra → Functions → Functions",
@@ -6643,6 +6767,8 @@ const SUBTOPIC_TO_SPEC = {
   "estimate-gradient-tangent": "Algebra → Quadratic & Other Graphs → Advanced Graph Skills",
   "quadratic-roots-and-intercept": "Algebra → Quadratic & Other Graphs → Quadratic Graphs",
   "turning-point-from-completed-square": "Algebra → Quadratic & Other Graphs → Quadratic Graphs",
+  "sketch-quadratic-a1": "Algebra → Quadratic & Other Graphs → Quadratic Graphs",
+  "sketch-quadratic-agt1": "Algebra → Quadratic & Other Graphs → Quadratic Graphs",
   "cubic-graph-features": "Algebra → Quadratic & Other Graphs → Other Graph Types",
   "reciprocal-graph-features": "Algebra → Quadratic & Other Graphs → Other Graph Types",
   "solve-function-equation": "Algebra → Functions → Functions",
