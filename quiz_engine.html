@@ -1759,13 +1759,44 @@ SUBTOPIC_BANK["changing-subject-expand"] = {
   },
 };
 SUBTOPIC_BANK["changing-subject-factorise"] = {
-  topic: "Changing the Subject", title: "Change the subject (x appears twice)", marks: 3,
+  topic: "Changing the Subject", title: "Change the subject (x appears twice)", marks: 4,
   build(rng) {
-    let a, c;
-    a = seededInt(rng, 2, 7);
-    do { c = seededInt(rng, 2, 7); } while (c === a);
-    const b = seededInt(rng, -9, 9), d = seededInt(rng, -9, 9);
-    return { prompt: `Make x the subject of the formula ${a}x ${pm(b)} = ${c}x ${pm(d)}`, answer: <>x = <Frac n={d - b} d={a - c} /></> };
+    // Every variant keeps a letter (not a plain number) multiplying x on at
+    // least one side, so collecting the x terms can only be done by taking
+    // x out as a common factor — x(a − c) — never by simplifying to a
+    // single numerical multiple like 3x (which numeric coefficients on both
+    // sides would collapse to, needing no factorising at all).
+    const variant = pick(rng, ["letters", "bracket", "fraction"]);
+    if (variant === "letters") {
+      const pool = ["a", "b", "c", "d", "e", "f", "g", "h", "m", "n", "p", "q", "r", "s", "t", "u", "v", "w"];
+      const letters = [];
+      for (let i = 0; i < 4; i++) letters.push(pool.splice(Math.floor(rng() * pool.length), 1)[0]);
+      const [l1, l2, l3, l4] = letters;
+      return {
+        prompt: `Make x the subject of the formula ${l1}x + ${l2} = ${l3}x + ${l4}`,
+        answer: <>x({l1} - {l3}) = {l4} - {l2}, so x = <Frac n={`${l4} - ${l2}`} d={`${l1} - ${l3}`} /></>,
+      };
+    }
+    if (variant === "bracket") {
+      const a = seededInt(rng, 2, 7);
+      let b, c;
+      do { b = seededInt(rng, -9, 9); } while (b === 0);
+      do { c = seededInt(rng, -9, 9); } while (c === 0);
+      return {
+        prompt: `Make x the subject of the formula ${coefX(a)}${pm0(b)} = y(x ${pm(c)})`,
+        answer: <>x({a} - y) = {coefX(c, "y")}{pm0(-b)}, so x = <Frac n={<>{coefX(c, "y")}{pm0(-b)}</>} d={<>{a} {pmX(-1, "y")}</>} /></>,
+      };
+    }
+    let a, b, c, d;
+    do {
+      a = seededInt(rng, 1, 5); c = seededInt(rng, 1, 5);
+      do { b = seededInt(rng, -6, 6); } while (b === 0);
+      do { d = seededInt(rng, -6, 6); } while (d === 0);
+    } while (a * d === b * c);
+    return {
+      prompt: <>Make x the subject of the formula y = <Frac n={<>{coefX(a)}{pm0(b)}</>} d={<>{coefX(c)}{pm0(d)}</>} /></>,
+      answer: <>x({coefX(c, "y")}{pm0(-a)}) = {b} {pmX(-d, "y")}, so x = <Frac n={<>{b} {pmX(-d, "y")}</>} d={<>{coefX(c, "y")}{pm0(-a)}</>} /></>,
+    };
   },
 };
 
