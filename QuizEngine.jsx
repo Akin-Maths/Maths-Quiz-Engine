@@ -1678,6 +1678,25 @@ SUBTOPIC_BANK["functions-substitution-solving"] = {
     return { prompt: `f(x) = ${a}x ${pm(b)}. Solve f(x) = ${target}.`, answer: `x = ${xsol}` };
   },
 };
+SUBTOPIC_BANK["functions-substitute-expression"] = {
+  topic: "Functions", title: "Substitute an algebraic expression into a function", marks: 3,
+  build(rng) {
+    // f(x) = ax + b is evaluated at an expression in a *different* letter
+    // (e.g. f(2t + 3)), so the input has to be substituted for x and the
+    // result expanded and simplified — not just a number evaluated.
+    const v = pick(rng, ["a", "k", "m", "n", "p", "t"]);
+    const a = seededInt(rng, 2, 5);
+    const c = pick(rng, [1, 1, 2, 3, 4]);
+    let b, d;
+    do { b = seededInt(rng, -8, 8); } while (b === 0);
+    do { d = seededInt(rng, -6, 6); } while (d === 0);
+    const resCoeff = a * c, resConst = a * d + b;
+    return {
+      prompt: `f(x) = ${a}x ${pm(b)}. Find f(${coefX(c, v)}${pm0(d)}), giving your answer in its simplest form.`,
+      answer: `${a}(${coefX(c, v)}${pm0(d)}) ${pm(b)} = ${coefX(resCoeff, v)}${pm0(resConst)}`,
+    };
+  },
+};
 
 /* --- HT1 Week 5: Composite Functions, Inverse Functions, Changing the Subject --- */
 SUBTOPIC_BANK["composite-functions"] = {
@@ -3955,12 +3974,25 @@ SUBTOPIC_BANK["ratio-combine-two"] = {
   topic: "Ratio", title: "Combining two ratios", marks: 3,
   build(rng) {
     const { items: [A, B, C], intro } = pick(rng, RATIO_TRIOS);
-    const p = seededInt(rng, 2, 6), q = seededInt(rng, 2, 6);
-    const r = seededInt(rng, 2, 6), s = seededInt(rng, 2, 6);
-    const totalA = p * r, totalB = q * r, totalC = q * s;
+    // The two ratios share B, so B's parts (q and r) must be made equal using
+    // their LCM. Taking q and r from pairs that share a factor, where neither
+    // divides the other, guarantees LCM < q × r and that BOTH ratios need
+    // scaling — so simply multiplying the two B values together (cross-
+    // multiplying) gives an answer that isn't in simplest form.
+    const [q, r] = pick(rng, [[4, 6], [6, 4], [6, 9], [9, 6], [4, 10], [10, 4], [6, 8], [8, 6], [6, 10], [10, 6], [8, 12], [12, 8], [9, 12], [12, 9], [10, 15], [15, 10], [6, 15], [15, 6], [8, 10], [10, 8]]);
+    const L = (q * r) / gcd(q, r);
+    let p, s, totalA, totalC, guard = 0;
+    do {
+      p = seededInt(rng, 1, 9);
+      s = seededInt(rng, 1, 9);
+      totalA = p * (L / q);
+      totalC = s * (L / r);
+      guard++;
+      // Keep both given ratios, and the final answer, in simplest form.
+    } while ((gcd(p, q) !== 1 || gcd(r, s) !== 1 || p === q || r === s || gcd(gcd(totalA, L), totalC) !== 1) && guard < 80);
     return {
       prompt: `${intro}, the ratio of ${A} to ${B} is ${p} : ${q}, and the ratio of ${B} to ${C} is ${r} : ${s}. Find ${A} : ${B} : ${C}.`,
-      answer: `${totalA} : ${totalB} : ${totalC}`,
+      answer: `LCM of ${q} and ${r} = ${L}. ${A} : ${B} = ${totalA} : ${L} and ${B} : ${C} = ${L} : ${totalC}, so ${A} : ${B} : ${C} = ${totalA} : ${L} : ${totalC}`,
     };
   },
 };
@@ -6415,6 +6447,7 @@ const SUBTOPIC_TO_SPEC = {
   "quadratic-simultaneous": "Algebra → Other Equations → Simultaneous Equations",
   "quadratic-simultaneous-circle": "Algebra → Other Equations → Simultaneous Equations",
   "functions-substitution-solving": "Algebra → Functions → Functions",
+  "functions-substitute-expression": "Algebra → Functions → Functions",
   "composite-functions": "Algebra → Functions → Functions",
   "inverse-functions": "Algebra → Functions → Functions",
   "changing-subject-expand": "Algebra → Formulae → Rearranging Formulae",
