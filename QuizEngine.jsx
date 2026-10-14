@@ -7134,6 +7134,115 @@ function buildNegativeSpeedCheck(rng) {
   return items;
 }
 
+// ---------- FDP Speed Check ----------
+// Same fixed 24-question, ~3-minute mental format as the Negative Numbers
+// sheet, but converting between fractions, decimals and percentages. The
+// pool is the common GCSE equivalents plus the thirds (1/3, 2/3 and the
+// improper 4/3), whose recurring decimals / non-integer percentages are the
+// ones students get stuck on — all three thirds are always on the sheet
+// (each in a random conversion direction), with the rest drawn from the
+// other common equivalents. Every one of the six conversion directions
+// appears four times, and no value is asked for the same answer twice (e.g.
+// 1/4 → % and 0.25 → % are never both on one sheet).
+// Compact stacked fraction for the speed-check rows: the shared Frac above
+// is three lines tall (numerator, bar, denominator) and overflows the
+// fixed-height print rows at this font size.
+function SpeedFrac({ n, d }) {
+  return (
+    <span style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", verticalAlign: "middle", lineHeight: 1.05, margin: "0 3px", fontSize: "0.92em" }}>
+      <span style={{ padding: "0 4px" }}>{n}</span>
+      <span style={{ padding: "0 4px", borderTop: "2px solid currentColor", width: "100%", textAlign: "center" }}>{d}</span>
+    </span>
+  );
+}
+// A recurring decimal like 0.3 with a dot over the 3 — the dot is drawn
+// with CSS rather than a combining-dot character, since that glyph's
+// placement varies by font and often lands off to the side of the digit.
+function RecDec({ whole, digit }) {
+  return (
+    <span style={{ whiteSpace: "nowrap" }}>
+      {whole}.
+      <span style={{ position: "relative", display: "inline-block" }}>
+        {digit}
+        <span style={{ position: "absolute", top: "0.02em", left: "50%", width: "0.12em", height: "0.12em", borderRadius: "50%", background: "currentColor", transform: "translateX(-50%)" }} />
+      </span>
+    </span>
+  );
+}
+const FDP_TRIPLES = [
+  { n: 1, d: 2, dec: "0.5", pct: "50%" },
+  { n: 1, d: 4, dec: "0.25", pct: "25%" },
+  { n: 3, d: 4, dec: "0.75", pct: "75%" },
+  { n: 1, d: 5, dec: "0.2", pct: "20%" },
+  { n: 2, d: 5, dec: "0.4", pct: "40%" },
+  { n: 3, d: 5, dec: "0.6", pct: "60%" },
+  { n: 4, d: 5, dec: "0.8", pct: "80%" },
+  { n: 1, d: 10, dec: "0.1", pct: "10%" },
+  { n: 3, d: 10, dec: "0.3", pct: "30%" },
+  { n: 7, d: 10, dec: "0.7", pct: "70%" },
+  { n: 9, d: 10, dec: "0.9", pct: "90%" },
+  { n: 1, d: 8, dec: "0.125", pct: "12.5%" },
+  { n: 3, d: 8, dec: "0.375", pct: "37.5%" },
+  { n: 5, d: 8, dec: "0.625", pct: "62.5%" },
+  { n: 7, d: 8, dec: "0.875", pct: "87.5%" },
+  { n: 1, d: 20, dec: "0.05", pct: "5%" },
+  { n: 3, d: 20, dec: "0.15", pct: "15%" },
+  { n: 5, d: 4, dec: "1.25", pct: "125%" },
+  { n: 3, d: 2, dec: "1.5", pct: "150%" },
+  { n: 1, d: 3, dec: <RecDec whole={0} digit={3} />, pct: "33⅓%", third: true },
+  { n: 2, d: 3, dec: <RecDec whole={0} digit={6} />, pct: "66⅔%", third: true },
+  { n: 4, d: 3, dec: <RecDec whole={1} digit={3} />, pct: "133⅓%", third: true },
+];
+function buildFdpSpeedCheck(rng) {
+  const DIRS = ["f-d", "f-p", "d-f", "d-p", "p-f", "p-d"];
+  const shuffle = (arr) => {
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  };
+  const dirs = shuffle(DIRS.flatMap((d) => [d, d, d, d])); // 24 slots, 4 of each direction
+  const thirdIdx = FDP_TRIPLES.map((t, i) => (t.third ? i : -1)).filter((i) => i >= 0);
+  const otherIdx = FDP_TRIPLES.map((t, i) => (t.third ? -1 : i)).filter((i) => i >= 0);
+  const thirdSlots = shuffle(dirs.map((_, i) => i)).slice(0, thirdIdx.length);
+  const slotTriple = new Array(dirs.length).fill(-1);
+  const targetOf = (dir) => dir.split("-")[1]; // the form being asked for: d, p or f
+  const used = new Set();
+  const count = {};
+  thirdSlots.forEach((slot, k) => {
+    slotTriple[slot] = thirdIdx[k];
+    used.add(`${thirdIdx[k]}|${targetOf(dirs[slot])}`);
+    count[thirdIdx[k]] = 1;
+  });
+  for (let slot = 0; slot < dirs.length; slot++) {
+    if (slotTriple[slot] !== -1) continue;
+    let pick_ = -1;
+    for (let tries = 0; tries < 80 && pick_ === -1; tries++) {
+      const cand = otherIdx[Math.floor(rng() * otherIdx.length)];
+      const strict = tries < 60; // relax the repeat limits only if the strict ones can't be met
+      if (used.has(`${cand}|${targetOf(dirs[slot])}`)) continue;
+      if (strict && ((count[cand] || 0) >= 2 || slotTriple[slot - 1] === cand)) continue;
+      pick_ = cand;
+    }
+    if (pick_ === -1) pick_ = otherIdx[Math.floor(rng() * otherIdx.length)];
+    slotTriple[slot] = pick_;
+    used.add(`${pick_}|${targetOf(dirs[slot])}`);
+    count[pick_] = (count[pick_] || 0) + 1;
+  }
+  return dirs.map((dir, slot) => {
+    const t = FDP_TRIPLES[slotTriple[slot]];
+    const fracEl = <SpeedFrac n={t.n} d={t.d} />;
+    if (dir === "f-d") return { expr: fracEl, target: "decimal", answer: t.dec };
+    if (dir === "f-p") return { expr: fracEl, target: "%", answer: t.pct };
+    if (dir === "d-f") return { expr: t.dec, target: "fraction", answer: fracEl };
+    if (dir === "d-p") return { expr: t.dec, target: "%", answer: t.pct };
+    if (dir === "p-f") return { expr: t.pct, target: "fraction", answer: fracEl };
+    return { expr: t.pct, target: "decimal", answer: t.dec };
+  });
+}
+
 export default function QuizEngine() {
   const initialDecoded = useMemo(() => {
     if (typeof window === "undefined") return null;
@@ -7213,10 +7322,23 @@ export default function QuizEngine() {
   // wide screen has more width to spend than an A4 sheet does, and it keeps
   // 6 rows per column instead of 12 for a bigger, further-back-readable font.
   const [speedCheckFullScreen, setSpeedCheckFullScreen] = useState(false);
+  // Which fixed-format sheet is open: "neg" (Negative Numbers) or "fdp"
+  // (Fractions/Decimals/Percentages). Both share the same view, timer and
+  // full-screen layout — only the questions, title and blurb differ.
+  const [speedCheckKind, setSpeedCheckKind] = useState("neg");
   const speedCheckQuestions = useMemo(
-    () => buildNegativeSpeedCheck(mulberry32((speedCheckSalt * 104729 + 7) >>> 0)),
-    [speedCheckSalt]
+    () => (speedCheckKind === "fdp" ? buildFdpSpeedCheck : buildNegativeSpeedCheck)(mulberry32((speedCheckSalt * 104729 + 7) >>> 0)),
+    [speedCheckSalt, speedCheckKind]
   );
+  const speedCheckInfo = speedCheckKind === "fdp"
+    ? {
+        title: "FDP Speed Check",
+        description: "A 24-question FDP Speed Check: convert between fractions, decimals and percentages. It uses the common equivalents, and always includes the thirds (⅓, ⅔ and 4/3) with their recurring decimals. All conversions are mental and suitable for ~3 minutes.",
+      }
+    : {
+        title: "Negative Numbers Speed Check",
+        description: "A 24-question Negative Numbers Speed Check. It covers all 23 variations involving at least one negative number, with one extra question from a common GCSE type. All calculations are mental and suitable for ~3 minutes.",
+      };
   // Feature 9: an optional on-screen countdown timer for the speed check,
   // matching the "~3 minutes" it's designed to be completed in. Independent
   // of everything else on the page; only meaningful while speedCheckOpen.
@@ -7241,7 +7363,7 @@ export default function QuizEngine() {
     setTimerRemaining(timerDuration);
     setTimerRunning(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [speedCheckSalt]);
+  }, [speedCheckSalt, speedCheckKind]);
   const formatTimer = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
   const setTimerPreset = (secs) => {
     setTimerDuration(secs);
@@ -8002,7 +8124,7 @@ export default function QuizEngine() {
       {speedCheckOpen && speedCheckFullScreen ? (
       <div className="speedcheck-fullscreen" style={{ position: "fixed", inset: 0, background: "#fff", zIndex: 1000, display: "flex", flexDirection: "column", padding: "16px 24px", boxSizing: "border-box" }}>
         <div className="no-print" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10, marginBottom: 10, flexShrink: 0 }}>
-          <div style={{ fontSize: 14, fontWeight: 700, color: "#1c1c1c" }}>Negative Numbers Speed Check</div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: "#1c1c1c" }}>{speedCheckInfo.title}</div>
           <TimerControls big />
           <div style={{ display: "flex", gap: 8 }}>
             <button onClick={() => setSpeedCheckSalt((s) => s + 1)} style={{ ...darkPill(false), borderColor: "#888", color: "#444" }} title="Reroll every number on the sheet">↻ New numbers</button>
@@ -8025,7 +8147,10 @@ export default function QuizEngine() {
                     style={{ flex: 1, minHeight: 0, display: "flex", alignItems: "center", gap: 8, fontSize: "clamp(15px, 2.3vw, 30px)", borderBottom: "1px solid #ddd" }}
                   >
                     <strong style={{ flexShrink: 0 }}>{n}.</strong>
-                    <div style={{ flex: 1 }}>{q.expr}</div>
+                    <div style={{ flex: 1 }}>
+                      {q.expr}
+                      {q.target && <span style={{ fontSize: "0.55em", color: "#555", marginLeft: 8, whiteSpace: "nowrap", display: "inline-block" }}>→ {q.target}</span>}
+                    </div>
                     {speedCheckAnswers && <div style={{ color: "#2f5b41", fontWeight: 700, flexShrink: 0 }}>= {q.answer}</div>}
                   </div>
                 );
@@ -8054,9 +8179,9 @@ export default function QuizEngine() {
           style={{ background: "#fff", border: "1px solid #999", padding: "22px 28px 26px", boxShadow: "0 1px 3px rgba(0,0,0,0.15)", width: "210mm", height: "267mm", boxSizing: "border-box", display: "flex", flexDirection: "column" }}
         >
           <div style={{ borderBottom: "2px solid #000", paddingBottom: 10, marginBottom: 16, flexShrink: 0 }}>
-            <div style={{ fontSize: 17, fontWeight: 700 }}>Negative Numbers Speed Check</div>
+            <div style={{ fontSize: 17, fontWeight: 700 }}>{speedCheckInfo.title}</div>
             <div style={{ fontSize: 11, color: "#444", marginTop: 4, lineHeight: 1.4 }}>
-              A 24-question Negative Numbers Speed Check. It covers all 23 variations involving at least one negative number, with one extra question from a common GCSE type. All calculations are mental and suitable for ~3 minutes.
+              {speedCheckInfo.description}
             </div>
             <div style={{ display: "flex", gap: 24, fontSize: 12, marginTop: 10 }}>
               <div>Name: <span style={{ display: "inline-block", borderBottom: "1px solid #000", width: 150 }}>&nbsp;</span></div>
@@ -8077,7 +8202,10 @@ export default function QuizEngine() {
                       style={{ flex: 1, minHeight: 0, display: "flex", alignItems: "center", gap: 10, fontSize: 27, borderBottom: "1px dashed #ddd" }}
                     >
                       <strong style={{ width: 40, flexShrink: 0 }}>{n}.</strong>
-                      <div style={{ flex: 1 }}>{q.expr}</div>
+                      <div style={{ flex: 1 }}>
+                        {q.expr}
+                        {q.target && <span style={{ fontSize: 15, color: "#555", marginLeft: 10, whiteSpace: "nowrap", display: "inline-block" }}>→ {q.target}</span>}
+                      </div>
                       <div style={{ flexShrink: 0 }}>=</div>
                       <div
                         style={{
@@ -8186,11 +8314,18 @@ export default function QuizEngine() {
               Fixed-format fluency sheets, separate from the topic picker below.
             </div>
             <button
-              onClick={() => setSpeedCheckOpen(true)}
+              onClick={() => { setSpeedCheckKind("neg"); setSpeedCheckOpen(true); }}
               style={{ ...darkPill(false), width: "100%", borderColor: "#c96a6a", color: "#e08a8a" }}
               title="A fixed 24-question mental-maths sheet covering all 23 negative-number variations, two columns on one A4 page"
             >
               🔥 Negative Numbers Speed Check
+            </button>
+            <button
+              onClick={() => { setSpeedCheckKind("fdp"); setSpeedCheckOpen(true); }}
+              style={{ ...darkPill(false), width: "100%", borderColor: "#6aa6c9", color: "#8ac3e0", marginTop: 6 }}
+              title="A fixed 24-question mental-maths sheet converting between fractions, decimals and percentages, including thirds, two columns on one A4 page"
+            >
+              🔥 FDP Speed Check
             </button>
           </div>
 
