@@ -7267,6 +7267,29 @@ export default function QuizEngine() {
   // not just ones with "circle" literally in their own title.
   const [topicSearch, setTopicSearch] = useState("");
   const searchQuery = topicSearch.trim().toLowerCase();
+  // Colour theme: "auto" follows the device (prefers-color-scheme), "light" /
+  // "dark" are a manual override stored on this browser. Applied as a
+  // data-theme attribute on <html>, which the :root token blocks key off.
+  const [themePref, setThemePref] = useState(() => {
+    try {
+      const v = window.localStorage.getItem("quizEngineTheme");
+      return v === "light" || v === "dark" ? v : "auto";
+    } catch (e) {
+      return "auto";
+    }
+  });
+  useEffect(() => {
+    const root = document.documentElement;
+    if (themePref === "auto") root.removeAttribute("data-theme");
+    else root.setAttribute("data-theme", themePref);
+    try {
+      if (themePref === "auto") window.localStorage.removeItem("quizEngineTheme");
+      else window.localStorage.setItem("quizEngineTheme", themePref);
+    } catch (e) { /* storage unavailable (private window etc.) — theme still applies for this session */ }
+  }, [themePref]);
+  // Below ~1100px the builder stacks above the quiz; this lets it be folded
+  // away so the quiz itself isn't pushed off-screen. No effect on wide screens.
+  const [builderOpen, setBuilderOpen] = useState(true);
   const [salt, setSalt] = useState(initialDecoded?.salt ?? 1);
   const [showAnswers, setShowAnswers] = useState(false);
   // "Save all versions as PDF" (see the button near Print quiz below): while
@@ -7824,78 +7847,53 @@ export default function QuizEngine() {
       }
     };
     return (
-      <div className="no-print" style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-        <div
-          style={{
-            fontFamily: "'Courier New', monospace",
-            fontWeight: 700,
-            fontSize: big ? 40 : 15,
-            minWidth: big ? 100 : 46,
-            textAlign: "center",
-            color: timerUp ? "#c0392b" : "#1c1c1c",
-            border: `2px solid ${timerUp ? "#c0392b" : "#999"}`,
-            borderRadius: 8,
-            padding: big ? "2px 12px" : "1px 6px",
-            background: timerUp ? "#fdecea" : "#fff",
-          }}
-        >
+      <div className="no-print qe-timer-row">
+        <div className={cx("qe-timer", big && "big", timerUp && "up")}>
           {timerUp ? "TIME!" : formatTimer(timerRemaining)}
         </div>
-        <button
-          onClick={handleTimerStartPause}
-          style={{ ...darkPill(timerRunning), borderColor: "#5a8bd6", color: timerRunning ? "#fff" : "#3560a8", background: timerRunning ? "#3560a8" : "transparent" }}
-        >
+        <button className={btnCls({ active: timerRunning })} onClick={handleTimerStartPause}>
           {timerRunning ? "⏸ Pause" : timerUp ? "▶ Restart" : "▶ Start"}
         </button>
-        <button onClick={handleTimerReset} style={{ ...darkPill(false), borderColor: "#888", color: "#444" }} title="Reset the timer without changing the length">
+        <button className={btnCls()} onClick={handleTimerReset} title="Reset the timer without changing the length">
           ↺ Reset
         </button>
-        <div style={{ display: "flex", gap: 4 }}>
+        <div className="qe-seg tight">
           {[1, 2, 3, 5].map((m) => (
             <button
               key={m}
+              className={btnCls({ active: timerDuration === m * 60, sm: true })}
               onClick={() => setTimerPreset(m * 60)}
-              style={{
-                ...darkPill(timerDuration === m * 60),
-                borderColor: "#888",
-                color: timerDuration === m * 60 ? "#fff" : "#666",
-                background: timerDuration === m * 60 ? "#555" : "transparent",
-                fontSize: 11,
-                padding: "3px 7px",
-              }}
               title={`Set the timer to ${m} minute${m > 1 ? "s" : ""}`}
             >
               {m}m
             </button>
           ))}
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
+        <div className="qe-custom-time">
           <input
             type="number"
             min={0}
             max={99}
             placeholder="min"
+            aria-label="Custom minutes"
+            className="qe-field qe-num"
             value={customMin}
             onChange={(e) => setCustomMin(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") applyCustomTime(); }}
-            style={{ width: 42, fontSize: 12, padding: "3px 4px", border: "1px solid #999", borderRadius: 4 }}
           />
-          <span style={{ fontSize: 12, color: "#666" }}>:</span>
+          <span>:</span>
           <input
             type="number"
             min={0}
             max={59}
             placeholder="sec"
+            aria-label="Custom seconds"
+            className="qe-field qe-num"
             value={customSec}
             onChange={(e) => setCustomSec(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") applyCustomTime(); }}
-            style={{ width: 42, fontSize: 12, padding: "3px 4px", border: "1px solid #999", borderRadius: 4 }}
           />
-          <button
-            onClick={applyCustomTime}
-            style={{ ...darkPill(false), borderColor: "#888", color: "#444", fontSize: 11, padding: "3px 7px" }}
-            title="Set a custom time, e.g. 4 min 30 sec"
-          >
+          <button className={btnCls({ sm: true })} onClick={applyCustomTime} title="Set a custom time, e.g. 4 min 30 sec">
             Set
           </button>
         </div>
@@ -7913,8 +7911,8 @@ export default function QuizEngine() {
         className="quiz-question"
         {...cardProps}
         style={{
-          border: isDragOver ? "2px dashed #6674c9" : "1px solid #999",
-          borderRadius: 3,
+          border: isDragOver ? "2px dashed var(--paper-accent)" : "1px solid var(--paper-line)",
+          borderRadius: 4,
           padding: "7px 9px 6px",
           display: "flex",
           flexDirection: "column",
@@ -7922,7 +7920,7 @@ export default function QuizEngine() {
           boxSizing: "border-box",
           overflow: "hidden",
           opacity: isDragging ? 0.4 : 1,
-          background: isDragOver ? "#eef0fa" : "#fff",
+          background: isDragOver ? "var(--paper-hl)" : "var(--paper)",
         }}
       >
         <div style={{ display: "flex", fontSize: 11.5, gap: 6, alignItems: "flex-start" }}>
@@ -7930,7 +7928,7 @@ export default function QuizEngine() {
             {...handleProps}
             className="no-print"
             title={locked ? "Unlock the quiz first to reorder questions" : "Drag to reorder this question"}
-            style={{ ...handleProps.style, cursor: locked ? "not-allowed" : "grab", color: "#999", fontSize: 13, lineHeight: "16px", padding: "0 2px", userSelect: "none", alignSelf: "flex-start", opacity: locked ? 0.4 : 1 }}
+            style={{ ...handleProps.style, cursor: locked ? "not-allowed" : "grab", color: "var(--paper-muted)", fontSize: 13, lineHeight: "16px", padding: "0 2px", userSelect: "none", alignSelf: "flex-start", opacity: locked ? 0.4 : 1 }}
           >
             ⠿
           </span>
@@ -7939,18 +7937,18 @@ export default function QuizEngine() {
           <button
             onClick={onRegenerate}
             disabled={locked}
-            className="no-print"
-            title={locked ? "Unlock the quiz first to regenerate this question" : "Regenerate just this question (feature 5)"}
-            style={{ border: "1px solid #bbb", background: "#f4f4f2", borderRadius: 4, fontSize: 10, padding: "0px 5px", cursor: locked ? "not-allowed" : "pointer", color: "#555", alignSelf: "flex-start", opacity: locked ? 0.4 : 1 }}
+            className="no-print qe-mini"
+            title={locked ? "Unlock the quiz first to regenerate this question" : "Regenerate just this question"}
+            style={{ alignSelf: "flex-start" }}
           >
             ↻
           </button>
           <button
             onClick={onDelete}
             disabled={locked}
-            className="no-print"
+            className="no-print qe-mini danger"
             title={locked ? "Unlock the quiz first to delete this question" : "Remove just this question from the quiz"}
-            style={{ border: "1px solid #d99", background: "#fdf2f2", borderRadius: 4, fontSize: 10, padding: "0px 5px", cursor: locked ? "not-allowed" : "pointer", color: "#a33", alignSelf: "flex-start", opacity: locked ? 0.4 : 1 }}
+            style={{ alignSelf: "flex-start" }}
           >
             🗑
           </button>
@@ -7959,15 +7957,15 @@ export default function QuizEngine() {
         {q.render && (
           <div style={{ margin: "6px auto 2px", maxWidth: "100%", textAlign: "center" }}>
             {q.render}
-            <div style={{ fontSize: 8.5, fontStyle: "italic", color: "#555", marginTop: 2 }}>Diagram NOT accurately drawn</div>
+            <div style={{ fontSize: 8.5, fontStyle: "italic", color: "var(--paper-muted)", marginTop: 2 }}>Diagram NOT accurately drawn</div>
           </div>
         )}
 
         <div style={{ flex: 1, minHeight: 16 }} />
 
         {answersVisible && (
-          <div style={{ background: "#f2f6f3", border: "1px solid #b9d3c2", borderRadius: 2, padding: "4px 7px", fontSize: 10.5, marginTop: 4, overflow: "auto" }}>
-            <strong style={{ color: "#2f5b41" }}>Mark scheme:</strong> {q.answer}
+          <div className="qe-ms">
+            <strong>Mark scheme:</strong> {q.answer}
             {q.answerRender && <div style={{ marginTop: 4 }}>{q.answerRender}</div>}
           </div>
         )}
@@ -7998,31 +7996,25 @@ export default function QuizEngine() {
     });
     let displayNumber = 0;
     return pages.map((pageQuestions, pageIdx) => (
-      <div
-        key={`${versionData.id}-${pageIdx}`}
-        className="quiz-page"
-        style={{ background: "#fff", border: "1px solid #999", padding: "26px 30px 30px", boxShadow: "0 1px 3px rgba(0,0,0,0.15)", width: "210mm", minHeight: "267mm", boxSizing: "border-box", display: "flex", flexDirection: "column" }}
-      >
+      <div key={`${versionData.id}-${pageIdx}`} className="quiz-page qe-paper">
         {/* Printed on every page (not just page 1) so a version stays
             identifiable even if pages get separated once printed. */}
         <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
-          <div style={{ fontSize: 13, fontWeight: 800, letterSpacing: 0.4, textTransform: "uppercase", color: "#fff", background: "#2b2b2b", padding: "5px 14px", borderRadius: 4 }}>
-            {VERSION_LABELS[versionData.id] || versionData.id}
-          </div>
+          <div className="qe-ver-pill">{VERSION_LABELS[versionData.id] || versionData.id}</div>
         </div>
         {pageIdx === 0 && (
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 24, fontSize: 12, borderBottom: "2px solid #000", paddingBottom: 10, marginBottom: 18, alignItems: "center" }}>
-            <div>Name: <span style={{ display: "inline-block", borderBottom: "1px solid #000", width: 150 }}>&nbsp;</span></div>
-            <div>Date: <span style={{ display: "inline-block", borderBottom: "1px solid #000", width: 100 }}>&nbsp;</span></div>
-            <div>Class: <span style={{ display: "inline-block", borderBottom: "1px solid #000", width: 80 }}>&nbsp;</span></div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 24, fontSize: 12, borderBottom: "2px solid var(--paper-rule)", paddingBottom: 10, marginBottom: 18, alignItems: "center" }}>
+            <div>Name: <span style={{ display: "inline-block", borderBottom: "1px solid var(--paper-rule)", width: 150 }}>&nbsp;</span></div>
+            <div>Date: <span style={{ display: "inline-block", borderBottom: "1px solid var(--paper-rule)", width: 100 }}>&nbsp;</span></div>
+            <div>Class: <span style={{ display: "inline-block", borderBottom: "1px solid var(--paper-rule)", width: 80 }}>&nbsp;</span></div>
             {locked && (
-              <div style={{ marginLeft: "auto", fontFamily: "monospace", fontSize: 11, color: "#555", wordBreak: "break-all", maxWidth: "100%" }}>Code: {currentCode || "—"}</div>
+              <div style={{ marginLeft: "auto", fontFamily: "monospace", fontSize: 11, color: "var(--paper-muted)", wordBreak: "break-all", maxWidth: "100%" }}>Code: {currentCode || "—"}</div>
             )}
           </div>
         )}
 
         {orderedForVersion.length === 0 && pageIdx === 0 && (
-          <div style={{ fontSize: 13, color: "#888" }}>
+          <div style={{ fontSize: 13, color: "var(--paper-muted)" }}>
             {versionData.questions.length > 0
               ? "Every question has been deleted from this quiz — untick and re-tick a subtopic, or generate new numbers, to start over."
               : lengthMode === "custom"
@@ -8058,7 +8050,7 @@ export default function QuizEngine() {
               );
             })}
             {Array.from({ length: 3 - pageQuestions.length }).map((_, i) => (
-              <div key={`filler-${versionData.id}-${pageIdx}-${i}`} style={{ border: "1px dashed #ccc", borderRadius: 3 }} />
+              <div key={`filler-${versionData.id}-${pageIdx}-${i}`} style={{ border: "1px dashed var(--paper-faint)", borderRadius: 4 }} />
             ))}
           </div>
         )}
@@ -8066,72 +8058,25 @@ export default function QuizEngine() {
     ));
   }
 
+  const printBlocked = lengthMode === "weekly" && selected.length < quizLength;
+  const printBlockedTip = printBlocked
+    ? `Pick ${quizLength - selected.length} more question${quizLength - selected.length === 1 ? "" : "s"} before printing (${selected.length}/${quizLength})`
+    : undefined;
+
   return (
-    <div className="app-shell" style={{ fontFamily: "Arial, Helvetica, sans-serif", background: "#e9e9e4", minHeight: "100%", padding: "24px 16px", color: "#1c1c1c" }}>
-      <style>{`
-        @page { size: A4; margin: 12mm; }
-        @media print {
-          body { background: #fff !important; }
-          .app-shell { background: #fff !important; padding: 0 !important; }
-          .no-print { display: none !important; }
-          .quiz-grid { display: block !important; max-width: none !important; }
-          .quiz-page {
-            width: auto !important;
-            box-shadow: none !important;
-            border: none !important;
-            margin: 0 !important;
-            page-break-after: always;
-          }
-          .quiz-page:last-of-type { page-break-after: auto; }
-          .quiz-question { break-inside: avoid; page-break-inside: avoid; }
-          .no-print { display: none !important; }
-          .donow-fullscreen {
-            position: static !important;
-            width: auto !important;
-            height: auto !important;
-            padding: 0 !important;
-            background: #fff !important;
-          }
-          .donow-grid {
-            height: auto !important;
-            page-break-inside: avoid;
-          }
-          .donow-cell {
-            break-inside: avoid;
-            page-break-inside: avoid;
-          }
-          .speed-check-row {
-            break-inside: avoid;
-            page-break-inside: avoid;
-          }
-          .speedcheck-fullscreen {
-            position: static !important;
-            width: auto !important;
-            height: auto !important;
-            padding: 0 !important;
-            background: #fff !important;
-          }
-          .speedcheck-fullscreen-grid {
-            height: auto !important;
-            page-break-inside: avoid;
-          }
-          .speedcheck-fullscreen-cell {
-            break-inside: avoid;
-            page-break-inside: avoid;
-          }
-        }
-      `}</style>
+    <div className="app-shell qe-app">
+      <style>{QE_STYLES}</style>
       {speedCheckOpen && speedCheckFullScreen ? (
-      <div className="speedcheck-fullscreen" style={{ position: "fixed", inset: 0, background: "#fff", zIndex: 1000, display: "flex", flexDirection: "column", padding: "16px 24px", boxSizing: "border-box" }}>
-        <div className="no-print" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10, marginBottom: 10, flexShrink: 0 }}>
-          <div style={{ fontSize: 14, fontWeight: 700, color: "#1c1c1c" }}>{speedCheckInfo.title}</div>
+      <div className="speedcheck-fullscreen qe-full">
+        <div className="no-print qe-full-head">
+          <div className="qe-full-title">{speedCheckInfo.title}</div>
           <TimerControls big />
-          <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={() => setSpeedCheckSalt((s) => s + 1)} style={{ ...darkPill(false), borderColor: "#888", color: "#444" }} title="Reroll every number on the sheet">↻ New numbers</button>
-            <button onClick={() => setSpeedCheckAnswers((a) => !a)} style={{ ...darkPill(speedCheckAnswers), borderColor: "#5a9b73", color: speedCheckAnswers ? "#fff" : "#3f6b52", background: speedCheckAnswers ? "#3f6b52" : "transparent" }}>
+          <div className="qe-row">
+            <button onClick={() => setSpeedCheckSalt((s) => s + 1)} className={btnCls()} title="Reroll every number on the sheet">↻ New numbers</button>
+            <button onClick={() => setSpeedCheckAnswers((a) => !a)} className={btnCls({ active: speedCheckAnswers, tone: "ok" })}>
               {speedCheckAnswers ? "Hide answers" : "Show answers"}
             </button>
-            <button onClick={() => setSpeedCheckFullScreen(false)} style={{ ...darkPill(false), borderColor: "#888", color: "#444" }}>✕ Exit full screen</button>
+            <button onClick={() => setSpeedCheckFullScreen(false)} className={btnCls()}>✕ Exit full screen</button>
           </div>
         </div>
 
@@ -8144,14 +8089,14 @@ export default function QuizEngine() {
                   <div
                     key={n}
                     className="speedcheck-fullscreen-cell"
-                    style={{ flex: 1, minHeight: 0, display: "flex", alignItems: "center", gap: 8, fontSize: "clamp(15px, 2.3vw, 30px)", borderBottom: "1px solid #ddd" }}
+                    style={{ flex: 1, minHeight: 0, display: "flex", alignItems: "center", gap: 8, fontSize: "clamp(15px, 2.3vw, 30px)", borderBottom: "1px solid var(--line)" }}
                   >
                     <strong style={{ flexShrink: 0 }}>{n}.</strong>
                     <div style={{ flex: 1 }}>
                       {q.expr}
-                      {q.target && <span style={{ fontSize: "0.55em", color: "#555", marginLeft: 8, whiteSpace: "nowrap", display: "inline-block" }}>→ {q.target}</span>}
+                      {q.target && <span style={{ fontSize: "0.55em", color: "var(--muted)", marginLeft: 8, whiteSpace: "nowrap", display: "inline-block" }}>→ {q.target}</span>}
                     </div>
-                    {speedCheckAnswers && <div style={{ color: "#2f5b41", fontWeight: 700, flexShrink: 0 }}>= {q.answer}</div>}
+                    {speedCheckAnswers && <div style={{ color: "var(--ok)", fontWeight: 700, flexShrink: 0 }}>= {q.answer}</div>}
                   </div>
                 );
               })}
@@ -8160,33 +8105,31 @@ export default function QuizEngine() {
         </div>
       </div>
       ) : speedCheckOpen ? (
-      <div style={{ maxWidth: 700, margin: "0 auto" }}>
-        <div className="no-print" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8, marginBottom: 14 }}>
-          <button onClick={() => setSpeedCheckOpen(false)} style={{ ...darkPill(false), borderColor: "#888", color: "#444" }}>← Back to quiz builder</button>
+      <div className="qe-sheetwrap">
+        <div className="no-print qe-toolbar">
+          <button onClick={() => setSpeedCheckOpen(false)} className={btnCls()}>← Back to quiz builder</button>
           <TimerControls />
-          <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={() => setSpeedCheckFullScreen(true)} style={{ ...darkPill(false), borderColor: "#d68a3b", color: "#a85f1f" }} title="Project full screen, 4 columns, for students to answer in their books">📺 Go full screen</button>
-            <button onClick={() => setSpeedCheckSalt((s) => s + 1)} style={{ ...darkPill(false), borderColor: "#888", color: "#444" }} title="Reroll every number on the sheet">↻ New numbers</button>
-            <button onClick={() => setSpeedCheckAnswers((a) => !a)} style={{ ...darkPill(speedCheckAnswers), borderColor: "#5a9b73", color: speedCheckAnswers ? "#fff" : "#3f6b52", background: speedCheckAnswers ? "#3f6b52" : "transparent" }}>
+          <div className="qe-row">
+            <button onClick={() => setSpeedCheckFullScreen(true)} className={btnCls()} title="Project full screen, 4 columns, for students to answer in their books">📺 Go full screen</button>
+            <button onClick={() => setSpeedCheckSalt((s) => s + 1)} className={btnCls()} title="Reroll every number on the sheet">↻ New numbers</button>
+            <button onClick={() => setSpeedCheckAnswers((a) => !a)} className={btnCls({ active: speedCheckAnswers, tone: "ok" })}>
               {speedCheckAnswers ? "Hide answers" : "Show answers"}
             </button>
-            <button onClick={() => window.print()} style={{ ...darkPill(false), borderColor: "#5a8bd6", color: "#3560a8" }}>🖨 Print</button>
+            <button onClick={() => window.print()} className={btnCls({ primary: true })}>🖨 Print</button>
           </div>
         </div>
 
-        <div
-          className="quiz-page"
-          style={{ background: "#fff", border: "1px solid #999", padding: "22px 28px 26px", boxShadow: "0 1px 3px rgba(0,0,0,0.15)", width: "210mm", height: "267mm", boxSizing: "border-box", display: "flex", flexDirection: "column" }}
-        >
-          <div style={{ borderBottom: "2px solid #000", paddingBottom: 10, marginBottom: 16, flexShrink: 0 }}>
-            <div style={{ fontSize: 17, fontWeight: 700 }}>{speedCheckInfo.title}</div>
-            <div style={{ fontSize: 11, color: "#444", marginTop: 4, lineHeight: 1.4 }}>
+        <div className="qe-canvas">
+        <div className="quiz-page qe-paper sheet">
+          <div style={{ borderBottom: "2px solid var(--paper-rule)", paddingBottom: 10, marginBottom: 16, flexShrink: 0 }}>
+            <div style={{ fontSize: 17, fontWeight: 800, fontFamily: "var(--display)" }}>{speedCheckInfo.title}</div>
+            <div style={{ fontSize: 11, color: "var(--paper-muted)", marginTop: 4, lineHeight: 1.4 }}>
               {speedCheckInfo.description}
             </div>
             <div style={{ display: "flex", gap: 24, fontSize: 12, marginTop: 10 }}>
-              <div>Name: <span style={{ display: "inline-block", borderBottom: "1px solid #000", width: 150 }}>&nbsp;</span></div>
-              <div>Date: <span style={{ display: "inline-block", borderBottom: "1px solid #000", width: 90 }}>&nbsp;</span></div>
-              <div>Time: <span style={{ display: "inline-block", borderBottom: "1px solid #000", width: 50 }}>&nbsp;</span></div>
+              <div>Name: <span style={{ display: "inline-block", borderBottom: "1px solid var(--paper-rule)", width: 150 }}>&nbsp;</span></div>
+              <div>Date: <span style={{ display: "inline-block", borderBottom: "1px solid var(--paper-rule)", width: 90 }}>&nbsp;</span></div>
+              <div>Time: <span style={{ display: "inline-block", borderBottom: "1px solid var(--paper-rule)", width: 50 }}>&nbsp;</span></div>
             </div>
           </div>
 
@@ -8199,24 +8142,24 @@ export default function QuizEngine() {
                     <div
                       key={n}
                       className="speed-check-row"
-                      style={{ flex: 1, minHeight: 0, display: "flex", alignItems: "center", gap: 10, fontSize: 27, borderBottom: "1px dashed #ddd" }}
+                      style={{ flex: 1, minHeight: 0, display: "flex", alignItems: "center", gap: 10, fontSize: 27, borderBottom: "1px dashed var(--paper-faint)" }}
                     >
                       <strong style={{ width: 40, flexShrink: 0 }}>{n}.</strong>
                       <div style={{ flex: 1 }}>
                         {q.expr}
-                        {q.target && <span style={{ fontSize: 15, color: "#555", marginLeft: 10, whiteSpace: "nowrap", display: "inline-block" }}>→ {q.target}</span>}
+                        {q.target && <span style={{ fontSize: 15, color: "var(--paper-muted)", marginLeft: 10, whiteSpace: "nowrap", display: "inline-block" }}>→ {q.target}</span>}
                       </div>
                       <div style={{ flexShrink: 0 }}>=</div>
                       <div
                         style={{
                           minWidth: 80,
                           textAlign: "center",
-                          borderBottom: speedCheckAnswers ? "none" : "2px solid #333",
-                          color: speedCheckAnswers ? "#2f5b41" : "transparent",
+                          borderBottom: speedCheckAnswers ? "none" : "2px solid var(--paper-rule)",
+                          color: speedCheckAnswers ? "var(--paper-ok)" : "transparent",
                           fontWeight: 700,
                         }}
                       >
-                        {speedCheckAnswers ? q.answer : "   "}
+                        {speedCheckAnswers ? q.answer : "   "}
                       </div>
                     </div>
                   );
@@ -8225,21 +8168,22 @@ export default function QuizEngine() {
             ))}
           </div>
         </div>
+        </div>
       </div>
       ) : fullScreenDoNow && lengthMode === "donow" ? (
-      <div className="donow-fullscreen" style={{ position: "fixed", inset: 0, background: "#fff", zIndex: 1000, display: "flex", flexDirection: "column", padding: "18px 26px", boxSizing: "border-box" }}>
-        <div className="no-print" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexShrink: 0 }}>
-          <div style={{ fontSize: 14, fontWeight: 700, color: "#1c1c1c" }}>
+      <div className="donow-fullscreen qe-full">
+        <div className="no-print qe-full-head">
+          <div className="qe-full-title">
             Do Now — {customLabel ? customLabel : `${schemeKey} · ${weekKey.split("—")[0].trim()}`} · {active.id}
           </div>
-          <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={() => setShowAnswers((s) => !s)} style={{ padding: "6px 14px", borderRadius: 999, border: "1.5px solid #666", background: showAnswers ? "#2b2b2b" : "#fff", color: showAnswers ? "#fff" : "#2b2b2b", fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>
+          <div className="qe-row">
+            <button onClick={() => setShowAnswers((s) => !s)} className={btnCls({ active: showAnswers, tone: "ok" })}>
               {showAnswers ? "Hide answers" : "Show answers"}
             </button>
-            <button onClick={() => window.print()} style={{ padding: "6px 14px", borderRadius: 999, border: "1.5px solid #666", background: "#fff", color: "#2b2b2b", fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>
+            <button onClick={() => window.print()} className={btnCls({ primary: true })}>
               🖨 Print
             </button>
-            <button onClick={() => setFullScreenDoNow(false)} style={{ padding: "6px 14px", borderRadius: 999, border: "1.5px solid #666", background: "#fff", color: "#2b2b2b", fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>
+            <button onClick={() => setFullScreenDoNow(false)} className={btnCls()}>
               ✕ Exit full screen
             </button>
           </div>
@@ -8254,15 +8198,15 @@ export default function QuizEngine() {
               className="donow-cell"
               {...cardProps}
               style={{
-                border: isDragOver ? "2px dashed #6674c9" : "1px solid #bbb",
-                borderRadius: 8,
+                border: isDragOver ? "2px dashed var(--accent)" : "1px solid var(--line)",
+                borderRadius: 12,
                 padding: "16px 20px",
                 overflow: "auto",
                 display: "flex",
                 flexDirection: "column",
                 minHeight: 0,
                 opacity: isDragging ? 0.4 : 1,
-                background: isDragOver ? "#eef0fa" : undefined,
+                background: isDragOver ? "var(--accent-soft)" : "var(--panel)",
               }}
             >
               <div style={{ display: "flex", fontSize: "clamp(16px, 2vw, 26px)", gap: 12, lineHeight: 1.35, alignItems: "flex-start" }}>
@@ -8270,7 +8214,7 @@ export default function QuizEngine() {
                   {...handleProps}
                   className="no-print"
                   title={locked ? "Unlock the quiz first to reorder questions" : "Drag to reorder this question"}
-                  style={{ ...handleProps.style, cursor: locked ? "not-allowed" : "grab", color: "#999", fontSize: 16, userSelect: "none", opacity: locked ? 0.4 : 1 }}
+                  style={{ ...handleProps.style, cursor: locked ? "not-allowed" : "grab", color: "var(--muted)", fontSize: 16, userSelect: "none", opacity: locked ? 0.4 : 1 }}
                 >
                   ⠿
                 </span>
@@ -8285,8 +8229,8 @@ export default function QuizEngine() {
               )}
 
               {showAnswers && (
-                <div style={{ background: "#f2f6f3", border: "1px solid #b9d3c2", borderRadius: 4, padding: "10px 14px", fontSize: "clamp(12px, 1.3vw, 16px)", marginTop: "auto" }}>
-                  <strong style={{ color: "#2f5b41" }}>Answer:</strong> {q.answer}
+                <div style={{ background: "var(--ok-soft)", border: "1px solid color-mix(in srgb, var(--ok) 40%, var(--line))", borderRadius: 8, padding: "10px 14px", fontSize: "clamp(12px, 1.3vw, 16px)", marginTop: "auto" }}>
+                  <strong style={{ color: "var(--ok)" }}>Answer:</strong> {q.answer}
                   {q.answerRender && <div style={{ marginTop: 8 }}>{q.answerRender}</div>}
                 </div>
               )}
@@ -8294,7 +8238,7 @@ export default function QuizEngine() {
             );
           })}
           {orderedVisibleQuestions.length === 0 && (
-            <div style={{ gridColumn: "1 / -1", gridRow: "1 / -1", display: "flex", alignItems: "center", justifyContent: "center", color: "#888", fontSize: 15 }}>
+            <div style={{ gridColumn: "1 / -1", gridRow: "1 / -1", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--muted)", fontSize: 15 }}>
               Select up to 4 subtopics in the sidebar to fill this grid.
             </div>
           )}
@@ -8302,325 +8246,354 @@ export default function QuizEngine() {
       </div>
       ) : (
       <>
-      <div className="quiz-grid" style={{ maxWidth: 880, margin: "0 auto", display: "grid", gridTemplateColumns: "340px 1fr", gap: 20, alignItems: "start" }}>
+      <div className="quiz-grid qe-layout">
 
-        <div className="no-print" style={{ background: "#2b2b2b", borderRadius: 6, padding: "16px 18px", color: "#fff" }}>
-          <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 2 }}>Quiz Templating Engine</div>
-          <div style={{ fontSize: 12, color: "#bbb", marginBottom: 14 }}>Full GCSE spec browser — pick a scheme, a week, then edit freely</div>
-
-          <div style={{ paddingBottom: 10, marginBottom: 12, borderBottom: "1px solid #444" }}>
-            <label style={{ fontSize: 11, color: "#bbb" }}>Speed checks (feature 8)</label>
-            <div style={{ fontSize: 10.5, color: "#999", margin: "4px 0 6px" }}>
-              Fixed-format fluency sheets, separate from the topic picker below.
+        <aside className={cx("no-print qe-side", !builderOpen && "is-collapsed")}>
+          <header className="qe-side-head">
+            <div>
+              <h1 className="qe-title">Quiz Templating Engine</h1>
+              <p className="qe-sub">Full GCSE spec browser — pick a scheme, a week, then edit freely</p>
             </div>
-            <button
-              onClick={() => { setSpeedCheckKind("neg"); setSpeedCheckOpen(true); }}
-              style={{ ...darkPill(false), width: "100%", borderColor: "#c96a6a", color: "#e08a8a" }}
-              title="A fixed 24-question mental-maths sheet covering all 23 negative-number variations, two columns on one A4 page"
-            >
-              🔥 Negative Numbers Speed Check
-            </button>
-            <button
-              onClick={() => { setSpeedCheckKind("fdp"); setSpeedCheckOpen(true); }}
-              style={{ ...darkPill(false), width: "100%", borderColor: "#6aa6c9", color: "#8ac3e0", marginTop: 6 }}
-              title="A fixed 24-question mental-maths sheet converting between fractions, decimals and percentages, including thirds, two columns on one A4 page"
-            >
-              🔥 FDP Speed Check
-            </button>
-          </div>
-
-          <label style={{ fontSize: 11, color: "#bbb" }}>Scheme of work</label>
-          <select
-            value={schemeKey}
-            onChange={(e) => applyWeek(e.target.value, Object.keys(SCHEMES[e.target.value])[0])}
-            disabled={locked}
-            style={{ display: "block", marginTop: 5, marginBottom: 10, padding: "6px 8px", fontSize: 12.5, borderRadius: 3, border: "none", width: "100%", opacity: locked ? 0.5 : 1 }}
-          >
-            {Object.keys(SCHEMES).map((k) => <option key={k} value={k}>{k}</option>)}
-          </select>
-
-          <label style={{ fontSize: 11, color: "#bbb" }}>Week beginning</label>
-          <select
-            value={weekKey}
-            onChange={(e) => applyWeek(schemeKey, e.target.value)}
-            disabled={locked}
-            style={{ display: "block", marginTop: 5, marginBottom: 4, padding: "6px 8px", fontSize: 12.5, borderRadius: 3, border: "none", width: "100%", opacity: locked ? 0.5 : 1 }}
-          >
-            {Object.keys(SCHEMES[schemeKey]).map((k) => <option key={k} value={k}>{k}</option>)}
-          </select>
-          <div style={{ fontSize: 10.5, color: "#999", marginBottom: 12 }}>
-            Picks that week's topics automatically — edit the list below before generating.
-          </div>
-
-          <div style={{ paddingTop: 8, borderTop: "1px solid #444" }}>
-            <button
-              onClick={() => setLocked((l) => !l)}
-              title={locked ? "Unlock to change subtopics, mode, length or numbers again" : "Freeze this exact quiz so it can't be accidentally changed or regenerated before printing/projecting"}
-              style={{ ...darkPill(locked), width: "100%", marginBottom: 10, borderColor: "#d68a3b", color: locked ? "#fff" : "#d68a3b", background: locked ? "#a85f1f" : "transparent" }}
-            >
-              {locked ? "🔒 Quiz locked — click to unlock" : "🔓 Lock quiz"}
-            </button>
-
-            <label style={{ fontSize: 11, color: "#bbb" }}>Practice mode</label>
-            <div style={{ display: "flex", gap: 6, marginTop: 5, marginBottom: 10, opacity: locked ? 0.5 : 1 }}>
-              <button disabled={locked} onClick={() => setPracticeModeSafe("interleaved")} style={darkPill(practiceMode === "interleaved")} title="Mix several skills — students must choose the method (feature 3)">Interleaved</button>
-              <button disabled={locked} onClick={() => setPracticeModeSafe("blocked")} style={darkPill(practiceMode === "blocked")} title="Repeat one skill so the method is fixed (feature 3)">Blocked</button>
+            <div className="qe-seg tight" role="group" aria-label="Colour theme">
+              {[["auto", "Auto"], ["light", "Light"], ["dark", "Dark"]].map(([k, label]) => (
+                <button key={k} type="button" className={btnCls({ active: themePref === k, sm: true })} aria-pressed={themePref === k} onClick={() => setThemePref(k)}>
+                  {label}
+                </button>
+              ))}
             </div>
+          </header>
 
-            <label style={{ fontSize: 11, color: "#bbb" }}>Quiz length</label>
-            <div style={{ display: "flex", gap: 6, marginTop: 5, marginBottom: 10, opacity: locked ? 0.5 : 1 }}>
-              <button disabled={locked} onClick={() => setQuizLengthSafe(4, "donow")} style={darkPill(lengthMode === "donow")} title="4 questions — fits a Do Now, one A4 side (feature 2)">Do Now (4)</button>
-              <button disabled={locked} onClick={() => setQuizLengthSafe(6, "weekly")} style={darkPill(lengthMode === "weekly")} title="6 questions — a weekly quiz, three per printed page (feature 2)">Weekly Quiz (6)</button>
-              <button disabled={locked} onClick={switchToCustomMode} style={darkPill(lengthMode === "custom")} title="Tick topics below (and use +/− for extra copies) to build any size quiz you want">Custom</button>
-            </div>
-            {(lengthMode === "custom" || lengthMode === "weekly") && (
-              <div style={{ fontSize: 11, color: "#bbb", marginBottom: 10, opacity: locked ? 0.5 : 1, lineHeight: 1.4 }}>
-                Tick topics below, then use the +/− next to a ticked one to include it more than once.
-                <br />
-                {lengthMode === "weekly" ? (
-                  <>
-                    Total: <strong style={{ color: selected.length === quizLength ? "#8fd9a8" : "#fff" }}>{selected.length}/{quizLength}</strong> questions.
-                    {selected.length < quizLength && <> Printing unlocks once you reach {quizLength}.</>}
-                  </>
-                ) : (
-                  <>Total: <strong style={{ color: "#fff" }}>{selected.length}</strong> question{selected.length === 1 ? "" : "s"}.</>
-                )}
+          <button type="button" className={cx(btnCls({ block: true }), "qe-narrow-only")} aria-expanded={builderOpen} onClick={() => setBuilderOpen((o) => !o)}>
+            {builderOpen ? "Hide quiz builder ▲" : "Show quiz builder ▼"}
+          </button>
+
+          <div className="qe-cards">
+            <section className="qe-card">
+              <div className="qe-card-head">
+                <h3>Speed checks</h3>
+                <div className="qe-note">Fixed-format fluency sheets, separate from the topic picker.</div>
               </div>
-            )}
-            {lengthMode === "donow" && (
-              <button
-                onClick={() => setFullScreenDoNow(true)}
-                title="Project the 4 questions as a full-screen 2x2 grid — still prints cleanly as one page for the teacher"
-                style={{ ...darkPill(false), width: "100%", marginBottom: 4 }}
-              >
-                📺 Go full screen (Do Now)
-              </button>
-            )}
-          </div>
-
-          <div style={{ fontSize: 11, color: "#bbb", marginBottom: 8, paddingTop: 8, borderTop: "1px solid #444" }}>
-            {lengthMode === "custom"
-              ? `${new Set(selected).size} topic${new Set(selected).size === 1 ? "" : "s"} · ${selected.length} question${selected.length === 1 ? "" : "s"} total · full spec below`
-              : lengthMode === "weekly"
-              ? `${new Set(selected).size} topic${new Set(selected).size === 1 ? "" : "s"} · ${selected.length}/${quizLength} questions total · full spec below`
-              : `${selected.length}/${practiceMode === "blocked" ? 1 : quizLength} subtopics selected · full spec below`}
-          </div>
-
-          <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
-            <input
-              value={topicSearch}
-              onChange={(e) => setTopicSearch(e.target.value)}
-              placeholder="Search topics…"
-              style={{ flex: 1, minWidth: 0, fontSize: 12, padding: "6px 8px", borderRadius: 3, border: "none" }}
-            />
-            {topicSearch && (
-              <button onClick={() => setTopicSearch("")} style={darkPill(false)} title="Clear search">×</button>
-            )}
-          </div>
-          <div style={{ maxHeight: 380, overflowY: "auto", paddingRight: 4 }}>
-            {Object.entries(FULL_SPEC).map(([strand, domains]) => {
-              const allGroupKeys = Object.entries(domains).flatMap(([domain, groups]) => groups.map((g) => `${strand} → ${domain} → ${g}`));
-              const builtCount = allGroupKeys.filter((k) => Object.values(SUBTOPIC_TO_SPEC).includes(k)).length;
-              const strandNameMatches = !!searchQuery && strand.toLowerCase().includes(searchQuery);
-
-              // Precompute, per domain/group, which subtopics the search
-              // leaves visible — reused below both to decide whether this
-              // strand/domain has anything to show at all (skip it entirely
-              // if not) and to actually render it.
-              const domainsWithVisibility = Object.entries(domains).map(([domain, groups]) => {
-                const domainKey = `${strand} → ${domain}`;
-                const domainGroupKeys = groups.map((g) => `${strand} → ${domain} → ${g}`);
-                const domainBuiltCount = domainGroupKeys.filter((k) => Object.values(SUBTOPIC_TO_SPEC).includes(k)).length;
-                const domainNameMatches = !!searchQuery && domain.toLowerCase().includes(searchQuery);
-                const groupsWithVisibility = groups.map((g) => {
-                  const specKey = `${strand} → ${domain} → ${g}`;
-                  const subIds = Object.entries(SUBTOPIC_TO_SPEC).filter(([, v]) => v === specKey).map(([id]) => id);
-                  const groupNameMatches = !!searchQuery && g.toLowerCase().includes(searchQuery);
-                  // A match on the group/domain/strand's own name shows every
-                  // subtopic in that group untouched, not just ones whose own
-                  // title happens to contain the search text too.
-                  const showAllInGroup = !searchQuery || strandNameMatches || domainNameMatches || groupNameMatches;
-                  const visibleSubIds = showAllInGroup ? subIds : subIds.filter((id) => SUBTOPIC_BANK[id].title.toLowerCase().includes(searchQuery));
-                  return { g, subIds, visibleSubIds };
-                });
-                const domainVisible = !searchQuery || groupsWithVisibility.some((gv) => gv.visibleSubIds.length > 0);
-                return { domain, domainKey, domainGroupKeys, domainBuiltCount, groupsWithVisibility, domainVisible };
-              });
-              const strandVisible = !searchQuery || domainsWithVisibility.some((d) => d.domainVisible);
-              if (!strandVisible) return null;
-
-              const isOpen = searchQuery ? true : openStrands.has(strand);
-              return (
-                <div key={strand} style={{ marginBottom: 6 }}>
-                  <div
-                    onClick={() => toggleStrand(strand)}
-                    style={{ display: "flex", justifyContent: "space-between", cursor: "pointer", fontSize: 12, fontWeight: 700, color: "#e0b98a", padding: "5px 2px", borderBottom: "1px solid #444" }}
+              <div className="qe-speed">
+                {SPEED_CHECKS.map((sc) => (
+                  <button
+                    key={sc.kind}
+                    type="button"
+                    className="qe-speed-btn"
+                    style={{ "--tag": sc.tag }}
+                    onClick={() => { setSpeedCheckKind(sc.kind); setSpeedCheckOpen(true); }}
+                    title={sc.tip}
                   >
-                    <span>{isOpen ? "▾" : "▸"} {strand}</span>
-                    <span style={{ color: "#888", fontWeight: 400 }}>{builtCount}/{allGroupKeys.length} built</span>
-                  </div>
-                  {isOpen && (
-                    <div style={{ padding: "4px 0 4px 10px" }}>
-                      {domainsWithVisibility.map(({ domain, domainKey, domainGroupKeys, domainBuiltCount, groupsWithVisibility, domainVisible }) => {
-                        if (!domainVisible) return null;
-                        const domainOpen = searchQuery ? true : openDomains.has(domainKey);
-                        return (
-                          <div key={domain} style={{ marginBottom: 3 }}>
-                            <div
-                              onClick={() => toggleDomain(domainKey)}
-                              style={{ display: "flex", justifyContent: "space-between", cursor: "pointer", fontSize: 11.5, fontWeight: 700, color: "#c9c9c9", padding: "3px 2px" }}
-                            >
-                              <span>{domainOpen ? "▾" : "▸"} {domain}</span>
-                              <span style={{ color: "#888", fontWeight: 400 }}>{domainBuiltCount}/{domainGroupKeys.length} built</span>
-                            </div>
-                            {domainOpen && (
-                              <div style={{ padding: "2px 0 2px 10px" }}>
-                                {groupsWithVisibility.map(({ g, subIds, visibleSubIds }) => {
-                                  if (searchQuery && visibleSubIds.length === 0) return null;
-                                  if (subIds.length === 0) {
-                                    return (
-                                      <div key={g} style={{ fontSize: 11.5, color: "#666", padding: "2px 0", fontStyle: "italic" }}>
-                                        {g} <span style={{ fontSize: 10 }}>— not yet added</span>
-                                      </div>
-                                    );
-                                  }
-                                  return (
-                                    <div key={g} style={{ marginBottom: 4 }}>
-                                      <div style={{ fontSize: 11.5, color: "#ddd", fontWeight: 600 }}>{g}</div>
-                                      {visibleSubIds.map((id) => {
-                                        const isTicked = selected.includes(id);
-                                        const topicCount = selected.filter((x) => x === id).length;
-                                        return (
-                                          <label key={id} style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 12, padding: "2px 0 2px 8px", cursor: locked ? "not-allowed" : "pointer", opacity: locked ? 0.5 : 1 }}>
-                                            <input type="checkbox" checked={isTicked} onChange={() => toggleSubtopic(id)} disabled={locked} />
-                                            <span style={{ flex: 1 }}>
-                                              {SUBTOPIC_BANK[id].title} <span style={{ color: "#999", fontSize: 10.5 }}>[{SUBTOPIC_BANK[id].marks}m]</span>
-                                            </span>
-                                            {(lengthMode === "custom" || lengthMode === "weekly") && isTicked && (
-                                              // How many copies of this one topic to include — lets a
-                                              // teacher ask for "3 of these" instead of one tick always
-                                              // meaning one question. preventDefault on each button stops
-                                              // the browser's native "click inside a <label> toggles its
-                                              // checkbox" behaviour from also firing here.
-                                              <span
-                                                style={{ display: "inline-flex", alignItems: "center", gap: 3, marginLeft: 6 }}
-                                                title="How many of this question to include"
-                                              >
-                                                <button
-                                                  type="button"
-                                                  disabled={locked || topicCount <= 1}
-                                                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); setTopicCount(id, topicCount - 1); }}
-                                                  title="One fewer of this question"
-                                                  style={stepperBtnStyle(locked || topicCount <= 1)}
-                                                >
-                                                  −
-                                                </button>
-                                                <span style={{ minWidth: 14, textAlign: "center", fontVariantNumeric: "tabular-nums", color: "#ddd" }}>{topicCount}</span>
-                                                <button
-                                                  type="button"
-                                                  disabled={locked || (lengthMode === "weekly" && selected.length >= quizLength)}
-                                                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); setTopicCount(id, topicCount + 1); }}
-                                                  title={lengthMode === "weekly" && selected.length >= quizLength ? `Weekly Quiz is capped at ${quizLength} questions` : "One more of this question"}
-                                                  style={stepperBtnStyle(locked || (lengthMode === "weekly" && selected.length >= quizLength))}
-                                                >
-                                                  +
-                                                </button>
-                                              </span>
-                                            )}
-                                          </label>
-                                        );
-                                      })}
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
+                    <span className="qe-speed-dot" aria-hidden="true" />
+                    <span>
+                      <strong>{sc.title}</strong>
+                      <small>{sc.blurb}</small>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </section>
+
+            <section className="qe-card">
+              <div className="qe-card-head">
+                <h3>Scheme of work</h3>
+              </div>
+              <label className="qe-label" htmlFor="qe-scheme">Scheme of work</label>
+              <select
+                id="qe-scheme"
+                className="qe-field"
+                value={schemeKey}
+                onChange={(e) => applyWeek(e.target.value, Object.keys(SCHEMES[e.target.value])[0])}
+                disabled={locked}
+              >
+                {Object.keys(SCHEMES).map((k) => <option key={k} value={k}>{k}</option>)}
+              </select>
+
+              <label className="qe-label" htmlFor="qe-week">Week beginning</label>
+              <select
+                id="qe-week"
+                className="qe-field"
+                value={weekKey}
+                onChange={(e) => applyWeek(schemeKey, e.target.value)}
+                disabled={locked}
+              >
+                {Object.keys(SCHEMES[schemeKey]).map((k) => <option key={k} value={k}>{k}</option>)}
+              </select>
+              <div className="qe-note" style={{ marginTop: 8 }}>
+                Picks that week's topics automatically — edit the list below before generating.
+              </div>
+            </section>
+
+            <section className="qe-card">
+              <div className="qe-card-head">
+                <h3>Practice settings</h3>
+              </div>
+              <button
+                onClick={() => setLocked((l) => !l)}
+                title={locked ? "Unlock to change subtopics, mode, length or numbers again" : "Freeze this exact quiz so it can't be accidentally changed or regenerated before printing/projecting"}
+                className={btnCls({ active: locked, tone: "warn", block: true })}
+              >
+                {locked ? "🔒 Quiz locked — click to unlock" : "🔓 Lock quiz"}
+              </button>
+
+              <span className="qe-label">Practice mode</span>
+              <div className="qe-seg" style={{ opacity: locked ? 0.5 : 1 }}>
+                <button disabled={locked} onClick={() => setPracticeModeSafe("interleaved")} className={btnCls({ active: practiceMode === "interleaved" })} title="Mix several skills — students must choose the method">Interleaved</button>
+                <button disabled={locked} onClick={() => setPracticeModeSafe("blocked")} className={btnCls({ active: practiceMode === "blocked" })} title="Repeat one skill so the method is fixed">Blocked</button>
+              </div>
+
+              <span className="qe-label">Quiz length</span>
+              <div className="qe-seg" style={{ opacity: locked ? 0.5 : 1 }}>
+                <button disabled={locked} onClick={() => setQuizLengthSafe(4, "donow")} className={btnCls({ active: lengthMode === "donow" })} title="4 questions — fits a Do Now, one A4 side">Do Now (4)</button>
+                <button disabled={locked} onClick={() => setQuizLengthSafe(6, "weekly")} className={btnCls({ active: lengthMode === "weekly" })} title="6 questions — a weekly quiz, three per printed page">Weekly Quiz (6)</button>
+                <button disabled={locked} onClick={switchToCustomMode} className={btnCls({ active: lengthMode === "custom" })} title="Tick topics below (and use +/− for extra copies) to build any size quiz you want">Custom</button>
+              </div>
+              {(lengthMode === "custom" || lengthMode === "weekly") && (
+                <div className="qe-note" style={{ marginTop: 8, opacity: locked ? 0.5 : 1 }}>
+                  Tick topics below, then use the +/− next to a ticked one to include it more than once.
+                  <br />
+                  {lengthMode === "weekly" ? (
+                    <>
+                      Total: <strong className={selected.length === quizLength ? "qe-ok-text" : undefined}>{selected.length}/{quizLength}</strong> questions.
+                      {selected.length < quizLength && <> Printing unlocks once you reach {quizLength}.</>}
+                    </>
+                  ) : (
+                    <>Total: <strong>{selected.length}</strong> question{selected.length === 1 ? "" : "s"}.</>
                   )}
                 </div>
-              );
-            })}
-          </div>
+              )}
+              {lengthMode === "donow" && (
+                <button
+                  onClick={() => setFullScreenDoNow(true)}
+                  title="Project the 4 questions as a full-screen 2x2 grid — still prints cleanly as one page for the teacher"
+                  className={btnCls({ block: true })}
+                  style={{ marginTop: 10 }}
+                >
+                  📺 Go full screen (Do Now)
+                </button>
+              )}
+            </section>
 
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 14, paddingTop: 12, borderTop: "1px solid #444" }}>
-            {versions.map((v) => (
-              <button key={v.id} onClick={() => setActiveVersion(v.id)} style={darkPill(v.id === activeVersion)}>{VERSION_LABELS[v.id] || v.id}</button>
-            ))}
-            <button onClick={regenerate} disabled={locked} style={{ ...darkPill(false), opacity: locked ? 0.4 : 1, cursor: locked ? "not-allowed" : "pointer" }} title={locked ? "Unlock the quiz first to generate new numbers" : "Reroll every question with fresh numbers"}>↻ New numbers</button>
-            <button onClick={() => setShowAnswers((s) => !s)} style={{ ...darkPill(showAnswers), borderColor: "#5a9b73", color: showAnswers ? "#fff" : "#5a9b73", background: showAnswers ? "#3f6b52" : "transparent" }}>
-              {showAnswers ? "Hide mark scheme" : "Show mark scheme"}
-            </button>
-            <button
-              onClick={() => window.print()}
-              disabled={lengthMode === "weekly" && selected.length < quizLength}
-              style={{
-                ...darkPill(false),
-                borderColor: "#5a8bd6",
-                color: "#5a8bd6",
-                opacity: lengthMode === "weekly" && selected.length < quizLength ? 0.4 : 1,
-                cursor: lengthMode === "weekly" && selected.length < quizLength ? "not-allowed" : "pointer",
-              }}
-              title={lengthMode === "weekly" && selected.length < quizLength ? `Pick ${quizLength - selected.length} more question${quizLength - selected.length === 1 ? "" : "s"} before printing (${selected.length}/${quizLength})` : undefined}
-            >
-              🖨 Print quiz
-            </button>
-            <button
-              onClick={() => setSavingAllVersionsPdf(true)}
-              disabled={(lengthMode === "weekly" && selected.length < quizLength) || savingAllVersionsPdf}
-              style={{
-                ...darkPill(false),
-                borderColor: "#5a8bd6",
-                color: "#5a8bd6",
-                opacity: (lengthMode === "weekly" && selected.length < quizLength) || savingAllVersionsPdf ? 0.4 : 1,
-                cursor: (lengthMode === "weekly" && selected.length < quizLength) || savingAllVersionsPdf ? "not-allowed" : "pointer",
-              }}
-              title={
-                lengthMode === "weekly" && selected.length < quizLength
-                  ? `Pick ${quizLength - selected.length} more question${quizLength - selected.length === 1 ? "" : "s"} before saving (${selected.length}/${quizLength})`
-                  : "Opens the print dialog with all 3 versions together — Version 1 with no mark scheme, Version 2 with the mark scheme, Version 3 with no mark scheme. Choose \"Save as PDF\" as the destination."
-              }
-            >
-              {savingAllVersionsPdf ? "Preparing…" : "💾 Save all versions as PDF"}
-            </button>
-          </div>
-          <div style={{ fontSize: 10, color: "#888", marginTop: 6 }}>
-            Prints only the quiz itself — this panel is left out automatically. V1/V2/V3 are follow-up quizzes: same skills, same order, fresh numbers each time (feature 6). Drag a question's ⠿ handle to reorder it (feature 7). "Save all versions as PDF" bundles all three into one file — V1 with no mark scheme, V2 with it, V3 without — via your browser's print dialog.
-          </div>
+            <section className="qe-card wide">
+              <div className="qe-card-head">
+                <h3>Topic picker</h3>
+                <div className="qe-note">
+                  {lengthMode === "custom"
+                    ? `${new Set(selected).size} topic${new Set(selected).size === 1 ? "" : "s"} · ${selected.length} question${selected.length === 1 ? "" : "s"} selected`
+                    : lengthMode === "weekly"
+                    ? `${new Set(selected).size} topic${new Set(selected).size === 1 ? "" : "s"} · ${selected.length}/${quizLength} questions selected`
+                    : `${selected.length}/${practiceMode === "blocked" ? 1 : quizLength} subtopics selected`}
+                </div>
+              </div>
 
-          <div style={{ marginTop: 14, paddingTop: 12, borderTop: "1px solid #444" }}>
-            <label style={{ fontSize: 11, color: "#bbb" }}>Quiz code (feature 1) — reopen this exact quiz later, or share it</label>
-            <div style={{ display: "flex", gap: 6, marginTop: 5 }}>
-              <input readOnly value={currentCode} style={{ flex: 1, minWidth: 0, fontSize: 11, padding: "5px 6px", borderRadius: 3, border: "none", fontFamily: "monospace" }} onFocus={(e) => e.target.select()} />
-              <button onClick={() => copyText(currentCode, "Code copied")} style={darkPill(false)}>Copy</button>
-            </div>
-            <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
-              <button onClick={() => copyText(currentLink, "Link copied")} style={{ ...darkPill(false), fontSize: 11 }}>Copy shareable link</button>
-              {copyFlash && <span style={{ fontSize: 10.5, color: "#8fd9a8", alignSelf: "center" }}>{copyFlash}</span>}
-            </div>
-            <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
-              <input
-                value={codeInput}
-                onChange={(e) => { setCodeInput(e.target.value); setCodeMessage(""); }}
-                placeholder="Paste a quiz code…"
-                style={{ flex: 1, minWidth: 0, fontSize: 11, padding: "5px 6px", borderRadius: 3, border: "none" }}
-              />
-              <button onClick={loadCode} style={darkPill(false)}>Load</button>
-            </div>
-            {codeMessage && <div style={{ fontSize: 10.5, color: codeMessage === "Quiz loaded." ? "#8fd9a8" : "#e08a8a", marginTop: 4 }}>{codeMessage}</div>}
-            <div style={{ fontSize: 10, color: "#888", marginTop: 6 }}>
-              No server behind this file, so the code encodes the quiz itself rather than a short database key — longer than a typical lookup code, but it works standalone forever and needs no login.
-            </div>
-          </div>
-        </div>
+              <div className="qe-row" style={{ flexWrap: "nowrap" }}>
+                <input
+                  type="search"
+                  className="qe-field"
+                  value={topicSearch}
+                  onChange={(e) => setTopicSearch(e.target.value)}
+                  placeholder="Search topics…"
+                  aria-label="Search topics"
+                />
+                {topicSearch && (
+                  <button onClick={() => setTopicSearch("")} className={btnCls()} title="Clear search" aria-label="Clear search">×</button>
+                )}
+              </div>
+              <div className="qe-tree">
+                {Object.entries(FULL_SPEC).map(([strand, domains]) => {
+                  const strandNameMatches = !!searchQuery && strand.toLowerCase().includes(searchQuery);
 
-        <div>
+                  // Precompute, per domain/group, which subtopics the search
+                  // leaves visible — reused below both to decide whether this
+                  // strand/domain has anything to show at all (skip it entirely
+                  // if not) and to actually render it.
+                  const domainsWithVisibility = Object.entries(domains).map(([domain, groups]) => {
+                    const domainKey = `${strand} → ${domain}`;
+                    const domainNameMatches = !!searchQuery && domain.toLowerCase().includes(searchQuery);
+                    const groupsWithVisibility = groups.map((g) => {
+                      const specKey = `${strand} → ${domain} → ${g}`;
+                      const subIds = Object.entries(SUBTOPIC_TO_SPEC).filter(([, v]) => v === specKey).map(([id]) => id);
+                      const groupNameMatches = !!searchQuery && g.toLowerCase().includes(searchQuery);
+                      // A match on the group/domain/strand's own name shows every
+                      // subtopic in that group untouched, not just ones whose own
+                      // title happens to contain the search text too.
+                      const showAllInGroup = !searchQuery || strandNameMatches || domainNameMatches || groupNameMatches;
+                      const visibleSubIds = showAllInGroup ? subIds : subIds.filter((id) => SUBTOPIC_BANK[id].title.toLowerCase().includes(searchQuery));
+                      return { g, subIds, visibleSubIds };
+                    });
+                    const domainVisible = !searchQuery || groupsWithVisibility.some((gv) => gv.visibleSubIds.length > 0);
+                    return { domain, domainKey, groupsWithVisibility, domainVisible };
+                  });
+                  const strandVisible = !searchQuery || domainsWithVisibility.some((d) => d.domainVisible);
+                  if (!strandVisible) return null;
+
+                  const isOpen = searchQuery ? true : openStrands.has(strand);
+                  return (
+                    <div key={strand}>
+                      <button type="button" className="qe-tree-row qe-tree-strand" aria-expanded={isOpen} onClick={() => toggleStrand(strand)}>
+                        <span className="qe-tree-caret">{isOpen ? "▾" : "▸"}</span>
+                        <span>{strand}</span>
+                      </button>
+                      {isOpen && (
+                        <div className="qe-tree-body">
+                          {domainsWithVisibility.map(({ domain, domainKey, groupsWithVisibility, domainVisible }) => {
+                            if (!domainVisible) return null;
+                            const domainOpen = searchQuery ? true : openDomains.has(domainKey);
+                            return (
+                              <div key={domain}>
+                                <button type="button" className="qe-tree-row qe-tree-domain" aria-expanded={domainOpen} onClick={() => toggleDomain(domainKey)}>
+                                  <span className="qe-tree-caret">{domainOpen ? "▾" : "▸"}</span>
+                                  <span>{domain}</span>
+                                </button>
+                                {domainOpen && (
+                                  <div className="qe-tree-body">
+                                    {groupsWithVisibility.map(({ g, subIds, visibleSubIds }) => {
+                                      if (searchQuery && visibleSubIds.length === 0) return null;
+                                      if (subIds.length === 0) {
+                                        return (
+                                          <div key={g} className="qe-tree-empty">
+                                            {g} — not yet added
+                                          </div>
+                                        );
+                                      }
+                                      return (
+                                        <div key={g}>
+                                          <div className="qe-tree-group">{g}</div>
+                                          {visibleSubIds.map((id) => {
+                                            const isTicked = selected.includes(id);
+                                            const topicCount = selected.filter((x) => x === id).length;
+                                            return (
+                                              <label key={id} className={cx("qe-topic", locked && "is-locked")}>
+                                                <input type="checkbox" checked={isTicked} onChange={() => toggleSubtopic(id)} disabled={locked} />
+                                                <span className="qe-topic-name">
+                                                  {SUBTOPIC_BANK[id].title} <span className="qe-marks">[{SUBTOPIC_BANK[id].marks}m]</span>
+                                                </span>
+                                                {(lengthMode === "custom" || lengthMode === "weekly") && isTicked && (
+                                                  // How many copies of this one topic to include — lets a
+                                                  // teacher ask for "3 of these" instead of one tick always
+                                                  // meaning one question. preventDefault on each button stops
+                                                  // the browser's native "click inside a <label> toggles its
+                                                  // checkbox" behaviour from also firing here.
+                                                  <span className="qe-stepper" title="How many of this question to include">
+                                                    <button
+                                                      type="button"
+                                                      className="qe-step"
+                                                      disabled={locked || topicCount <= 1}
+                                                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); setTopicCount(id, topicCount - 1); }}
+                                                      title="One fewer of this question"
+                                                      aria-label="One fewer"
+                                                    >
+                                                      −
+                                                    </button>
+                                                    <span className="qe-step-n">{topicCount}</span>
+                                                    <button
+                                                      type="button"
+                                                      className="qe-step"
+                                                      disabled={locked || (lengthMode === "weekly" && selected.length >= quizLength)}
+                                                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); setTopicCount(id, topicCount + 1); }}
+                                                      title={lengthMode === "weekly" && selected.length >= quizLength ? `Weekly Quiz is capped at ${quizLength} questions` : "One more of this question"}
+                                                      aria-label="One more"
+                                                    >
+                                                      +
+                                                    </button>
+                                                  </span>
+                                                )}
+                                              </label>
+                                            );
+                                          })}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+
+            <section className="qe-card">
+              <div className="qe-card-head">
+                <h3>Versions &amp; export</h3>
+              </div>
+              <div className="qe-seg">
+                {versions.map((v) => (
+                  <button key={v.id} onClick={() => setActiveVersion(v.id)} className={btnCls({ active: v.id === activeVersion })} aria-pressed={v.id === activeVersion}>
+                    {VERSION_LABELS[v.id] || v.id}
+                  </button>
+                ))}
+              </div>
+              <div className="qe-stack" style={{ marginTop: 10 }}>
+                <button onClick={regenerate} disabled={locked} className={btnCls({ block: true })} title={locked ? "Unlock the quiz first to generate new numbers" : "Reroll every question with fresh numbers"}>↻ New numbers</button>
+                <button onClick={() => setShowAnswers((s) => !s)} className={btnCls({ active: showAnswers, tone: "ok", block: true })}>
+                  {showAnswers ? "Hide mark scheme" : "Show mark scheme"}
+                </button>
+                <button
+                  onClick={() => window.print()}
+                  disabled={printBlocked}
+                  className={btnCls({ primary: true, block: true })}
+                  title={printBlockedTip}
+                >
+                  🖨 Print quiz
+                </button>
+                <button
+                  onClick={() => setSavingAllVersionsPdf(true)}
+                  disabled={printBlocked || savingAllVersionsPdf}
+                  className={btnCls({ block: true })}
+                  title={
+                    printBlocked
+                      ? `Pick ${quizLength - selected.length} more question${quizLength - selected.length === 1 ? "" : "s"} before saving (${selected.length}/${quizLength})`
+                      : "Opens the print dialog with all 3 versions together — Version 1 with no mark scheme, Version 2 with the mark scheme, Version 3 with no mark scheme. Choose \"Save as PDF\" as the destination."
+                  }
+                >
+                  {savingAllVersionsPdf ? "Preparing…" : "💾 Save all versions as PDF"}
+                </button>
+              </div>
+              <div className="qe-note" style={{ marginTop: 10 }}>
+                Printing leaves out this panel. Versions 1–3 use the same skills in the same order with fresh numbers, handy for different classes or retests. Drag a question's ⠿ handle to reorder it. "Save all versions as PDF" bundles all three into one file — Version 1 and 3 without the mark scheme, Version 2 with it — via your browser's print dialog.
+              </div>
+            </section>
+
+            <section className="qe-card">
+              <div className="qe-card-head">
+                <h3>Quiz code</h3>
+                <div className="qe-note">Reopen this exact quiz later, or share it.</div>
+              </div>
+              <div className="qe-row" style={{ flexWrap: "nowrap" }}>
+                <input readOnly value={currentCode} aria-label="Quiz code" className="qe-field mono" onFocus={(e) => e.target.select()} />
+                <button onClick={() => copyText(currentCode, "Code copied")} className={btnCls()}>Copy</button>
+              </div>
+              <div className="qe-row" style={{ marginTop: 8 }}>
+                <button onClick={() => copyText(currentLink, "Link copied")} className={btnCls({ sm: true })}>Copy shareable link</button>
+                {copyFlash && <span className="qe-ok-text" style={{ fontSize: ".78rem" }}>{copyFlash}</span>}
+              </div>
+              <div className="qe-row" style={{ marginTop: 12, flexWrap: "nowrap" }}>
+                <input
+                  className="qe-field mono"
+                  value={codeInput}
+                  onChange={(e) => { setCodeInput(e.target.value); setCodeMessage(""); }}
+                  placeholder="Paste a quiz code…"
+                  aria-label="Paste a quiz code"
+                />
+                <button onClick={loadCode} className={btnCls()}>Load</button>
+              </div>
+              {codeMessage && <div className={codeMessage === "Quiz loaded." ? "qe-ok-text" : "qe-danger-text"} style={{ fontSize: ".78rem", marginTop: 6 }}>{codeMessage}</div>}
+              <div className="qe-note" style={{ marginTop: 8 }}>
+                The code holds the whole quiz, so it works anywhere with no login.
+              </div>
+            </section>
+          </div>
+        </aside>
+
+        <main className="qe-canvas">
           {savingAllVersionsPdf
             ? versions.map((v, vi) => renderVersionPages(v, [false, true, false][vi], false))
             : renderVersionPages(active, showAnswers, true)}
-        </div>
+        </main>
 
       </div>
       </>
@@ -8629,31 +8602,249 @@ export default function QuizEngine() {
   );
 }
 
-function darkPill(active) {
-  return {
-    padding: "6px 14px",
-    borderRadius: 999,
-    border: active ? "1.5px solid #fff" : "1.5px solid #666",
-    background: active ? "#fff" : "transparent",
-    color: active ? "#2b2b2b" : "#ddd",
-    fontSize: 12.5,
-    fontWeight: 600,
-    cursor: "pointer",
-  };
+// ---------- Visual design system ----------
+// One stylesheet, tokens defined once on :root (light by default, a dark set
+// under prefers-color-scheme plus a manual [data-theme] override). Tokens and
+// type match the "Teacher dashboard" artifact: Bricolage Grotesque for
+// headings, Atkinson Hyperlegible for body text, a teal accent, white panels
+// with a 1px border and 12px radius.
+//
+// The printed/preview PAPER deliberately uses its own --paper-* tokens that do
+// NOT flip in dark mode: a quiz sheet is white paper with dark ink whatever
+// theme the builder around it is in, and the print block below also pins every
+// token to its light value so nothing can print pale-on-white.
+const QE_STYLES = `
+@import url("https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&display=swap");
+
+:root{
+  --bg:#EDF0F4; --panel:#FFFFFF; --panel-2:#F6F8FA; --ink:#17202D; --muted:#586377; --line:#D5DBE4;
+  --accent:#1E6F6D; --accent-ink:#FFFFFF; --accent-soft:#DDEFEE;
+  --danger:#B23A2F; --danger-soft:#F8E4E1; --ok:#2F7D4F; --ok-soft:#E3F1E8; --warn:#A8650F; --warn-soft:#FBEBD0;
+  --tag-neg:#C2493D; --tag-fdp:#3A6DB5; --tag-3:#7A4FB5;
+  --display:"Bricolage Grotesque","Segoe UI",system-ui,sans-serif;
+  --body:"Atkinson Hyperlegible","Segoe UI",system-ui,-apple-system,sans-serif;
+  --paper:#FFFFFF; --paper-ink:#17202D; --paper-muted:#586377; --paper-line:#9AA3AF; --paper-rule:#17202D; --paper-faint:#D5DBE4;
+  --paper-hl:#DDEFEE; --paper-accent:#1E6F6D; --paper-ok:#2F5B41; --paper-ok-bg:#EEF5F0; --paper-ok-line:#B9D3C2;
+  --paper-danger:#B23A2F; --paper-danger-bg:#FBEDEB; --paper-tool-bg:#F6F8FA;
+  color-scheme:light;
 }
-// Small +/- buttons for the per-topic question count in Custom mode (see the
-// subtopic checkbox list).
-function stepperBtnStyle(disabled) {
-  return {
-    border: "1px solid #666",
-    background: disabled ? "#2f2f2f" : "#3a3a3a",
-    color: disabled ? "#777" : "#ddd",
-    borderRadius: 3,
-    fontSize: 11,
-    width: 16,
-    height: 16,
-    lineHeight: "14px",
-    padding: 0,
-    cursor: disabled ? "not-allowed" : "pointer",
-  };
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#11161E; --panel:#1A212C; --panel-2:#202834; --ink:#E7EBF1; --muted:#9AA5B6; --line:#2C3644;
+  --accent:#43A9A4; --accent-ink:#0B1A1A; --accent-soft:#1D3534;
+  --danger:#E0685C; --danger-soft:#3A211E; --ok:#6BC48A; --ok-soft:#1B2E23; --warn:#E0A83A; --warn-soft:#2C2818;
+  --tag-neg:#E0685C; --tag-fdp:#6D9BE0; --tag-3:#A585DB;
+  color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+  --bg:#11161E; --panel:#1A212C; --panel-2:#202834; --ink:#E7EBF1; --muted:#9AA5B6; --line:#2C3644;
+  --accent:#43A9A4; --accent-ink:#0B1A1A; --accent-soft:#1D3534;
+  --danger:#E0685C; --danger-soft:#3A211E; --ok:#6BC48A; --ok-soft:#1B2E23; --warn:#E0A83A; --warn-soft:#2C2818;
+  --tag-neg:#E0685C; --tag-fdp:#6D9BE0; --tag-3:#A585DB;
+  color-scheme:dark;
 }
+
+html,body{background:var(--bg)}
+.qe-app{font-family:var(--body);background:var(--bg);color:var(--ink);font-size:15px;line-height:1.45;min-height:100vh;padding:20px clamp(12px,3vw,28px) 40px;-webkit-font-smoothing:antialiased}
+.qe-app *,.qe-app *::before,.qe-app *::after{box-sizing:border-box}
+.qe-app button,.qe-app input,.qe-app select{font:inherit}
+.qe-app :focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.qe-app h1,.qe-app h2,.qe-app h3{margin:0}
+
+/* Layout: builder sidebar + quiz canvas */
+.qe-layout{max-width:1500px;margin:0 auto;display:grid;grid-template-columns:minmax(300px,380px) minmax(0,1fr);gap:20px;align-items:start}
+.qe-side{display:grid;gap:12px}
+.qe-side-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;padding:2px 2px 4px}
+.qe-title{font:800 1.35rem/1.1 var(--display);letter-spacing:-0.02em}
+.qe-sub{margin:4px 0 0;color:var(--muted);font-size:.85rem}
+.qe-cards{display:grid;gap:12px}
+.qe-card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px;min-width:0}
+.qe-card-head{margin-bottom:8px}
+.qe-card h3{font:700 1rem/1.3 var(--display)}
+.qe-note{color:var(--muted);font-size:.8rem;line-height:1.4}
+.qe-label{display:block;font-size:.78rem;font-weight:700;color:var(--muted);margin:12px 0 5px}
+.qe-card-head + .qe-label,.qe-card .qe-label:first-child{margin-top:0}
+.qe-canvas{min-width:0;overflow-x:auto;padding:2px 2px 8px}
+.qe-app .qe-btn.qe-narrow-only{display:none}
+
+/* Controls */
+.qe-btn{border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:7px 12px;border-radius:8px;font-weight:700;font-size:.85rem;cursor:pointer;line-height:1.25}
+.qe-btn:hover:not(:disabled){background:var(--panel-2);border-color:color-mix(in srgb,var(--accent) 45%,var(--line))}
+.qe-btn:disabled{opacity:.5;cursor:not-allowed}
+.qe-btn.is-active{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.qe-btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.qe-btn.primary:hover:not(:disabled){background:var(--accent);filter:brightness(1.08)}
+.qe-btn.tone-ok{color:var(--ok);border-color:color-mix(in srgb,var(--ok) 50%,var(--line))}
+.qe-btn.tone-ok.is-active{background:var(--ok);border-color:var(--ok);color:var(--panel)}
+.qe-btn.tone-warn{color:var(--warn);border-color:color-mix(in srgb,var(--warn) 55%,var(--line))}
+.qe-btn.tone-warn.is-active{background:var(--warn);border-color:var(--warn);color:var(--panel)}
+.qe-btn.block{display:block;width:100%}
+.qe-btn.sm{padding:3px 9px;font-size:.75rem;border-radius:7px}
+.qe-seg{display:flex;gap:6px;flex-wrap:wrap}
+.qe-seg>.qe-btn{flex:1 1 auto}
+.qe-seg.tight{gap:4px}
+.qe-seg.tight>.qe-btn{flex:0 0 auto}
+.qe-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.qe-stack{display:grid;gap:8px}
+.qe-field{width:100%;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:8px;padding:7px 10px;font-size:.88rem}
+.qe-field:disabled{opacity:.55}
+.qe-field.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.78rem}
+.qe-field.qe-num{width:56px;padding:3px 6px;font-size:.8rem}
+.qe-ok-text{color:var(--ok);font-weight:700}
+.qe-danger-text{color:var(--danger);font-weight:700}
+
+/* Speed-check button family: one shape, a small colour tag tells them apart */
+.qe-speed{display:grid;gap:8px}
+.qe-speed-btn{display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:10px 12px;border:1px solid var(--line);background:var(--panel-2);color:var(--ink);border-radius:10px;cursor:pointer}
+.qe-speed-btn:hover{border-color:var(--tag);background:var(--panel)}
+.qe-speed-dot{flex:none;width:12px;height:12px;border-radius:50%;background:var(--tag)}
+.qe-speed-btn strong{display:block;font:700 .92rem/1.25 var(--display)}
+.qe-speed-btn small{display:block;color:var(--muted);font-size:.76rem;margin-top:1px}
+
+/* Topic picker */
+.qe-tree{max-height:380px;overflow-y:auto;margin-top:10px;padding-right:4px}
+.qe-tree-row{display:flex;align-items:center;gap:6px;width:100%;text-align:left;background:none;border:0;color:inherit;cursor:pointer;padding:5px 2px}
+.qe-tree-strand{font:700 .9rem/1.3 var(--display);color:var(--accent);border-bottom:1px solid var(--line);margin-top:6px}
+.qe-tree-domain{font-weight:700;font-size:.84rem;color:var(--ink)}
+.qe-tree-caret{width:1em;flex:none;color:var(--muted)}
+.qe-tree-body{padding:2px 0 4px 12px}
+.qe-tree-group{font-weight:700;font-size:.8rem;color:var(--muted);margin:6px 0 1px}
+.qe-tree-empty{font-size:.8rem;color:var(--muted);font-style:italic;padding:2px 0}
+.qe-topic{display:flex;align-items:center;gap:8px;font-size:.86rem;padding:3px 0 3px 4px;cursor:pointer;border-radius:6px}
+.qe-topic:hover{background:var(--panel-2)}
+.qe-topic input{width:16px;height:16px;accent-color:var(--accent);flex:none}
+.qe-topic.is-locked{cursor:not-allowed;opacity:.55}
+.qe-topic-name{flex:1;min-width:0}
+.qe-marks{color:var(--muted);font-size:.72rem;margin-left:4px;white-space:nowrap}
+.qe-stepper{display:inline-flex;align-items:center;gap:4px;margin-left:6px}
+.qe-step{width:24px;height:24px;border:1px solid var(--line);background:var(--panel-2);color:var(--ink);border-radius:7px;font-weight:700;line-height:1;padding:0;cursor:pointer}
+.qe-step:disabled{opacity:.4;cursor:not-allowed}
+.qe-step-n{min-width:16px;text-align:center;font-variant-numeric:tabular-nums;font-weight:700}
+
+/* Timer */
+.qe-timer-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.qe-timer{font:700 .95rem var(--body);font-variant-numeric:tabular-nums;min-width:56px;text-align:center;color:var(--ink);background:var(--panel);border:2px solid var(--line);border-radius:8px;padding:1px 8px}
+.qe-timer.big{font-size:2.5rem;min-width:116px;padding:2px 14px}
+.qe-timer.up{color:var(--danger);border-color:var(--danger);background:var(--danger-soft)}
+.qe-custom-time{display:flex;align-items:center;gap:4px;color:var(--muted)}
+
+/* Full-screen projection views and the speed-check page toolbar */
+.qe-full{position:fixed;inset:0;z-index:1000;background:var(--bg);color:var(--ink);display:flex;flex-direction:column;padding:16px 24px;overflow:auto}
+.qe-full-head{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:12px;flex-shrink:0}
+.qe-full-title{font:700 1rem var(--display)}
+.qe-sheetwrap{max-width:900px;margin:0 auto}
+.qe-toolbar{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px}
+
+/* The paper: A4 sheet preview. Fixed light tokens, never themed. */
+.qe-paper{background:var(--paper);color:var(--paper-ink);font-family:var(--body);border:1px solid var(--paper-line);box-shadow:0 1px 3px rgba(0,0,0,.18);margin:0 auto 16px;display:flex;flex-direction:column;box-sizing:border-box}
+.qe-paper.quiz-page{width:min(210mm,100%);min-width:560px;min-height:267mm;padding:26px 30px 30px}
+.qe-paper.sheet{width:210mm;height:267mm;padding:22px 28px 26px}
+.qe-ver-pill{font:800 .8rem var(--display);letter-spacing:.04em;text-transform:uppercase;color:var(--paper);background:var(--paper-ink);padding:5px 14px;border-radius:5px}
+.qe-mini{border:1px solid var(--paper-line);background:var(--paper-tool-bg);color:var(--paper-muted);border-radius:5px;font-size:10px;padding:0 5px;cursor:pointer}
+.qe-mini.danger{border-color:var(--paper-danger);background:var(--paper-danger-bg);color:var(--paper-danger)}
+.qe-mini:disabled{opacity:.4;cursor:not-allowed}
+.qe-ms{background:var(--paper-ok-bg);border:1px solid var(--paper-ok-line);border-radius:3px;padding:4px 7px;font-size:10.5px;margin-top:4px;overflow:auto}
+.qe-ms strong{color:var(--paper-ok)}
+
+/* Below ~1100px: stack the builder above the quiz and let the cards flow in columns */
+@media (max-width:1100px){
+  .qe-layout{grid-template-columns:minmax(0,1fr)}
+  .qe-cards{grid-template-columns:repeat(auto-fit,minmax(300px,1fr));align-items:start}
+  .qe-card.wide{grid-column:1 / -1}
+  .qe-app .qe-btn.qe-narrow-only{display:block}
+  .qe-side.is-collapsed .qe-cards{display:none}
+  .qe-tree{max-height:320px}
+  .qe-full{padding:12px 14px}
+}
+@media (max-width:560px){
+  .qe-cards{grid-template-columns:minmax(0,1fr)}
+}
+
+@page { size: A4; margin: 12mm; }
+@media print {
+  :root,:root[data-theme="dark"]{
+    color-scheme:light;
+    --bg:#FFFFFF !important; --panel:#FFFFFF !important; --panel-2:#F6F8FA !important; --ink:#17202D !important;
+    --muted:#586377 !important; --line:#D5DBE4 !important; --ok:#2F7D4F !important; --danger:#B23A2F !important;
+    --accent:#1E6F6D !important;
+  }
+  html,body{background:#fff !important}
+  body { background: #fff !important; }
+  .app-shell { background: #fff !important; padding: 0 !important; min-height: 0 !important; }
+  .no-print { display: none !important; }
+  .quiz-grid { display: block !important; max-width: none !important; }
+  .qe-canvas { overflow: visible !important; padding: 0 !important; }
+  .quiz-page {
+    width: auto !important;
+    min-width: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+    margin: 0 !important;
+    page-break-after: always;
+  }
+  .quiz-page:last-of-type { page-break-after: auto; }
+  .quiz-question { break-inside: avoid; page-break-inside: avoid; }
+  .donow-fullscreen {
+    position: static !important;
+    width: auto !important;
+    height: auto !important;
+    padding: 0 !important;
+    background: #fff !important;
+    overflow: visible !important;
+  }
+  .donow-grid {
+    height: auto !important;
+    page-break-inside: avoid;
+  }
+  .donow-cell {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  .speed-check-row {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  .speedcheck-fullscreen {
+    position: static !important;
+    width: auto !important;
+    height: auto !important;
+    padding: 0 !important;
+    background: #fff !important;
+    overflow: visible !important;
+  }
+  .speedcheck-fullscreen-grid {
+    height: auto !important;
+    page-break-inside: avoid;
+  }
+  .speedcheck-fullscreen-cell {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+}
+`;
+
+// Joins truthy class names.
+const cx = (...parts) => parts.filter(Boolean).join(" ");
+// Class names for a button: active = selected/on, tone = ok | warn colour
+// family, primary = filled accent, block/sm = sizing. One place so every
+// button in the builder reads as part of the same family.
+const btnCls = ({ active, tone, primary, block, sm } = {}) =>
+  cx("qe-btn", active && "is-active", tone && `tone-${tone}`, primary && "primary", block && "block", sm && "sm");
+
+// The fixed-format fluency sheets in the sidebar. Each one gets the same
+// button; only its small colour tag differs, so adding a third is one row.
+const SPEED_CHECKS = [
+  {
+    kind: "neg",
+    title: "Negative Numbers",
+    blurb: "24 questions · about 3 minutes",
+    tag: "var(--tag-neg)",
+    tip: "A fixed 24-question mental-maths sheet covering all 23 negative-number variations, two columns on one A4 page",
+  },
+  {
+    kind: "fdp",
+    title: "Fractions, Decimals & Percentages",
+    blurb: "24 questions · about 3 minutes",
+    tag: "var(--tag-fdp)",
+    tip: "A fixed 24-question mental-maths sheet converting between fractions, decimals and percentages, including thirds, two columns on one A4 page",
+  },
+];
