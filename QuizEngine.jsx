@@ -7137,10 +7137,10 @@ function buildNegativeSpeedCheck(rng) {
 // ---------- FDP Speed Check ----------
 // Same fixed 24-question, ~3-minute mental format as the Negative Numbers
 // sheet, but converting between fractions, decimals and percentages. The
-// pool is the common GCSE equivalents (no eighths) plus the thirds (1/3, 2/3
-// and the improper 4/3), whose recurring decimals / non-integer percentages
-// are the ones students get stuck on — all three thirds are always on the sheet
-// (each in a random conversion direction), with the rest drawn from the
+// pool is the common GCSE equivalents (no eighths) plus the thirds (1/3 and
+// 2/3), whose recurring decimals are the ones students get stuck on — both
+// thirds are always on the sheet, only ever as fraction <-> decimal (never a
+// percentage), with the rest drawn from the
 // other common equivalents. Every one of the six conversion directions
 // appears four times, and no value is asked for the same answer twice (e.g.
 // 1/4 → % and 0.25 → % are never both on one sheet).
@@ -7171,9 +7171,8 @@ const FDP_TRIPLES = [
   { n: 3, d: 20, dec: "0.15", pct: "15%" },
   { n: 5, d: 4, dec: "1.25", pct: "125%" },
   { n: 3, d: 2, dec: "1.5", pct: "150%" },
-  { n: 1, d: 3, dec: "0.333...", pct: "33⅓%", third: true },
-  { n: 2, d: 3, dec: "0.666...", pct: "66⅔%", third: true },
-  { n: 4, d: 3, dec: null, pct: "133⅓%", third: true },
+  { n: 1, d: 3, dec: "0.333...", third: true },
+  { n: 2, d: 3, dec: "0.666...", third: true },
 ];
 function buildFdpSpeedCheck(rng) {
   const DIRS = ["f-d", "f-p", "d-f", "d-p", "p-f", "p-d"];
@@ -7188,15 +7187,9 @@ function buildFdpSpeedCheck(rng) {
   const dirs = shuffle(DIRS.flatMap((d) => [d, d, d, d])); // 24 slots, 4 of each direction
   const thirdIdx = FDP_TRIPLES.map((t, i) => (t.third ? i : -1)).filter((i) => i >= 0);
   const otherIdx = FDP_TRIPLES.map((t, i) => (t.third ? -1 : i)).filter((i) => i >= 0);
-  // 4/3 has no decimal form on the sheet (only 1/3 and 2/3 are used as
-  // recurring decimals), so it is only placed in fraction <-> % questions.
-  const isDecDir = (dir) => dir.includes("d");
-  const thirdSlots = [];
-  const slotOrder = shuffle(dirs.map((_, i) => i));
-  thirdIdx.forEach((ti) => {
-    const k = slotOrder.findIndex((slot) => !thirdSlots.includes(slot) && (FDP_TRIPLES[ti].dec !== null || !isDecDir(dirs[slot])));
-    thirdSlots.push(slotOrder[k]);
-  });
+  // Recurring decimals (1/3 and 2/3) are only ever asked as fraction <->
+  // decimal, never as a percentage, so they only go in f-d / d-f slots.
+  const thirdSlots = shuffle(dirs.map((_, i) => i).filter((i) => dirs[i] === "f-d" || dirs[i] === "d-f")).slice(0, thirdIdx.length);
   const slotTriple = new Array(dirs.length).fill(-1);
   const targetOf = (dir) => dir.split("-")[1]; // the form being asked for: d, p or f
   const used = new Set();
@@ -7230,6 +7223,38 @@ function buildFdpSpeedCheck(rng) {
     if (dir === "d-p") return { expr: t.dec, target: "%", answer: t.pct };
     if (dir === "p-f") return { expr: t.pct, target: "fraction", answer: fracEl };
     return { expr: t.pct, target: "decimal", answer: t.dec };
+  });
+}
+
+// Times-table practice: the same fixed 24-question, ~3-minute mental format.
+// Every table from 2 to 12 appears at least once; 14 multiplication facts and
+// 10 matching division facts (always exact, quotient 2-12), no fact repeated.
+function buildTimesTablesSpeedCheck(rng) {
+  const shuffle = (arr) => {
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  };
+  const seen = new Set();
+  const facts = [];
+  const add = (a, b) => {
+    const key = `${Math.min(a, b)}x${Math.max(a, b)}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    facts.push([a, b]);
+    return true;
+  };
+  for (let t = 2; t <= 12; t++) {
+    for (let tries = 0; tries < 60; tries++) if (add(t, seededInt(rng, 2, 12))) break;
+  }
+  while (facts.length < 24) add(seededInt(rng, 2, 12), seededInt(rng, 2, 12));
+  const ops = shuffle([...Array(14).fill("x"), ...Array(10).fill("d")]);
+  return shuffle(facts).map(([a, b], i) => {
+    const [p, q] = rng() < 0.5 ? [a, b] : [b, a];
+    return ops[i] === "x" ? { expr: `${p} × ${q}`, answer: p * q } : { expr: `${p * q} ÷ ${p}`, answer: q };
   });
 }
 
@@ -7340,13 +7365,18 @@ export default function QuizEngine() {
   // full-screen layout — only the questions, title and blurb differ.
   const [speedCheckKind, setSpeedCheckKind] = useState("neg");
   const speedCheckQuestions = useMemo(
-    () => (speedCheckKind === "fdp" ? buildFdpSpeedCheck : buildNegativeSpeedCheck)(mulberry32((speedCheckSalt * 104729 + 7) >>> 0)),
+    () => (speedCheckKind === "fdp" ? buildFdpSpeedCheck : speedCheckKind === "times" ? buildTimesTablesSpeedCheck : buildNegativeSpeedCheck)(mulberry32((speedCheckSalt * 104729 + 7) >>> 0)),
     [speedCheckSalt, speedCheckKind]
   );
-  const speedCheckInfo = speedCheckKind === "fdp"
+  const speedCheckInfo = speedCheckKind === "times"
+    ? {
+        title: "Times Tables Speed Check",
+        description: "A 24-question Times Tables Speed Check: multiplication facts and the matching division facts from the 2 to 12 tables, with every table included. All answers are recalled from memory and suitable for ~3 minutes.",
+      }
+    : speedCheckKind === "fdp"
     ? {
         title: "FDP Speed Check",
-        description: "A 24-question FDP Speed Check: convert between fractions, decimals and percentages. It uses the common equivalents, and always includes the thirds (⅓ and ⅔ as recurring decimals, and 4/3 as a percentage). All conversions are mental and suitable for ~3 minutes.",
+        description: "A 24-question FDP Speed Check: convert between fractions, decimals and percentages. It uses the common equivalents, and always includes ⅓ and ⅔ as recurring decimals (fraction ↔ decimal only). All conversions are mental and suitable for ~3 minutes.",
       }
     : {
         title: "Negative Numbers Speed Check",
@@ -8835,6 +8865,13 @@ const SPEED_CHECKS = [
     title: "Fractions, Decimals & Percentages",
     blurb: "24 questions · about 3 minutes",
     tag: "var(--tag-fdp)",
-    tip: "A fixed 24-question mental-maths sheet converting between fractions, decimals and percentages, including thirds, two columns on one A4 page",
+    tip: "A fixed 24-question mental-maths sheet converting between fractions, decimals and percentages, including the recurring thirds, two columns on one A4 page",
+  },
+  {
+    kind: "times",
+    title: "Times Tables",
+    blurb: "24 questions · about 3 minutes",
+    tag: "var(--tag-3)",
+    tip: "A fixed 24-question recall sheet of multiplication and division facts from the 2 to 12 tables, two columns on one A4 page",
   },
 ];
