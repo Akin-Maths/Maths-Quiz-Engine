@@ -4658,10 +4658,406 @@ const FOUNDATION_WEEKS = {
   ],
 };
 
+/* ---- Year 10 (2026/27) schemes of work, from "Year 10 Timelines 26-27.xlsx".
+   Same shape as the Year 11 tables above: one entry per teaching week, listing
+   the subtopics that week's lessons cover. A week is only listed if at least
+   one of its lessons has matching question types in the bank (quiz/review,
+   assessment, revision and INSET lessons carry no questions). Weeks pick up to
+   six subtopics, taking one from each lesson in turn so every lesson is
+   represented; the teacher can still tick/untick topics after choosing a week. ---- */
+
+const Y10_SET1_WEEKS = {
+  "HT1 · Week 1 (07/09/26) — Recurring Decimals, Surds": [
+    "frac-recurring-to-fraction", "surds-simplify", "surds-add-subtract", "surds-multiply-expand", "fdp-recurring-partial-nonrecurring",
+  ],
+  "HT1 · Week 2 (14/09/26) — Surds, Indices": [
+    "surds-basic-rationalising", "surds-rationalising-harder", "indices-negative", "indices-fractional", "indices-negative-fractional-base", "indices-non-unit-fractional",
+  ],
+  "HT1 · Week 3 (21/09/26) — Indices, Product Rule for Counting, Bounds & Error Intervals": [
+    "indices-negative-fractional-base", "product-rule-counting", "round-error-interval", "indices-combined-negative-fractional",
+  ],
+  "HT1 · Week 4 (28/09/26) — Bounds & Error Intervals": [
+    "bounds-intro", "bounds-multiply", "bounds-accuracy",
+  ],
+  "HT1 · Week 5 (05/10/26) — Expanding Brackets, Factorising": [
+    "eb-double-pos", "eb-double-neg", "fac-grouping", "eb-double-mixed", "eb-squared", "expanding-triple-brackets",
+  ],
+  "HT1 · Week 6 (12/10/26) — Factorising, Solving Quadratics by Factorising": [
+    "fac-quadratic", "fac-quadratic-agt1", "fac-common-then-simplify", "solve-quadratic-factorise", "fac-monic-neg", "fac-nonmonic-neg",
+  ],
+  "HT1 · Week 7 (19/10/26) — Linear Equations, Rearranging Equations": [
+    "solve-equation-both-sides-brackets", "changing-subject-expand", "solve-equation-fractions", "rearrange-square-root", "solve-equation-negative-coefficient",
+  ],
+  "HT2 · Week 1 (09/11/26) — Rearranging Equations, Sequences": [
+    "changing-subject-factorise", "find-nth-term-linear", "quadratic-sequences", "rearrange-square-root", "generate-terms-from-nth-term", "rearrange-square",
+  ],
+  "HT2 · Week 2 (16/11/26) — Solving Quadratics by Factorising": [
+    "solve-quadratic-factorise", "solve-quadratic-factorise-agt1", "solve-quadratic-rearrange",
+  ],
+  "HT2 · Week 3 (23/11/26) — Quadratics": [
+    "completing-the-square", "solve-completing-square", "solve-quadratic-formula", "solve-quadratic-word-problem", "completing-the-square-odd-b", "completing-square-non-monic",
+  ],
+  "HT2 · Week 4 (30/11/26) — Quadratics, Transformations": [
+    "solve-quadratic-word-problem", "transform-translate-shape", "transform-reflect-shape", "solve-quadratic-formula",
+  ],
+  "HT2 · Week 5 (07/12/26) — Transformations": [
+    "transform-rotate-shape", "transform-enlarge-shape",
+  ],
+  "HT3 · Week 1 (04/01/27) — Transformations": [
+    "transform-enlarge-shape",
+  ],
+  "HT3 · Week 2 (11/01/27) — Coordinate Geometry": [
+    "plot-nonlinear-graph", "cubic-graph-features", "equation-from-gradient-and-point", "plot-cubic-graph", "reciprocal-graph-features", "x-and-y-intercepts-from-equation",
+  ],
+  "HT3 · Week 3 (18/01/27) — Coordinate Geometry": [
+    "linear-graph-parallel", "sketch-quadratic-a1", "turning-point-from-completed-square", "plot-cubic-graph", "linear-graph-perpendicular", "sketch-quadratic-agt1",
+  ],
+  "HT3 · Week 4 (25/01/27) — Coordinate Geometry, Quadratic Simultaneous Equations": [
+    "circle-eq-radius-from-eq", "exponential-graph-features", "simultaneous-linear-scaling", "circle-eq-write-given-radius", "simultaneous-equations-word-problem",
+  ],
+  "HT3 · Week 5 (01/02/27) — Quadratic Simultaneous Equations, Surface Area & Volume": [
+    "quadratic-simultaneous", "plot-nonlinear-graph", "measures-convert-area-units", "volume-triangular-prism", "quadratic-simultaneous-circle", "volume-cuboid",
+  ],
+  "HT3 · Week 6 (08/02/27) — Surface Area & Volume": [
+    "volume-cuboid", "volume-cone", "volume-cylinder", "surface-area-cuboid", "surface-area-cylinder",
+  ],
+  "HT4 · Week 1 (22/02/27) — Direct & Inverse Proportion": [
+    "direct-proportion", "inverse-proportion",
+  ],
+  "HT4 · Week 2 (01/03/27) — Direct & Inverse Proportion, Probability": [
+    "applied-proportion-graph", "venn-independence-check", "tree-replacement", "mutually-exclusive-missing-probability",
+  ],
+  "HT4 · Week 3 (08/03/27) — Probability": [
+    "tree-no-replacement", "combinations-list-two-groups", "venn-complete", "combinations-choose-two", "venn-prob-set-notation", "product-rule-counting",
+  ],
+  "HT4 · Week 4 (15/03/27) — Similarity & Congruence": [
+    "similar-shapes-identify", "similar-shapes-find-length", "similar-shapes-area-scale", "similar-shapes-volume-scale",
+  ],
+  "HT4 · Week 5 (22/03/27) — Pythagoras & Trigonometry, Similarity & Congruence": [
+    "pythagoras-hypotenuse", "congruence-criteria", "pythagoras-shorter-side", "trig-find-side", "trig-find-angle",
+  ],
+  "HT5 · Week 1 (12/04/27) — Further Trigonometry": [
+    "trig-exact-values", "trig-elevation-depression", "sine-rule-side", "pythagoras-surd-answer", "sine-rule-angle",
+  ],
+  "HT5 · Week 2 (19/04/27) — Further Trigonometry": [
+    "area-rule", "sine-rule-side", "cosine-rule-side", "cosine-rule-angle",
+  ],
+  "HT5 · Week 3 (26/04/27) — Data": [
+    "averages-range-listed", "boxplot-range", "cf-table-complete", "boxplot-iqr", "mean-from-grouped-table", "cf-median-class",
+  ],
+  "HT5 · Week 4 (03/05/27) — Data": [
+    "histogram-freq-density", "histogram-read-bar", "histogram-total-frequency",
+  ],
+  "HT5 · Week 5 (10/05/27) — Gradient & Area Under a Graph": [
+    "estimate-gradient-tangent", "trapezium-rule-area", "distance-time-graph-read",
+  ],
+  "HT5 · Week 6 (17/05/27) — Circle Theorems": [
+    "circle-theorem-semicircle", "circle-theorem-cyclic-quadrilateral", "circle-theorem-alternate-segment", "circle-theorem-isosceles-radii", "circle-theorem-centre-circumference", "circle-theorem-same-segment",
+  ],
+  "HT5 · Week 7 (24/05/27) — Algebraic Fractions": [
+    "algebraic-fractions-simplify-basic", "algebraic-fractions-muldiv", "algebraic-fractions-addsub", "algebraic-fractions-simplify-factorise", "algebraic-fractions-divide", "algebraic-fractions-addsub-diffvars",
+  ],
+  "HT6 · Week 1 (07/06/27) — Algebraic Fractions, Functions": [
+    "algebraic-fractions-solve-equation", "functions-substitution-solving", "functions-substitute-expression", "solve-function-equation", "composite-functions",
+  ],
+  "HT6 · Week 2 (14/06/27) — Functions": [
+    "composite-functions", "inverse-functions", "solve-function-equation",
+  ],
+};
+
+const Y10_SET2_WEEKS = {
+  "HT1 · Week 1 (07/09/26) — Estimation, HCF/LCM listing, HCF/LCM Venn Diagram, Fraction - Multiply/Divide": [
+    "estimation-calculation", "fmp-hcf-lcm", "fmp-prime-factorisation", "frac-multiply-mixed", "round-significant-figures", "fmp-lcm",
+  ],
+  "HT1 · Week 2 (14/09/26) — Fraction - Add/Subtract, Two-Way Tables and Frequency Trees, Simplify, I:N Ratio": [
+    "frac-add-different-denom", "two-way-table-complete", "ratio-simplify", "frac-subtract-different-denom", "frequency-tree-complete", "frac-add-mixed-numbers",
+  ],
+  "HT1 · Week 3 (21/09/26) — Share Ratio - 3 types, Combine Ratio, Ratio - Fraction and Percentages, …": [
+    "ratio-share-amount", "ratio-combine-two", "ratio-to-fraction", "direct-proportion", "ratio-quantity-one-part-given", "ratio-to-percentage",
+  ],
+  "HT1 · Week 4 (28/09/26) — Exchange Rate, Inverse Proportion, Percentage - Non-calc": [
+    "conversion-graph-read", "inverse-proportion", "fdp-percent-to-decimal", "frac-of-amount",
+  ],
+  "HT1 · Week 5 (05/10/26) — Percentages - Calc, Reverse Percentage, Percentage Change, Simple Interest": [
+    "percent-of-amount", "percent-reverse", "percent-compound-increase", "percent-simple-interest", "percent-one-of-another", "percent-reverse-after-increase",
+  ],
+  "HT1 · Week 6 (12/10/26) — Compound Interest, Collect Like Terms": [
+    "percent-compound-increase", "collect-like-terms-multi",
+  ],
+  "HT1 · Week 7 (19/10/26) — Multiply/Divide and collect like terms, Expand, Factorise": [
+    "multiply-algebraic-terms", "eb-single-pos", "fac-common", "divide-algebraic-terms-basic", "eb-single-term-outside", "fac-quadratic",
+  ],
+  "HT2 · Week 1 (09/11/26) — Substitution, Multi-step equations, Equations with brackets, …": [
+    "substitution-one-variable", "solve-two-step-equation", "solve-equation-both-sides-brackets", "substitution-formula-negatives", "solve-equation-negative-coefficient",
+  ],
+  "HT2 · Week 2 (16/11/26) — Form and Solve, Equations - Quadratics, Sequences - Rules,Missing Terms, Patterns": [
+    "form-solve-perimeter-equation", "solve-quadratic-factorise", "generate-terms-from-nth-term", "form-equation-angles", "solve-quadratic-square-rooting", "arithmetic-sequence-nth-term-value",
+  ],
+  "HT2 · Week 3 (23/11/26) — Sequences - Non-linear and Patterns, Sequences - Nth term, Changing the subject, …": [
+    "quadratic-sequences", "find-nth-term-linear", "changing-subject-expand", "powers-laws-multiply", "generate-terms-from-nth-term", "rearrange-square-root",
+  ],
+  "HT2 · Week 4 (30/11/26) — Negative Indices, Standard Form Conversion, Standard Form - Multiply/Divide, …": [
+    "indices-negative", "sf-large-to-sf", "sf-multiply", "sf-add-subtract", "sf-small-to-sf", "sf-divide",
+  ],
+  "HT3 · Week 1 (04/01/27) — Averages and Range From List, Combined Mean, Averages from Discrete Data": [
+    "averages-range-listed", "averages-missing-value-given-mean", "ungrouped-frequency-table-mean",
+  ],
+  "HT3 · Week 2 (11/01/27) — Averages from Grouped Data, Scatter Graphs": [
+    "mean-from-grouped-table", "scatter-correlation-type", "line-of-best-fit-estimate", "grouped-table-modal-median-class",
+  ],
+  "HT3 · Week 3 (18/01/27) — Frequency Polygons, Pie Charts": [
+    "bar-chart-read-frequency", "pie-chart-angle-to-frequency",
+  ],
+  "HT3 · Week 4 (25/01/27) — Basic Angle Facts, Angles in Parallel Lines": [
+    "angles-on-a-line", "angles-triangle-sum", "angles-alternate", "angles-co-interior", "angles-about-a-point", "angles-isosceles-triangle",
+  ],
+  "HT3 · Week 5 (01/02/27) — Angles in Polygons, Bearings": [
+    "angles-interior-polygon-sum", "angles-exterior-regular-polygon", "bearings-find", "angles-missing-in-polygon", "angles-interior-regular-polygon", "angles-polygon-sides-from-angle",
+  ],
+  "HT3 · Week 6 (08/02/27) — Bearings, Pythag, Trig Side - Numerator": [
+    "bearings-back-bearing", "pythagoras-hypotenuse", "trig-find-side", "pythagoras-shorter-side",
+  ],
+  "HT4 · Week 1 (22/02/27) — Trig Side - Denominator, Trig Angles, Mixed Right Angles": [
+    "trig-find-side", "trig-find-angle", "pythagoras-hypotenuse",
+  ],
+  "HT4 · Week 2 (01/03/27) — Circumference, Area, Circle Problems": [
+    "circle-facts-circumference-area", "circle-facts-parts",
+  ],
+  "HT4 · Week 3 (08/03/27) — Area/Perimeter of 2D Shapes, Volume of Prisms, Surface Area": [
+    "area-rectangle-triangle", "volume-cuboid", "volume-triangular-prism", "surface-area-cuboid", "composite-rectilinear-area-perimeter", "volume-cylinder",
+  ],
+  "HT4 · Week 4 (15/03/27) — Spheres and Cones, Speed": [
+    "volume-sphere", "compound-measures-calc", "volume-cone", "surface-area-sphere",
+  ],
+  "HT4 · Week 5 (22/03/27) — Distance Time Graphs, Density, Pressure": [
+    "distance-time-graph-read", "compound-measures-calc",
+  ],
+  "HT5 · Week 1 (12/04/27) — Coordinates, midpoints, hor and vert lines, y=mx+c, Plotting Graphs, Equation of a line": [
+    "coordinates-identify-point", "x-and-y-intercepts-from-equation", "equation-from-gradient-and-point", "coordinates-midpoint-calc",
+  ],
+  "HT5 · Week 2 (19/04/27) — Equation from two points, Parallel Lines and Mixed Practice, Plotting Quadratic, …": [
+    "linear-graph-two-points", "linear-graph-parallel", "plot-nonlinear-graph", "conversion-graph-read", "parallel-or-perpendicular-classify", "distance-time-graph-read",
+  ],
+  "HT5 · Week 3 (26/04/27) — Basic Probability, Mutually Exclusive and Expected Outcomes, …": [
+    "probability-scale-words", "mutually-exclusive-missing-probability", "combinations-list-two-groups", "theoretical-probability-single", "expected-value-biased", "product-rule-counting",
+  ],
+  "HT5 · Week 4 (03/05/27) — Probability Tree, Venn Diagram, Set Notation": [
+    "tree-replacement", "venn-complete", "set-notation-list", "tree-no-replacement", "venn-prob-only", "set-notation-membership",
+  ],
+  "HT5 · Week 5 (10/05/27) — Translation, Reflection, Rotation": [
+    "transform-translate-shape", "transform-reflect-shape", "transform-rotate-shape",
+  ],
+  "HT5 · Week 6 (17/05/27) — Enlargement, Congruence and Similarity": [
+    "transform-enlarge-shape", "congruence-criteria", "similar-shapes-identify",
+  ],
+  "HT5 · Week 7 (24/05/27) — Similar Shapes, Column Vectors": [
+    "similar-shapes-find-length", "similar-shapes-area-scale", "vectors-column-arithmetic", "similar-shapes-volume-scale",
+  ],
+  "HT6 · Week 1 (07/06/27) — Vectors and 2D Shapes, Sim Equ": [
+    "vectors-negative-scalar-multiply", "simultaneous-linear-basic", "simultaneous-linear-scale-one", "vectors-equal-parallel",
+  ],
+  "HT6 · Week 2 (14/06/27) — Sim Equ": [
+    "simultaneous-linear-scaling", "simultaneous-equations-word-problem",
+  ],
+};
+
+const Y10_SET3_WEEKS = {
+  "HT1 · Week 1 (07/09/26) — Two-way tables": [
+    "two-way-table-complete", "ungrouped-freq-table-form",
+  ],
+  "HT1 · Week 2 (14/09/26) — Frequency trees, Rounding & estimation": [
+    "frequency-tree-complete", "round-decimal-places",
+  ],
+  "HT1 · Week 3 (21/09/26) — Rounding & estimation, Using a calculator": [
+    "round-significant-figures", "estimation-calculation", "round-error-interval", "calculator-fractions", "calculator-powers-roots", "calculator-nested-rounding",
+  ],
+  "HT1 · Week 4 (28/09/26) — Factors & multiples": [
+    "fmp-list-factors", "fmp-list-multiples",
+  ],
+  "HT1 · Week 5 (05/10/26) — Factors & multiples, Fractions": [
+    "number-properties-prime-or-composite", "fmp-prime-factorisation", "fmp-hcf-lcm", "frac-simplify", "fmp-lcm",
+  ],
+  "HT1 · Week 6 (12/10/26) — Fractions": [
+    "frac-compare-different-denom", "frac-add-same-denom", "frac-subtract-different-denom", "frac-add-mixed-numbers", "frac-improper-mixed-convert", "frac-add-different-denom",
+  ],
+  "HT1 · Week 7 (19/10/26) — Fractions, Ratio": [
+    "frac-divide-fraction-by-fraction", "ratio-simplify", "ratio-share-amount", "frac-of-amount",
+  ],
+  "HT2 · Week 1 (09/11/26) — Ratio": [
+    "ratio-total-parts", "ratio-quantity-one-part-given", "ratio-to-fraction", "fraction-to-ratio", "ratio-quantity-difference-given",
+  ],
+  "HT2 · Week 2 (16/11/26) — Ratio, Proportion": [
+    "ratio-combine-two", "ratio-to-percentage", "multiplicative-recipe-scaling", "direct-proportion", "percentage-to-ratio",
+  ],
+  "HT2 · Week 3 (23/11/26) — Proportion": [
+    "multiplicative-best-value", "conversion-graph-read", "inverse-proportion", "applied-proportion-graph",
+  ],
+  "HT2 · Week 4 (30/11/26) — Proportion, Percentages": [
+    "compound-measures-calc", "percent-of-amount", "percent-one-of-another", "percent-simple-interest",
+  ],
+  "HT2 · Week 5 (07/12/26) — Percentages": [
+    "percent-compound-increase", "percent-reverse", "percent-reverse-after-increase",
+  ],
+  "HT3 · Week 1 (04/01/27) — Algebra basics": [
+    "algebraic-notation-write", "collect-like-terms-multi",
+  ],
+  "HT3 · Week 2 (11/01/27) — Algebra basics": [
+    "multiply-algebraic-terms", "substitution-one-variable", "eb-single-pos", "eb-single-neg", "divide-algebraic-terms-basic", "fac-common",
+  ],
+  "HT3 · Week 3 (18/01/27) — Equations & changing the subject": [
+    "solve-two-step-equation", "solve-equation-negative-coefficient", "solve-equation-both-sides-brackets",
+  ],
+  "HT3 · Week 4 (25/01/27) — Equations & changing the subject": [
+    "form-equation-angles", "form-solve-perimeter-equation", "solve-equation-fractions", "changing-subject-expand",
+  ],
+  "HT3 · Week 5 (01/02/27) — Sequences": [
+    "generate-terms-from-nth-term", "arithmetic-sequence-nth-term-value",
+  ],
+  "HT3 · Week 6 (08/02/27) — Sequences, Quadratics": [
+    "find-nth-term-linear", "quadratic-sequences", "eb-double-pos",
+  ],
+  "HT4 · Week 1 (22/02/27) — Quadratics": [
+    "eb-double-mixed", "fac-quadratic", "fac-dots", "solve-quadratic-factorise",
+  ],
+  "HT4 · Week 2 (01/03/27) — Indices": [
+    "powers-laws-multiply", "indices-divide-same-base", "indices-power-of-power-numeric", "indices-negative",
+  ],
+  "HT4 · Week 3 (08/03/27) — Standard form": [
+    "sf-large-to-sf", "sf-small-to-sf", "sf-small-to-ordinary", "sf-multiply", "sf-compare-order",
+  ],
+  "HT4 · Week 4 (15/03/27) — Standard form, Averages": [
+    "sf-divide", "averages-range-listed", "averages-missing-value-given-mean", "sf-add-subtract",
+  ],
+  "HT4 · Week 5 (22/03/27) — Averages": [
+    "ungrouped-frequency-table-mean", "grouped-table-modal-median-class", "mean-from-grouped-table",
+  ],
+  "HT5 · Week 1 (12/04/27) — Representing data": [
+    "bar-chart-read-frequency", "pie-chart-angle-to-frequency", "scatter-correlation-type", "line-of-best-fit-estimate",
+  ],
+  "HT5 · Week 2 (19/04/27) — Representing data, Angles": [
+    "moving-average-calc", "ungrouped-freq-table-form", "angles-on-a-line", "angles-about-a-point",
+  ],
+  "HT5 · Week 3 (26/04/27) — Angles": [
+    "angles-vertically-opposite", "angles-isosceles-triangle", "angles-corresponding", "angles-interior-polygon-sum", "angles-triangle-sum", "angles-quadrilateral-sum",
+  ],
+  "HT5 · Week 4 (03/05/27) — Bearings & scales": [
+    "bearings-find", "bearings-back-bearing",
+  ],
+  "HT5 · Week 5 (10/05/27) — Bearings & scales, Pythagoras": [
+    "bearings-back-bearing", "pythagoras-hypotenuse", "pythagoras-shorter-side",
+  ],
+  "HT5 · Week 6 (17/05/27) — Pythagoras": [
+    "pythagoras-distance-between-points",
+  ],
+};
+
+const Y10_SET4_WEEKS = {
+  "HT1 · Week 1 (07/09/26) — Integers & place value": [
+    "place-value-digit-value", "number-properties-next-even-odd", "addsub-word-problem", "multiply-two-two-digit",
+  ],
+  "HT1 · Week 2 (14/09/26) — Integers & place value": [
+    "divide-with-remainder-decimal", "bidmas-two-operations", "neg-order", "neg-difference",
+  ],
+  "HT1 · Week 3 (21/09/26) — Integers & place value, Decimals": [
+    "neg-multiply", "neg-divide", "order-decimals",
+  ],
+  "HT1 · Week 4 (28/09/26) — Decimals": [
+    "decimal-add-different-dp", "decimal-subtract-different-dp", "decimal-multiply-by-integer",
+  ],
+  "HT1 · Week 5 (05/10/26) — Decimals, Indices, powers & roots": [
+    "decimal-multiply-decimal-by-decimal", "decimal-divide-by-decimal", "number-properties-square-or-cube", "decimal-divide-integer-by-decimal",
+  ],
+  "HT1 · Week 6 (12/10/26) — Indices, powers & roots": [
+    "powers-laws-multiply", "indices-divide-same-base", "indices-power-of-power-numeric", "bidmas-with-powers",
+  ],
+  "HT1 · Week 7 (19/10/26) — Indices, powers & roots, Factors, multiples & primes": [
+    "calculator-powers-roots", "fmp-list-factors", "fmp-list-multiples",
+  ],
+  "HT2 · Week 1 (09/11/26) — Factors, multiples & primes": [
+    "fmp-common-factors", "fmp-prime-factorisation", "fmp-hcf-lcm", "number-properties-prime-or-composite", "fmp-lcm",
+  ],
+  "HT2 · Week 2 (16/11/26) — Fractions": [
+    "frac-simplify", "frac-improper-mixed-convert", "frac-add-different-denom", "frac-add-mixed-numbers", "frac-compare-different-denom", "frac-add-same-denom",
+  ],
+  "HT2 · Week 3 (23/11/26) — Fractions, Fractions, decimals & percentages": [
+    "frac-divide-fraction-by-fraction", "fdp-percent-to-decimal", "frac-of-amount",
+  ],
+  "HT2 · Week 4 (30/11/26) — Fractions, decimals & percentages": [
+    "fdp-order-mixed", "fdp-fraction-to-recurring",
+  ],
+  "HT3 · Week 1 (04/01/27) — Percentages": [
+    "percent-of-amount", "percent-one-of-another",
+  ],
+  "HT3 · Week 2 (11/01/27) — Percentages": [
+    "percent-simple-interest", "percent-compound-increase", "percent-reverse", "percent-reverse-after-increase",
+  ],
+  "HT3 · Week 3 (18/01/27) — Ratio": [
+    "ratio-simplify", "ratio-total-parts", "ratio-quantity-difference-given", "fraction-to-ratio", "ratio-share-amount", "ratio-quantity-one-part-given",
+  ],
+  "HT3 · Week 4 (25/01/27) — Ratio, Proportion": [
+    "ratio-to-percentage", "multiplicative-recipe-scaling", "direct-proportion", "multiplicative-best-value", "percentage-to-ratio", "conversion-graph-read",
+  ],
+  "HT3 · Week 5 (01/02/27) — Proportion, Simple algebra": [
+    "inverse-proportion", "applied-proportion-graph", "algebraic-notation-write", "compound-measures-calc",
+  ],
+  "HT3 · Week 6 (08/02/27) — Simple algebra": [
+    "collect-like-terms-multi", "divide-algebraic-terms-basic", "substitution-one-variable", "eb-single-neg", "multiply-algebraic-terms", "eb-single-pos",
+  ],
+  "HT4 · Week 1 (22/02/27) — Substitution & equations": [
+    "substitution-one-variable", "substitution-formula-negatives", "solve-two-step-equation",
+  ],
+  "HT4 · Week 2 (01/03/27) — Substitution & equations, Sequences": [
+    "solve-equation-both-sides-brackets", "form-solve-perimeter-equation", "generate-terms-from-nth-term", "arithmetic-sequence-nth-term-value", "form-equation-angles",
+  ],
+  "HT4 · Week 3 (08/03/27) — Sequences, Averages": [
+    "find-nth-term-linear", "quadratic-sequences", "averages-range-listed",
+  ],
+  "HT4 · Week 4 (15/03/27) — Averages": [
+    "averages-missing-value-given-mean", "ungrouped-frequency-table-mean", "grouped-table-modal-median-class", "mean-from-grouped-table",
+  ],
+  "HT4 · Week 5 (22/03/27) — Tables & data collection": [
+    "ungrouped-freq-table-form", "two-way-table-complete", "timetable-read", "bar-chart-read-frequency",
+  ],
+  "HT5 · Week 1 (12/04/27) — Tables & data collection": [
+    "pie-chart-angle-to-frequency", "scatter-correlation-type", "line-of-best-fit-estimate", "stratified-sample-one-category",
+  ],
+  "HT5 · Week 2 (19/04/27) — Tables & data collection, Measurements & units": [
+    "frequency-tree-complete", "suitable-unit-estimate", "metric-conversion",
+  ],
+  "HT5 · Week 3 (26/04/27) — Measurements & units": [
+    "clock-reading", "time-duration-calc", "conversion-graph-read", "compound-measures-calc",
+  ],
+  "HT5 · Week 4 (03/05/27) — 2D shapes": [
+    "shape-naming-polygon-by-sides", "shape-properties-quadrilateral-name",
+  ],
+  "HT5 · Week 5 (10/05/27) — 2D shapes, Angles": [
+    "shape-properties-quadrilateral-name", "shape-properties-symmetry", "angles-on-a-line", "angles-about-a-point",
+  ],
+  "HT5 · Week 6 (17/05/27) — Angles": [
+    "angles-vertically-opposite", "angles-isosceles-triangle", "angles-corresponding", "angles-interior-polygon-sum", "angles-triangle-sum", "angles-quadrilateral-sum",
+  ],
+  "HT5 · Week 7 (24/05/27) — Perimeter & area": [
+    "area-rectangle-triangle", "composite-rectilinear-area-perimeter",
+  ],
+  "HT6 · Week 1 (07/06/27) — Perimeter & area, 3D forms": [
+    "circle-facts-parts", "circle-facts-circumference-area", "three-d-faces-edges-vertices", "volume-cuboid", "three-d-name-from-properties", "surface-area-cuboid",
+  ],
+  "HT6 · Week 2 (14/06/27) — Probability": [
+    "probability-scale-words", "probability-scale-compare", "theoretical-probability-single", "theoretical-probability-not-event",
+  ],
+  "HT6 · Week 3 (21/06/27) — Probability": [
+    "mutually-exclusive-missing-probability", "relative-frequency-from-data", "expected-value-biased",
+  ],
+};
+
 const SCHEMES = {
   "Year 11 · Set 2 (2026/27)": SET2_WEEKS,
   "Year 11 · Set 1 (2026/27)": SET1_WEEKS,
   "Year 11 · Foundation (2026/27)": FOUNDATION_WEEKS,
+  "Year 10 · Set 1 (2026/27)": Y10_SET1_WEEKS,
+  "Year 10 · Set 2 (2026/27)": Y10_SET2_WEEKS,
+  "Year 10 · Set 3 (2026/27)": Y10_SET3_WEEKS,
+  "Year 10 · Set 4 (2026/27)": Y10_SET4_WEEKS,
 };
 
 /* =====================================================================
@@ -9004,6 +9400,7 @@ const SPEED_CHECKS = [
 ];
 
 ReactDOM.createRoot(document.getElementById("root")).render(<QuizEngine />);
+
 
 
 
