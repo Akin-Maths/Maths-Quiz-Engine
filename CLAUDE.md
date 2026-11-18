@@ -152,6 +152,22 @@ Run `npm install` inside `tools/` once (needs `@babel/core` and
 
 ## Quiz codes (shareable "?code=" links / paste-a-code box)
 
+**Current format (5), added later — read this first.** Codes are one unbroken run
+of Crockford-base32 characters (`0-9A-Z` minus I, L, O, U), e.g. a 6-question
+Weekly Quiz is ~37 characters. They are case-insensitive and `parseQuizCode`
+(the single entry point for pasted text) ignores spaces, dashes, punctuation and
+surrounding words, accepts a full `?code=` link, and ends every code with a
+2-character weighted checksum so any single wrong character or swapped pair is
+refused with a clear message instead of loading a different quiz. The code also
+carries the per-question regenerate nonces and the drag-reordered question
+order (`order`), and both are restored when a code is opened from a link or the
+paste box (`initialDecoded` seeds `questionNonces`/`questionOrder`). Subtopic
+ids are 5-char hashes of the id text (`getQcIdMaps`, logs a console error on a
+collision — none today). Formats 2, 3, 4 and the positional-index one still
+decode via `decodeLegacyQuizCode`; the sections below describe those history/
+legacy details. Never reintroduce list-position encoding.
+
+
 There's no backend, so a "quiz code" self-encodes everything needed to
 reproduce a quiz (subtopics, mode, length, RNG salt, active version) as a
 compact string — see `encodeQuizCode`/`decodeQuizCode` near the top of

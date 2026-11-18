@@ -7337,59 +7337,236 @@ function getIdShortCodeMaps(len = SHORT_ID_CODE_LEN) {
   return maps;
 }
 
-function encodeQuizCode({ ids, mode, length, lengthMode, salt, version, nonces }) {
+/* ---------- quiz codes, format 5 (current) ----------
+   Problems with the earlier punctuated codes ("8_1_0_4.vb8bh0gx.0-1-1"): a
+   double-click only selected one chunk of them, chat apps wrapped lines at
+   the hyphens, trailing punctuation/"Code:" prefixes were read as part of the
+   code (silently loading a different quiz), mixed case failed, and nothing
+   noticed a mistyped character. The question order a teacher dragged into
+   place also wasn't saved.
+   Format 5 is one unbroken run of letters and digits (Crockford base32: no
+   I, L, O or U, so it can be read aloud or typed from print without 0/O or
+   1/I/L mix-ups). It is case-insensitive, ignores spaces/dashes/punctuation
+   and surrounding words when read back, and ends with a 2-character check
+   value that catches any single wrong character or swapped pair — so a bad
+   copy is reported instead of loading the wrong quiz.
+   Layout (every field is base32 characters):
+     meta (1)   mode + length mode + version, 0..17. Values 18..31 are reserved
+                for any future format, so a newer code is recognised as such.
+     salt       varint        nid  varint (number of subtopic ids)
+     ids        nid x 5 chars (hash of the id text; never a list position, so
+                adding subtopics can't shift an old code)
+     nonces     varint count, then per entry: version (1), index, count — the
+                per-question "new numbers" presses
+     order      varint 0 = natural order, else the length followed by the
+                underlying question index shown in each position (drag-reorder)
+     check (2)  weighted sum mod 1021 of everything before it
+   varint = little-endian 4-bit groups, bit 16 of each char = "more follows".
+   Older formats (2, 3, 4, positional-index) still decode — see
+   decodeLegacyQuizCode below. ---------- */
+const QC_ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+const QC_ID_LEN = 5;
+const QC_MOD = 1021;
+function qcNormalise(text) {
+  return String(text)
+    .toUpperCase()
+    .replace(/O/g, "0")
+    .replace(/[IL]/g, "1")
+    .split("")
+    .filter((c) => QC_ALPHABET.indexOf(c) !== -1)
+    .join("");
+}
+function qcPutVar(n) {
+  let v = Math.max(0, Math.floor(Number(n) || 0));
+  let out = "";
+  do {
+    const d = v % 16;
+    v = Math.floor(v / 16);
+    out += QC_ALPHABET[d | (v > 0 ? 16 : 0)];
+  } while (v > 0);
+  return out;
+}
+function qcCheck(payload) {
+  let sum = 0;
+  for (let i = 0; i < payload.length; i++) sum = (sum + (i + 1) * QC_ALPHABET.indexOf(payload[i])) % QC_MOD;
+  return QC_ALPHABET[sum >> 5] + QC_ALPHABET[sum & 31];
+}
+let _qcIdMaps = null;
+function getQcIdMaps() {
+  if (_qcIdMaps) return _qcIdMaps;
+  const idToCode = new Map();
+  const codeToId = new Map();
+  for (const id of Object.keys(SUBTOPIC_BANK)) {
+    let h = fnv1aHash(id);
+    h = Math.imul(h ^ (h >>> 16), 0x45d9f3b) >>> 0;
+    h = (h ^ (h >>> 13)) >>> 0;
+    const n = h & 0x1ffffff; // 25 bits = 5 base32 chars
+    let code = "";
+    for (let k = QC_ID_LEN - 1; k >= 0; k--) code += QC_ALPHABET[(n >>> (5 * k)) & 31];
+    if (codeToId.has(code) && codeToId.get(code) !== id && typeof console !== "undefined") {
+      console.error(`Quiz code collision: "${id}" and "${codeToId.get(code)}" both hash to ${code}`);
+    }
+    idToCode.set(id, code);
+    if (!codeToId.has(code)) codeToId.set(code, id);
+  }
+  _qcIdMaps = { idToCode, codeToId };
+  return _qcIdMaps;
+}
+
+function encodeQuizCode({ ids, mode, length, lengthMode, salt, version, nonces, order }) {
   const validIds = ids.filter((id) => Object.prototype.hasOwnProperty.call(SUBTOPIC_BANK, id));
   if (validIds.length === 0) return "";
-  const modeBit = mode === "blocked" ? 1 : 0;
-  // lengthCode keeps its original 3 values for backward compatibility with
-  // codes saved before Custom took an arbitrary count: 0 = Do Now (4),
-  // 1 = Weekly Quiz (6), 2 = Custom. This is now driven directly by
-  // lengthMode (not by sniffing the numeric length) so a Custom count that
-  // happens to equal 4 or 6 doesn't get misfiled as Do Now/Weekly on reload.
-  // For Custom, the actual chosen count also rides along as a 5th header
-  // field (customLen) so it survives a save/copy round-trip instead of
-  // always reopening as "however many subtopics happen to be ticked" — see
-  // decodeQuizCode below.
+  // lengthMode (not the numeric length) decides Do Now / Weekly / Custom, so a
+  // Custom quiz with exactly 4 or 6 questions can never reload as a preset.
+  // A Custom quiz's length is simply the number of ids, so it isn't stored.
   const lengthCode = lengthMode === "donow" ? 0 : lengthMode === "weekly" ? 1 : 2;
-  const customLen = lengthCode === 2 ? Math.max(1, Math.round(length) || 5) : 0;
   const versionNum = { V1: 0, V2: 1, V3: 2 }[version] || 0;
-  // formatVersion=4 marks the body as fixed-width (SHORT_ID_CODE_LEN-char),
-  // separator-free hashed codes with a packed meta digit (see above);
-  // formatVersion 3/2 (hashed-with-separator / literal id strings) and the
-  // legacy positional-index scheme are still understood on decode so no
-  // previously-shared code ever breaks.
-  const formatVersion = 4;
-  // mode/lengthCode/version each only ever take 2-3 values, so pack them
-  // into one base36 digit (max 1 + 2*2 + 2*6 = 17) instead of three
-  // underscore-joined ones. formatVersion itself stays its own field,
-  // always last — see the comment above this function.
-  const packedMeta = modeBit + lengthCode * 2 + versionNum * 6;
-  const header = [packedMeta, salt, customLen, formatVersion].map((n) => Math.max(0, n | 0).toString(36)).join("_");
-  // validIds is already filtered to ids that exist in SUBTOPIC_BANK, and
-  // idToCode covers every key in SUBTOPIC_BANK, so idToCode.get(id) always
-  // succeeds here — no fallback needed (and none would be safe: the body is
-  // fixed-width chunked on decode, so anything other than an exact
-  // SHORT_ID_CODE_LEN-char code would corrupt every id after it).
-  const { idToCode } = getIdShortCodeMaps();
-  const body = validIds.map((id) => idToCode.get(id)).join("");
-  // Per-question "regenerate this one" nonces (see questionNonces) aren't
-  // captured by ids/salt alone — without them, locking a quiz after
-  // regenerating a single question produces a code that reloads the
-  // *original* un-regenerated version of that question, not the one that
-  // was actually locked/printed. Only non-zero entries are included, so a
-  // quiz with no individually-regenerated questions (the common case) pays
-  // no length cost for this at all.
-  const nonceEntries = nonces ? Object.entries(nonces).filter(([, n]) => n > 0) : [];
-  const nonceBody = nonceEntries
-    .map(([key, n]) => {
-      const [v, i] = key.split("-");
-      const vNum = { V1: 0, V2: 1, V3: 2 }[v] ?? 0;
-      return `${vNum.toString(36)}-${Math.max(0, i | 0).toString(36)}-${Math.max(0, n | 0).toString(36)}`;
-    })
-    .join(",");
-  return nonceBody ? `${header}.${body}.${nonceBody}` : `${header}.${body}`;
+  const meta = (mode === "blocked" ? 1 : 0) + lengthCode * 2 + versionNum * 6;
+  const { idToCode } = getQcIdMaps();
+  let p = QC_ALPHABET[meta] + qcPutVar(salt) + qcPutVar(validIds.length) + validIds.map((id) => idToCode.get(id)).join("");
+  const nonceEntries = nonces
+    ? Object.entries(nonces)
+        .filter(([, n]) => n > 0)
+        .map(([key, n]) => {
+          const [v, i] = key.split("-");
+          return [{ V1: 0, V2: 1, V3: 2 }[v] ?? 0, Math.max(0, i | 0), n];
+        })
+        .sort((a, b) => a[0] - b[0] || a[1] - b[1])
+    : [];
+  p += qcPutVar(nonceEntries.length);
+  for (const [v, i, n] of nonceEntries) p += QC_ALPHABET[v] + qcPutVar(i) + qcPutVar(n);
+  const reordered = Array.isArray(order) && order.length > 0 && order.some((v, i) => v !== i);
+  p += reordered ? qcPutVar(order.length) + order.map(qcPutVar).join("") : qcPutVar(0);
+  return p + qcCheck(p);
 }
+
+// Decodes one already-normalised format-5 string. Returns { ok, data } or
+// { ok: false, reason } where reason is "check" | "newer" | "ids" | "shape".
+function decodeQuizCodeV5(norm) {
+  if (norm.length < 9) return { ok: false, reason: "shape" };
+  const payload = norm.slice(0, -2);
+  if (qcCheck(payload) !== norm.slice(-2)) return { ok: false, reason: "check" };
+  const val = (c) => QC_ALPHABET.indexOf(c);
+  let pos = 0;
+  const getVar = () => {
+    let v = 0, mult = 1;
+    for (let k = 0; k < 8; k++) {
+      if (pos >= payload.length) return null;
+      const c = val(payload[pos++]);
+      v += (c & 15) * mult;
+      mult *= 16;
+      if (!(c & 16)) return v;
+    }
+    return null;
+  };
+  const meta = val(payload[pos++]);
+  if (meta > 17) return { ok: false, reason: "newer" };
+  const salt = getVar();
+  const nid = getVar();
+  if (salt === null || nid === null || nid < 1 || nid > 200) return { ok: false, reason: "shape" };
+  const { codeToId } = getQcIdMaps();
+  const ids = [];
+  for (let i = 0; i < nid; i++) {
+    const chunk = payload.slice(pos, pos + QC_ID_LEN);
+    pos += QC_ID_LEN;
+    const id = chunk.length === QC_ID_LEN ? codeToId.get(chunk) : undefined;
+    if (!id) return { ok: false, reason: "ids" };
+    ids.push(id);
+  }
+  const nonceCount = getVar();
+  if (nonceCount === null || nonceCount > 400) return { ok: false, reason: "shape" };
+  const nonces = {};
+  for (let k = 0; k < nonceCount; k++) {
+    if (pos >= payload.length) return { ok: false, reason: "shape" };
+    const v = val(payload[pos++]);
+    const idx = getVar();
+    const n = getVar();
+    if (v > 2 || idx === null || n === null) return { ok: false, reason: "shape" };
+    nonces[`${["V1", "V2", "V3"][v]}-${idx}`] = n;
+  }
+  const orderLen = getVar();
+  if (orderLen === null || orderLen > 400) return { ok: false, reason: "shape" };
+  const order = [];
+  for (let k = 0; k < orderLen; k++) {
+    const v = getVar();
+    if (v === null) return { ok: false, reason: "shape" };
+    order.push(v);
+  }
+  if (pos !== payload.length) return { ok: false, reason: "shape" };
+  if (orderLen > 0 && (new Set(order).size !== orderLen || order.some((v) => v >= orderLen))) return { ok: false, reason: "shape" };
+  const modeBit = meta % 2;
+  const lengthCode = Math.floor(meta / 2) % 3;
+  const versionNum = Math.floor(meta / 6) % 3;
+  return {
+    ok: true,
+    data: {
+      mode: modeBit ? "blocked" : "interleaved",
+      length: lengthCode === 0 ? 4 : lengthCode === 1 ? 6 : ids.length,
+      lengthMode: lengthCode === 0 ? "donow" : lengthCode === 1 ? "weekly" : "custom",
+      version: ["V1", "V2", "V3"][versionNum],
+      salt,
+      ids,
+      nonces,
+      order,
+      dropped: 0,
+    },
+  };
+}
+
+// The one entry point for anything a teacher pastes: a bare code, a code with
+// spaces/dashes or surrounding words ("Quiz code: ..."), a full shareable
+// link, or an older-format code. Returns { ok: true, data } or
+// { ok: false, message } with a plain-English reason.
+function parseQuizCode(input) {
+  const text = String(input == null ? "" : input).trim();
+  if (!text) return { ok: false, message: "Paste a quiz code or link first." };
+  let src = text;
+  const linkMatch = src.match(/[?&]code=([^&#\s]+)/i);
+  if (linkMatch) {
+    try { src = decodeURIComponent(linkMatch[1]); } catch (e) { src = linkMatch[1]; }
+  }
+  // Older codes are punctuated (header_with_underscores.body[.nonces]); pull
+  // one out of whatever surrounds it before trying the current format.
+  const legacy = src.toLowerCase().match(/[0-9a-z]+(?:_[0-9a-z]+)+\.[0-9a-z~-]+(?:\.[0-9a-z,-]+)?/);
+  if (legacy) {
+    const data = decodeLegacyQuizCode(legacy[0].replace(/[-,~]+$/, ""));
+    if (data) return { ok: true, data };
+    return { ok: false, message: "That older-style code looks incomplete — copy it again in full." };
+  }
+  const tokens = src.split(/\s+/).filter(Boolean);
+  const candidates = [src];
+  for (let i = 0; i < tokens.length && i < 40; i++) {
+    let joined = "";
+    for (let j = i; j < tokens.length && j < i + 12; j++) {
+      joined += tokens[j];
+      candidates.push(joined);
+    }
+  }
+  let bestReason = null;
+  let longest = 0;
+  const tried = new Set();
+  for (const c of candidates) {
+    const norm = qcNormalise(c);
+    if (norm.length < 9 || tried.has(norm)) continue;
+    tried.add(norm);
+    longest = Math.max(longest, norm.length);
+    const res = decodeQuizCodeV5(norm);
+    if (res.ok) return res;
+    if (res.reason === "newer" || res.reason === "ids") bestReason = res.reason;
+  }
+  if (longest < 14) return { ok: false, message: "That doesn't look like a quiz code. Use the Copy button next to your quiz code, then paste it here." };
+  if (bestReason === "newer") return { ok: false, message: "This code was made with a newer version of the engine. Refresh this page and try again." };
+  if (bestReason === "ids") return { ok: false, message: "This code uses question types this copy of the engine doesn't have yet. Refresh the page and try again." };
+  return { ok: false, message: "This code has a missing or mistyped character. Copy it again with the Copy button, or paste the shareable link instead." };
+}
+// Back-compat wrapper (used to read ?code= on page load).
 function decodeQuizCode(code) {
+  const res = parseQuizCode(code);
+  return res.ok ? res.data : null;
+}
+
+/* ---------- older code formats (2, 3, 4 and positional-index) — still readable ---------- */
+function decodeLegacyQuizCode(code) {
   try {
     let raw = String(code).trim();
     // Be forgiving of pasting the whole "Copy shareable link" URL instead of
@@ -7415,6 +7592,10 @@ function decodeQuizCode(code) {
     // branch on field count, since formatVersion itself lives inside the
     // packed field for the old layout and can't be read until unpacked.
     const headerParts = header.split("_").map((s) => parseInt(s, 36));
+    // Any non-numeric header field means the code was mangled in transit (a
+    // stray prefix/suffix glued on, a mistyped character) — refuse it rather
+    // than decode a different quiz from garbage.
+    if (headerParts.some((n) => Number.isNaN(n))) return null;
     let modeBit, lengthCode, versionNum, salt, customLen, formatVersion;
     if (headerParts.length === 4) {
       const [packedMeta, saltV, customLenV, fv] = headerParts;
@@ -7427,6 +7608,9 @@ function decodeQuizCode(code) {
     } else {
       [modeBit, lengthCode, versionNum, salt, customLen, formatVersion] = headerParts;
     }
+    // Every field has a small known range; anything outside it means extra
+    // characters got glued onto the code (e.g. "Code2_7_0_4...").
+    if (headerParts.length === 4 ? headerParts[0] > 17 : !(modeBit <= 1 && lengthCode <= 2 && versionNum <= 2)) return null;
     // formatVersion 4 = fixed-width, separator-free hashed codes (current);
     // 3 = hashed codes with a "~" separator; 2 = literal id strings (still
     // shareable from before the hashing fix); anything else = the legacy
@@ -7435,17 +7619,22 @@ function decodeQuizCode(code) {
     // subtopic insertion; there's no way to recover that after the fact, but
     // at least codes saved under 2, 3 or 4 can never break again this way.
     let ids;
+    let total = 0; // how many subtopic slots the body claimed, so unknown ones can be reported
     if (formatVersion === 4) {
       const { codeToId } = getIdShortCodeMaps(SHORT_ID_CODE_LEN);
       const chunks = [];
       for (let i = 0; i < body.length; i += SHORT_ID_CODE_LEN) chunks.push(body.slice(i, i + SHORT_ID_CODE_LEN));
+      total = chunks.length;
       ids = chunks.map((c) => codeToId.get(c)).filter((id) => id && Object.prototype.hasOwnProperty.call(SUBTOPIC_BANK, id));
     } else if (formatVersion === 3) {
       const { codeToId } = getIdShortCodeMaps(SHORT_ID_CODE_LEN_V3);
+      total = body.split(ID_BODY_SEP).length;
       ids = body.split(ID_BODY_SEP).map((c) => codeToId.get(c)).filter((id) => id && Object.prototype.hasOwnProperty.call(SUBTOPIC_BANK, id));
     } else if (formatVersion === 2) {
+      total = body.split(ID_BODY_SEP).length;
       ids = body.split(ID_BODY_SEP).filter((id) => Object.prototype.hasOwnProperty.call(SUBTOPIC_BANK, id));
     } else {
+      total = body.split("-").length;
       ids = body.split("-").map((s) => parseInt(s, 36)).map((i) => ALL_SUBTOPIC_IDS[i]).filter(Boolean);
     }
     if (ids.length === 0) return null;
@@ -7486,6 +7675,8 @@ function decodeQuizCode(code) {
       salt: Number.isFinite(salt) ? salt : 1,
       ids,
       nonces,
+      order: [],
+      dropped: Math.max(0, total - ids.length),
     };
   } catch (e) {
     return null;
@@ -7940,9 +8131,10 @@ function QuizEngine() {
     setTimerRunning(false);
   };
   // Feature 5: bump a single question's nonce to reroll just that question.
-  const [questionNonces, setQuestionNonces] = useState({});
+  const [questionNonces, setQuestionNonces] = useState(initialDecoded?.nonces ?? {});
   const [codeInput, setCodeInput] = useState("");
   const [codeMessage, setCodeMessage] = useState("");
+  const [codeTone, setCodeTone] = useState("ok"); // "ok" | "warn" | "err"
   const [customLabel, setCustomLabel] = useState(initialDecoded ? "Custom quiz (loaded from code)" : null);
   const [copyFlash, setCopyFlash] = useState("");
   // Lock: freezes the generated quiz (numbers, subtopics, mode, length) so it
@@ -7959,7 +8151,7 @@ function QuizEngine() {
   // ticking/unticking a subtopic (including the auto-untick a delete now
   // does); any newly-added question is appended at the end automatically by
   // orderedVisibleQuestions's own reconciliation logic.
-  const [questionOrder, setQuestionOrder] = useState([]);
+  const [questionOrder, setQuestionOrder] = useState(initialDecoded?.order ?? []);
   const [draggingIndex, setDraggingIndex] = useState(null);
   const [dragOverIndex, setDragOverIndex] = useState(null);
   // Ground-truth copies of the two states above, readable synchronously
@@ -8134,12 +8326,14 @@ function QuizEngine() {
     setLengthMode("custom");
     setFullScreenDoNow(false);
   };
-  const loadCode = () => {
-    const decoded = decodeQuizCode(codeInput);
-    if (!decoded) {
-      setCodeMessage("Code not recognised — check it was copied in full.");
+  const loadCode = (text) => {
+    const parsed = parseQuizCode(typeof text === "string" ? text : codeInput);
+    if (!parsed.ok) {
+      setCodeTone("err");
+      setCodeMessage(parsed.message);
       return;
     }
+    const decoded = parsed.data;
     setLocked(false);
     setSelected(decoded.ids);
     setPracticeMode(decoded.mode);
@@ -8154,8 +8348,18 @@ function QuizEngine() {
     // see encodeQuizCode's nonces handling — so a locked/loaded quiz is the
     // exact one that was printed, not the un-regenerated original.
     setQuestionNonces(decoded.nonces ?? {});
+    // Restores a drag-reordered question order (format 5 codes carry it).
+    setQuestionOrder(decoded.order ?? []);
     setCustomLabel("Custom quiz (loaded from code)");
-    setCodeMessage("Quiz loaded.");
+    const shape = decoded.lengthMode === "donow" ? "Do Now (4)" : decoded.lengthMode === "weekly" ? "Weekly Quiz" : `${decoded.ids.length} question${decoded.ids.length === 1 ? "" : "s"}`;
+    const base = `Quiz loaded: ${shape}, Version ${decoded.version.replace("V", "")}.`;
+    if (decoded.dropped > 0) {
+      setCodeTone("warn");
+      setCodeMessage(`${base} ${decoded.dropped} question${decoded.dropped === 1 ? "" : "s"} in the code couldn't be recognised and ${decoded.dropped === 1 ? "was" : "were"} left out.`);
+    } else {
+      setCodeTone("ok");
+      setCodeMessage(base);
+    }
   };
   const toggleStrand = (strand) => {
     setOpenStrands((prev) => {
@@ -8316,8 +8520,8 @@ function QuizEngine() {
     // In Custom mode the real question count is however many entries are in
     // `selected` (its per-topic counts, including repeats) rather than the
     // now-vestigial quizLength state — see effectiveIds above.
-    () => encodeQuizCode({ ids: selected, mode: practiceMode, length: lengthMode === "custom" ? selected.length : quizLength, lengthMode, salt, version: activeVersion, nonces: questionNonces }),
-    [selected, practiceMode, quizLength, lengthMode, salt, activeVersion, questionNonces]
+    () => encodeQuizCode({ ids: selected, mode: practiceMode, length: lengthMode === "custom" ? selected.length : quizLength, lengthMode, salt, version: activeVersion, nonces: questionNonces, order: orderedVisibleQuestions.map((v) => v.index) }),
+    [selected, practiceMode, quizLength, lengthMode, salt, activeVersion, questionNonces, orderedVisibleQuestions]
   );
   const currentLink = typeof window !== "undefined" && currentCode
     ? `${window.location.origin}${window.location.pathname}?code=${encodeURIComponent(currentCode)}`
@@ -9096,7 +9300,15 @@ function QuizEngine() {
                 <div className="qe-note">Reopen this exact quiz later, or share it.</div>
               </div>
               <div className="qe-row" style={{ flexWrap: "nowrap" }}>
-                <input readOnly value={currentCode} aria-label="Quiz code" className="qe-field mono" onFocus={(e) => e.target.select()} />
+                <textarea
+                  readOnly
+                  value={currentCode}
+                  aria-label="Quiz code"
+                  className="qe-field mono"
+                  rows={Math.max(1, Math.min(6, Math.ceil(currentCode.length / 30)))}
+                  style={{ resize: "none", wordBreak: "break-all", lineHeight: 1.35 }}
+                  onFocus={(e) => e.target.select()}
+                />
                 <button onClick={() => copyText(currentCode, "Code copied")} className={btnCls()}>Copy</button>
               </div>
               <div className="qe-row" style={{ marginTop: 8 }}>
@@ -9108,14 +9320,31 @@ function QuizEngine() {
                   className="qe-field mono"
                   value={codeInput}
                   onChange={(e) => { setCodeInput(e.target.value); setCodeMessage(""); }}
-                  placeholder="Paste a quiz code…"
+                  onPaste={(e) => {
+                    // Pasting a code loads it straight away; no need to press Load.
+                    const t = e.clipboardData && e.clipboardData.getData("text");
+                    if (t && t.trim()) { e.preventDefault(); setCodeInput(t.trim()); loadCode(t); }
+                  }}
+                  onKeyDown={(e) => { if (e.key === "Enter") loadCode(); }}
+                  placeholder="Paste a quiz code or link…"
                   aria-label="Paste a quiz code"
+                  autoCapitalize="off"
+                  autoCorrect="off"
+                  spellCheck={false}
                 />
-                <button onClick={loadCode} className={btnCls()}>Load</button>
+                <button onClick={() => loadCode()} className={btnCls()}>Load</button>
               </div>
-              {codeMessage && <div className={codeMessage === "Quiz loaded." ? "qe-ok-text" : "qe-danger-text"} style={{ fontSize: ".78rem", marginTop: 6 }}>{codeMessage}</div>}
+              {codeMessage && (
+                <div
+                  className={codeTone === "ok" ? "qe-ok-text" : codeTone === "err" ? "qe-danger-text" : undefined}
+                  style={{ fontSize: ".78rem", marginTop: 6, ...(codeTone === "warn" ? { color: "var(--warn)" } : null) }}
+                  role="status"
+                >
+                  {codeMessage}
+                </div>
+              )}
               <div className="qe-note" style={{ marginTop: 8 }}>
-                The code holds the whole quiz, so it works anywhere with no login.
+                The code holds the whole quiz, order and all, so it works anywhere with no login. It ignores capital letters, spaces and dashes, so you can paste it straight from an email or message.
               </div>
             </section>
           </div>
@@ -9400,6 +9629,9 @@ const SPEED_CHECKS = [
 ];
 
 ReactDOM.createRoot(document.getElementById("root")).render(<QuizEngine />);
+
+
+
 
 
 
