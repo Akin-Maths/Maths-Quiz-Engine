@@ -7262,6 +7262,81 @@ function buildFdpSpeedCheck(rng) {
   });
 }
 
+// Number skills: 24 deliberately easy one-step questions, six from each of
+// factors & multiples, rounding & estimation, ratio & proportion and units &
+// rates. The sheet is two columns of 12, so the left column is the first two
+// areas and the right column the last two. Numbers are chosen so there is
+// never a tie or an awkward edge case (no digit-5 roundings, exact divisions).
+// `target` is the small "-> ..." hint after the prompt; `small` shrinks long
+// prompts so they fit the row.
+function buildNumberSkillsSpeedCheck(rng) {
+  const pick = (arr) => arr[Math.floor(rng() * arr.length)];
+  const COPRIME = [[1, 2], [1, 3], [2, 3], [1, 4], [3, 4], [1, 5], [2, 5], [3, 5]];
+  const NON5 = [1, 2, 3, 4, 6, 7, 8, 9];
+  const half = () => seededInt(rng, 2, 9) + (rng() < 0.5 ? 0.5 : 0);
+  const out = [];
+
+  // ---- Factors & multiples (6)
+  { const ps = [13, 17, 19, 23, 29, 31, 37], cs = [21, 27, 33, 39, 49, 51, 57];
+    const isP = rng() < 0.5, n = pick(isP ? ps : cs);
+    out.push({ expr: `Is ${n} prime?`, answer: isP ? "Yes" : "No" }); }
+  { const g = seededInt(rng, 2, 6), [p, q] = pick([[2, 3], [2, 5], [3, 4], [3, 5], [4, 5], [2, 7]].filter(([a, b]) => a * g <= 36 && b * g <= 36));
+    out.push({ expr: `${g * p}, ${g * q}`, target: "HCF", answer: g }); }
+  { const [a, b] = pick([[3, 4], [3, 5], [4, 5], [4, 6], [2, 7], [6, 9], [3, 7], [5, 6]]);
+    out.push({ expr: `${a}, ${b}`, target: "LCM", answer: (a * b) / gcd(a, b) }); }
+  { const g = seededInt(rng, 2, 5), [p, q] = pick([[1, 2], [1, 3], [2, 3], [3, 4], [1, 4], [2, 5], [3, 5], [1, 5]]);
+    out.push({ expr: <SpeedFrac n={g * p} d={g * q} />, target: "simplify", answer: <SpeedFrac n={p} d={q} /> }); }
+  { const m = seededInt(rng, 5, 9), k = seededInt(rng, 4, 9), x = m * k;
+    out.push({ expr: `Multiple of ${m} between ${x - 2} and ${x + 2}`, small: true, answer: x }); }
+  { const n = pick([6, 8, 10, 12, 14, 15, 16, 18, 20, 24]);
+    let c = 0; for (let i = 1; i <= n; i++) if (n % i === 0) c++;
+    out.push({ expr: `${n}`, target: "number of factors", answer: c }); }
+
+  // ---- Rounding & estimation (6)
+  { const w = seededInt(rng, 1, 9), d1 = seededInt(rng, 0, 9), d2 = pick(NON5);
+    out.push({ expr: `${w}.${d1}${d2}`, target: "1 d.p.", answer: ((w * 10 + d1 + (d2 >= 5 ? 1 : 0)) / 10).toFixed(1) }); }
+  { const w = seededInt(rng, 1, 9), d1 = seededInt(rng, 0, 9), d2 = seededInt(rng, 0, 9), d3 = pick(NON5);
+    out.push({ expr: `${w}.${d1}${d2}${d3}`, target: "2 d.p.", answer: ((w * 100 + d1 * 10 + d2 + (d3 >= 5 ? 1 : 0)) / 100).toFixed(2) }); }
+  { const a = seededInt(rng, 1, 9), b = pick(NON5), c = seededInt(rng, 0, 9);
+    out.push({ expr: `${a}${b}${c}`, target: "1 s.f.", answer: (a + (b >= 5 ? 1 : 0)) * 100 }); }
+  { const a = seededInt(rng, 1, 9), b = seededInt(rng, 0, 9), c = pick(NON5);
+    out.push({ expr: `${a}${b}${c}`, target: "2 s.f.", answer: (a * 10 + b + (c >= 5 ? 1 : 0)) * 10 }); }
+  { const a0 = seededInt(rng, 2, 9), b0 = seededInt(rng, 2, 6), off = () => pick([-0.2, -0.1, 0.1, 0.2]);
+    out.push({ expr: `${(a0 + off()).toFixed(1)} × ${(b0 + off()).toFixed(1)}`, small: true, target: "estimate", answer: a0 * b0 }); }
+  { const d = pick([2, 3, 4, 5]), m = pick([2, 3, 4, 5, 6, 7, 8, 9].filter((x) => (10 * x) % d === 0));
+    out.push({ expr: `${10 * m + pick([-1, 1])} ÷ ${(d + pick([-0.1, 0.1])).toFixed(1)}`, small: true, target: "estimate", answer: (10 * m) / d }); }
+
+  // ---- Ratio & proportion (6)
+  { const g = seededInt(rng, 2, 6), [p, q] = pick(COPRIME);
+    out.push({ expr: `${g * p} : ${g * q}`, target: "simplify", answer: `${p} : ${q}` }); }
+  { const [p, q] = pick([[1, 2], [1, 3], [2, 3], [1, 4], [1, 5], [3, 2]]), k = seededInt(rng, 2, 6);
+    out.push({ expr: `${(p + q) * k}`, target: `share ${p} : ${q}`, answer: `${p * k} and ${q * k}` }); }
+  { const k = pick([2, 3, 4, 5, 10, 20]), L = seededInt(rng, 2, 9);
+    out.push({ expr: `Scale 1 : ${k}, ${L} cm`, small: true, answer: `${L * k} cm` }); }
+  { const it = pick([["pen", "pens"], ["cake", "cakes"], ["bun", "buns"], ["ticket", "tickets"]]), price = seededInt(rng, 2, 5), n = seededInt(rng, 2, 5), m = n + seededInt(rng, 2, 5);
+    out.push({ expr: `${n} ${it[1]}: £${n * price}`, small: true, target: `${m} ${it[1]}`, answer: `£${m * price}` }); }
+  { const [p, q] = pick(COPRIME), k = seededInt(rng, 2, 6);
+    out.push({ expr: `${p} : ${q} = ${p * k} : ?`, small: true, answer: q * k }); }
+  { const t = pick([[1, 2, 3], [2, 3, 5], [1, 3, 4], [2, 3, 4], [1, 1, 2], [3, 4, 5]]);
+    out.push({ expr: t.join(" : "), small: true, target: "total parts", answer: t[0] + t[1] + t[2] }); }
+
+  // ---- Units & rates (6)
+  { const [from, to, f] = pick([["m", "cm", 100], ["km", "m", 1000], ["cm", "mm", 10]]), v = half();
+    out.push({ expr: `${v} ${from}`, target: to, answer: Math.round(v * f) }); }
+  { const [from, to] = pick([["kg", "g"], ["litres", "ml"]]), v = seededInt(rng, 1, 6) + (rng() < 0.5 ? 0.5 : 0);
+    out.push({ expr: `${v} ${from}`, target: to, answer: Math.round(v * 1000) }); }
+  { if (rng() < 0.5) { const v = pick([1.5, 2.5, 3.5, 2, 3, 4]); out.push({ expr: `${v} hours`, small: true, target: "minutes", answer: v * 60 }); }
+    else { const m = pick([30, 90, 150, 210, 45, 15]); out.push({ expr: `${m} minutes`, small: true, target: "hours", answer: m / 60 }); } }
+  { const it = pick([["pen", "pens"], ["cake", "cakes"], ["bun", "buns"], ["ticket", "tickets"]]), n = pick([2, 4, 5, 10]), p = pick([10, 15, 20, 25, 30, 40, 50, 60, 75]);
+    out.push({ expr: `${n} ${it[1]}: £${((n * p) / 100).toFixed(2)}`, small: true, target: `1 ${it[0]}`, answer: `${p}p` }); }
+  { const s = pick([20, 30, 40, 50, 60, 70, 80]), t = seededInt(rng, 2, 5);
+    out.push({ expr: `${s * t} km in ${t} h`, small: true, target: "speed", answer: `${s} km/h` }); }
+  { const s = pick([20, 30, 40, 50, 60, 70, 80]), t = seededInt(rng, 2, 5);
+    out.push({ expr: `${s} km/h for ${t} h`, small: true, target: "distance", answer: `${s * t} km` }); }
+
+  return out;
+}
+
 // Times-table practice: the same fixed 24-question, ~3-minute mental format.
 // Every table from 2 to 12 appears at least once; 14 multiplication facts and
 // 10 matching division facts (always exact, quotient 2-12), no fact repeated.
@@ -7396,15 +7471,19 @@ function QuizEngine() {
   // wide screen has more width to spend than an A4 sheet does, and it keeps
   // 6 rows per column instead of 12 for a bigger, further-back-readable font.
   const [speedCheckFullScreen, setSpeedCheckFullScreen] = useState(false);
-  // Which fixed-format sheet is open: "neg" (Negative Numbers) or "fdp"
-  // (Fractions/Decimals/Percentages). Both share the same view, timer and
+  // Which fixed-format sheet is open: "neg", "fdp", "times" or "skills". Both share the same view, timer and
   // full-screen layout — only the questions, title and blurb differ.
   const [speedCheckKind, setSpeedCheckKind] = useState("neg");
   const speedCheckQuestions = useMemo(
-    () => (speedCheckKind === "fdp" ? buildFdpSpeedCheck : speedCheckKind === "times" ? buildTimesTablesSpeedCheck : buildNegativeSpeedCheck)(mulberry32((speedCheckSalt * 104729 + 7) >>> 0)),
+    () => (speedCheckKind === "fdp" ? buildFdpSpeedCheck : speedCheckKind === "times" ? buildTimesTablesSpeedCheck : speedCheckKind === "skills" ? buildNumberSkillsSpeedCheck : buildNegativeSpeedCheck)(mulberry32((speedCheckSalt * 104729 + 7) >>> 0)),
     [speedCheckSalt, speedCheckKind]
   );
-  const speedCheckInfo = speedCheckKind === "times"
+  const speedCheckInfo = speedCheckKind === "skills"
+    ? {
+        title: "Number Skills Speed Check",
+        description: "A 24-question Number Skills Speed Check: six quick questions each on factors and multiples, rounding and estimation, ratio and proportion, and units and rates. All are one-step and suitable for ~5 minutes.",
+      }
+    : speedCheckKind === "times"
     ? {
         title: "Times Tables Speed Check",
         description: "A 24-question Times Tables Speed Check: multiplication facts and the matching division facts from the 2 to 12 tables, with every table included. All answers are recalled from memory and suitable for ~3 minutes.",
@@ -8148,7 +8227,7 @@ function QuizEngine() {
                     style={{ flex: 1, minHeight: 0, display: "flex", alignItems: "center", gap: 8, fontSize: "clamp(15px, 2.3vw, 30px)", borderBottom: "1px solid var(--line)" }}
                   >
                     <strong style={{ flexShrink: 0 }}>{n}.</strong>
-                    <div style={{ flex: 1 }}>
+                    <div style={{ flex: 1, fontSize: q.small ? "0.72em" : undefined }}>
                       {q.expr}
                       {q.target && <span style={{ fontSize: "0.55em", color: "var(--muted)", marginLeft: 8, whiteSpace: "nowrap", display: "inline-block" }}>→ {q.target}</span>}
                     </div>
@@ -8201,7 +8280,7 @@ function QuizEngine() {
                       style={{ flex: 1, minHeight: 0, display: "flex", alignItems: "center", gap: 10, fontSize: 27, borderBottom: "1px dashed var(--paper-faint)" }}
                     >
                       <strong style={{ width: 40, flexShrink: 0 }}>{n}.</strong>
-                      <div style={{ flex: 1 }}>
+                      <div style={{ flex: 1, fontSize: q.small ? "0.72em" : undefined }}>
                         {q.expr}
                         {q.target && <span style={{ fontSize: 15, color: "var(--paper-muted)", marginLeft: 10, whiteSpace: "nowrap", display: "inline-block" }}>→ {q.target}</span>}
                       </div>
@@ -8336,7 +8415,7 @@ function QuizEngine() {
                     type="button"
                     className="qe-speed-btn"
                     style={{ "--tag": sc.tag }}
-                    onClick={() => { setSpeedCheckKind(sc.kind); setSpeedCheckOpen(true); }}
+                    onClick={() => { setSpeedCheckKind(sc.kind); setTimerPreset(sc.secs); setSpeedCheckOpen(true); }}
                     title={sc.tip}
                   >
                     <span className="qe-speed-dot" aria-hidden="true" />
@@ -8676,7 +8755,7 @@ const QE_STYLES = `
   --bg:#EDF0F4; --panel:#FFFFFF; --panel-2:#F6F8FA; --ink:#17202D; --muted:#586377; --line:#D5DBE4;
   --accent:#1E6F6D; --accent-ink:#FFFFFF; --accent-soft:#DDEFEE;
   --danger:#B23A2F; --danger-soft:#F8E4E1; --ok:#2F7D4F; --ok-soft:#E3F1E8; --warn:#A8650F; --warn-soft:#FBEBD0;
-  --tag-neg:#C2493D; --tag-fdp:#3A6DB5; --tag-3:#7A4FB5;
+  --tag-neg:#C2493D; --tag-fdp:#3A6DB5; --tag-3:#7A4FB5; --tag-4:#B7791F;
   --display:"Bricolage Grotesque","Segoe UI",system-ui,sans-serif;
   --body:"Atkinson Hyperlegible","Segoe UI",system-ui,-apple-system,sans-serif;
   --paper:#FFFFFF; --paper-ink:#17202D; --paper-muted:#586377; --paper-line:#9AA3AF; --paper-rule:#17202D; --paper-faint:#D5DBE4;
@@ -8688,14 +8767,14 @@ const QE_STYLES = `
   --bg:#11161E; --panel:#1A212C; --panel-2:#202834; --ink:#E7EBF1; --muted:#9AA5B6; --line:#2C3644;
   --accent:#43A9A4; --accent-ink:#0B1A1A; --accent-soft:#1D3534;
   --danger:#E0685C; --danger-soft:#3A211E; --ok:#6BC48A; --ok-soft:#1B2E23; --warn:#E0A83A; --warn-soft:#2C2818;
-  --tag-neg:#E0685C; --tag-fdp:#6D9BE0; --tag-3:#A585DB;
+  --tag-neg:#E0685C; --tag-fdp:#6D9BE0; --tag-3:#A585DB; --tag-4:#DDA24A;
   color-scheme:dark;
 }}
 :root[data-theme="dark"]{
   --bg:#11161E; --panel:#1A212C; --panel-2:#202834; --ink:#E7EBF1; --muted:#9AA5B6; --line:#2C3644;
   --accent:#43A9A4; --accent-ink:#0B1A1A; --accent-soft:#1D3534;
   --danger:#E0685C; --danger-soft:#3A211E; --ok:#6BC48A; --ok-soft:#1B2E23; --warn:#E0A83A; --warn-soft:#2C2818;
-  --tag-neg:#E0685C; --tag-fdp:#6D9BE0; --tag-3:#A585DB;
+  --tag-neg:#E0685C; --tag-fdp:#6D9BE0; --tag-3:#A585DB; --tag-4:#DDA24A;
   color-scheme:dark;
 }
 
@@ -8891,6 +8970,7 @@ const btnCls = ({ active, tone, primary, block, sm } = {}) =>
 const SPEED_CHECKS = [
   {
     kind: "neg",
+    secs: 180,
     title: "Negative Numbers",
     blurb: "24 questions · about 3 minutes",
     tag: "var(--tag-neg)",
@@ -8898,6 +8978,7 @@ const SPEED_CHECKS = [
   },
   {
     kind: "fdp",
+    secs: 180,
     title: "Fractions, Decimals & Percentages",
     blurb: "24 questions · about 3 minutes",
     tag: "var(--tag-fdp)",
@@ -8905,14 +8986,27 @@ const SPEED_CHECKS = [
   },
   {
     kind: "times",
+    secs: 180,
     title: "Times Tables",
     blurb: "24 questions · about 3 minutes",
     tag: "var(--tag-3)",
     tip: "A fixed 24-question recall sheet of multiplication and division facts from the 2 to 12 tables, two columns on one A4 page",
   },
+  {
+    kind: "skills",
+    secs: 300,
+    title: "Number Skills",
+    blurb: "24 questions · about 5 minutes",
+    tag: "var(--tag-4)",
+    tip: "Six easy questions each on factors & multiples, rounding & estimation, ratio & proportion and units & rates, two columns on one A4 page",
+  },
 ];
 
 ReactDOM.createRoot(document.getElementById("root")).render(<QuizEngine />);
+
+
+
+
 
 
 
