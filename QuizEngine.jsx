@@ -881,6 +881,59 @@ function Frac({ n, d }) {
   );
 }
 
+// Real superscript for an index: the base followed by a raised exponent, so
+// "8^(2/3)" and "10^-5" print the way a textbook does. `e` may be a number
+// (negatives get a true minus sign) or JSX such as an <IdxFrac /> for a
+// fractional index. An exponent of 1 is dropped (x^1 -> x). `tall` pins the
+// exponent to the top of the line for a very tall base such as a bracketed
+// stacked fraction.
+function Pow({ b, e, tall }) {
+  if (e === 1) return <>{b}</>;
+  const plain = typeof e === "number" || typeof e === "string";
+  const shown = typeof e === "number" ? (e < 0 ? `\u2212${-e}` : `${e}`) : e;
+  // A stacked fraction needs a larger, higher exponent than a single digit
+  // or it ends up tiny and sitting on the baseline of the base.
+  return (
+    <>
+      {b}
+      <sup style={{ fontSize: plain ? "0.7em" : "0.9em", lineHeight: tall ? 1 : 0, verticalAlign: tall ? "top" : plain ? "super" : "0.38em", marginLeft: 1 }}>{shown}</sup>
+    </>
+  );
+}
+// Small stacked fraction for use inside an exponent (see Pow).
+function IdxFrac({ n, d, neg }) {
+  const frac = (
+    <span style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", verticalAlign: "middle", lineHeight: 1.1, margin: "0 1px" }}>
+      <span style={{ padding: "0 2px" }}>{n}</span>
+      <span style={{ borderTop: "1px solid currentColor", width: "100%", textAlign: "center", padding: "0 2px" }}>{d}</span>
+    </span>
+  );
+  // The minus sits level with the fraction bar, not on the text baseline.
+  return neg ? <span style={{ display: "inline-flex", alignItems: "center", verticalAlign: "middle" }}><span style={{ marginRight: 3, fontWeight: 600 }}>{"\u2212"}</span>{frac}</span> : frac;
+}
+// Brackets that stretch to the height of what they hold (a stacked fraction).
+function TallParens({ children }) {
+  const paren = { fontSize: "2.1em", fontWeight: 200, lineHeight: 0.6, verticalAlign: "middle", display: "inline-block" };
+  return (
+    <>
+      <span style={paren}>(</span>
+      {children}
+      <span style={paren}>)</span>
+    </>
+  );
+}
+// nth root: the root index sits small and raised before the radical sign
+// (a square root shows no index).
+function Root({ n, x }) {
+  return (
+    <>
+      {n !== 2 && <sup style={{ fontSize: "0.65em", lineHeight: 0, verticalAlign: "super", marginRight: 1 }}>{n}</sup>}
+      {"\u221a"}
+      <span style={{ borderTop: "1px solid currentColor", padding: "0 2px" }}>{x}</span>
+    </>
+  );
+}
+
 const SUBTOPIC_BANK = {
   "venn-shade": {
     topic: "Venn Diagrams", title: "Set notation — shade a region", marks: 1,
@@ -1904,7 +1957,7 @@ SUBTOPIC_BANK["percent-compound-increase"] = {
     const final = P * Math.pow(1 + r / 100, n);
     return {
       prompt: `£${P} is invested at ${r}% compound interest per year. Find the value after ${n} years to the nearest penny.`,
-      answer: `£${P} × ${(1 + r / 100).toFixed(2)}^${n} = £${final.toFixed(2)}`,
+      answer: <>£{P} × <Pow b={(1 + r / 100).toFixed(2)} e={n} /> = £{final.toFixed(2)}</>,
     };
   },
 };
@@ -1928,7 +1981,7 @@ SUBTOPIC_BANK["sf-large-to-sf"] = {
     const d = seededInt(rng, 1, 9) + seededInt(rng, 0, 9) / 10;
     const e = seededInt(rng, 3, 8);
     const val = Math.round(d * Math.pow(10, e));
-    return { prompt: `Write ${val.toLocaleString("en-GB")} in standard form.`, answer: `${d.toFixed(1)} × 10^${e}` };
+    return { prompt: `Write ${val.toLocaleString("en-GB")} in standard form.`, answer: <>{d.toFixed(1)} × <Pow b={10} e={e} /></> };
   },
 };
 SUBTOPIC_BANK["sf-small-to-ordinary"] = {
@@ -1937,7 +1990,7 @@ SUBTOPIC_BANK["sf-small-to-ordinary"] = {
     const d = seededInt(rng, 1, 9) + seededInt(rng, 0, 9) / 10;
     const e = -seededInt(rng, 3, 7);
     const val = d * Math.pow(10, e);
-    return { prompt: `Write ${d.toFixed(1)} × 10^${e} as an ordinary number.`, answer: `${val.toFixed(-e + 1)}` };
+    return { prompt: <>Write {d.toFixed(1)} × <Pow b={10} e={e} /> as an ordinary number.</>, answer: `${val.toFixed(-e + 1)}` };
   },
 };
 SUBTOPIC_BANK["sf-multiply"] = {
@@ -1948,8 +2001,8 @@ SUBTOPIC_BANK["sf-multiply"] = {
     let d = d1 * d2, e = e1 + e2;
     while (d >= 10) { d /= 10; e += 1; }
     return {
-      prompt: `Work out (${d1} × 10^${e1}) × (${d2} × 10^${e2}). Give your answer in standard form.`,
-      answer: `${d} × 10^${e}`,
+      prompt: <>Work out ({d1} × <Pow b={10} e={e1} />) × ({d2} × <Pow b={10} e={e2} />). Give your answer in standard form.</>,
+      answer: <>{d} × <Pow b={10} e={e} /></>,
     };
   },
 };
@@ -2019,7 +2072,13 @@ SUBTOPIC_BANK["fmp-prime-factorisation"] = {
     let n = target;
     for (const p of [2, 3, 5, 7, 11, 13]) { while (n % p === 0) { factors[p] = (factors[p] || 0) + 1; n /= p; } }
     if (n > 1) factors[n] = 1;
-    const answer = Object.entries(factors).map(([p, k]) => (k === 1 ? p : `${p}^${k}`)).join(" × ");
+    const answer = (
+      <>
+        {Object.entries(factors).map(([p, k], i) => (
+          <React.Fragment key={p}>{i > 0 ? " × " : ""}<Pow b={p} e={k} /></React.Fragment>
+        ))}
+      </>
+    );
     return { prompt: `Write ${target} as a product of its prime factors.`, answer };
   },
 };
@@ -2040,8 +2099,8 @@ SUBTOPIC_BANK["powers-laws-multiply"] = {
     const base = pick(rng, ["a", "b", "x", "y"]);
     const p = seededInt(rng, 2, 9), q = seededInt(rng, 2, 9), r = seededInt(rng, 1, 4);
     return {
-      prompt: `Simplify: (${base}^${p} × ${base}^${q}) ÷ ${base}^${r}. Leave your answer in index form.`,
-      answer: `${base}^${p + q - r}`,
+      prompt: <>Simplify: (<Pow b={base} e={p} /> × <Pow b={base} e={q} />) ÷ <Pow b={base} e={r} />. Leave your answer in index form.</>,
+      answer: <Pow b={base} e={p + q - r} />,
     };
   },
 };
@@ -2051,10 +2110,10 @@ SUBTOPIC_BANK["powers-zero-and-fractional"] = {
     const which = pick(rng, ["zero", "fractional"]);
     if (which === "zero") {
       const b = seededInt(rng, 2, 9);
-      return { prompt: `Work out the value of ${b}^0`, answer: `1` };
+      return { prompt: <>Work out the value of <Pow b={b} e={0} /></>, answer: `1` };
     }
     const b = pick(rng, [4, 9, 16, 25, 36, 49, 64, 81, 100]);
-    return { prompt: <>Work out the value of {b}^(<Frac n="1" d="2" />)</>, answer: `${Math.sqrt(b)}` };
+    return { prompt: <>Work out the value of <Pow b={b} e={<IdxFrac n="1" d="2" />} /></>, answer: `${Math.sqrt(b)}` };
   },
 };
 
@@ -2133,7 +2192,7 @@ SUBTOPIC_BANK["indices-negative"] = {
   build(rng) {
     const b = pick(rng, [2, 3, 4, 5, 6, 10]);
     const p = seededInt(rng, 1, 3);
-    return { prompt: `Work out the value of ${b}^-${p}. Give your answer as a fraction.`, answer: <Frac n="1" d={Math.pow(b, p)} /> };
+    return { prompt: <>Work out the value of <Pow b={b} e={-p} />. Give your answer as a fraction.</>, answer: <Frac n="1" d={Math.pow(b, p)} /> };
   },
 };
 SUBTOPIC_BANK["indices-fractional"] = {
@@ -2146,8 +2205,8 @@ SUBTOPIC_BANK["indices-fractional"] = {
     const denom = base === 32 ? 5 : (base === 16 ? 4 : 3);
     const numer = seededInt(rng, 2, 4);
     return {
-      prompt: <>Work out the value of {base}^(<Frac n={numer} d={denom} />).</>,
-      answer: <>({base}^(<Frac n="1" d={denom} />))^{numer} = {root}^{numer} = {Math.pow(root, numer)}</>,
+      prompt: <>Work out the value of <Pow b={base} e={<IdxFrac n={numer} d={denom} />} />.</>,
+      answer: <><Pow b={<>(<Pow b={base} e={<IdxFrac n="1" d={denom} />} />)</>} e={numer} /> = <Pow b={root} e={numer} /> = {Math.pow(root, numer)}</>,
     };
   },
 };
@@ -5100,7 +5159,7 @@ SUBTOPIC_BANK["algebraic-notation-index-form"] = {
     const power = seededInt(rng, 2, 5);
     return {
       prompt: `Write ${Array(power).fill(letter).join(" × ")} in index form.`,
-      answer: `${letter}^${power}`,
+      answer: <Pow b={letter} e={power} />,
     };
   },
 };
@@ -5391,7 +5450,7 @@ SUBTOPIC_BANK["indices-power-of-a-power"] = {
   build(rng) {
     const base = pick(rng, ["a", "b", "x", "y"]);
     const p = seededInt(rng, 2, 5), q = seededInt(rng, 2, 4);
-    return { prompt: `Simplify (${base}^${p})^${q}`, answer: `${base}^${p * q}` };
+    return { prompt: <>Simplify <Pow b={<>(<Pow b={base} e={p} />)</>} e={q} /></>, answer: <Pow b={base} e={p * q} /> };
   },
 };
 SUBTOPIC_BANK["indices-combined-negative-fractional"] = {
@@ -5404,7 +5463,7 @@ SUBTOPIC_BANK["indices-combined-negative-fractional"] = {
     const numerPower = pick(rng, [1, 2]);
     const value = Math.pow(rooted, numerPower);
     return {
-      prompt: `Work out the value of ${base}^-(${numerPower}/${root}). Give your answer as a fraction.`,
+      prompt: <>Work out the value of <Pow b={base} e={<IdxFrac neg n={numerPower} d={root} />} />. Give your answer as a fraction.</>,
       answer: <Frac n="1" d={value} />,
     };
   },
@@ -5939,7 +5998,7 @@ SUBTOPIC_BANK["indices-divide-same-base"] = {
   build(rng) {
     const base = pick(rng, [2, 3, 4, 5, 6, 10]);
     const p = seededInt(rng, 5, 9), q = seededInt(rng, 1, 4);
-    return { prompt: `Simplify ${base}^${p} ÷ ${base}^${q}. Leave your answer in index form.`, answer: `${base}^${p - q}` };
+    return { prompt: <>Simplify <Pow b={base} e={p} /> ÷ <Pow b={base} e={q} />. Leave your answer in index form.</>, answer: <Pow b={base} e={p - q} /> };
   },
 };
 SUBTOPIC_BANK["indices-power-of-power-numeric"] = {
@@ -5947,7 +6006,7 @@ SUBTOPIC_BANK["indices-power-of-power-numeric"] = {
   build(rng) {
     const base = pick(rng, [2, 3, 4, 5, 6, 10]);
     const p = seededInt(rng, 2, 4), q = seededInt(rng, 2, 3);
-    return { prompt: `Simplify (${base}^${p})^${q}. Leave your answer in index form.`, answer: `${base}^${p * q}` };
+    return { prompt: <>Simplify <Pow b={<>(<Pow b={base} e={p} />)</>} e={q} />. Leave your answer in index form.</>, answer: <Pow b={base} e={p * q} /> };
   },
 };
 SUBTOPIC_BANK["indices-negative-fractional-base"] = {
@@ -5958,7 +6017,7 @@ SUBTOPIC_BANK["indices-negative-fractional-base"] = {
     const power = pick(rng, [1, 2]);
     const flippedN = Math.pow(d, power), flippedD = Math.pow(n, power);
     return {
-      prompt: <>Work out the value of (<Frac n={n} d={d} />)^-{power}</>,
+      prompt: <>Work out the value of <Pow tall b={<TallParens><Frac n={n} d={d} /></TallParens>} e={-power} /></>,
       answer: <Frac n={flippedN} d={flippedD} />,
     };
   },
@@ -5977,8 +6036,8 @@ SUBTOPIC_BANK["indices-non-unit-fractional"] = {
     const power = seededInt(rng, 2, 3);
     const answer = Math.pow(rooted, power);
     return {
-      prompt: <>Work out the value of {item.base}^(<Frac n={power} d={item.root} />)</>,
-      answer: `(${item.root}√${item.base})^${power} = ${rooted}^${power} = ${answer}`,
+      prompt: <>Work out the value of <Pow b={item.base} e={<IdxFrac n={power} d={item.root} />} /></>,
+      answer: <><Pow b={<>(<Root n={item.root} x={item.base} />)</>} e={power} /> = <Pow b={rooted} e={power} /> = {answer}</>,
     };
   },
 };
@@ -5995,7 +6054,7 @@ SUBTOPIC_BANK["sf-small-to-sf"] = {
     const coeff = D1 === 0 ? `${D0}` : `${D0}.${D1}`;
     return {
       prompt: `Write ${ordinaryStr} in standard form.`,
-      answer: `${coeff} × 10^-${e}`,
+      answer: <>{coeff} × <Pow b={10} e={-e} /></>,
     };
   },
 };
@@ -6007,8 +6066,8 @@ SUBTOPIC_BANK["sf-divide"] = {
     const d1 = c * d2;
     const e1 = seededInt(rng, 4, 9), e2 = seededInt(rng, 1, 3);
     return {
-      prompt: `Work out (${d1} × 10^${e1}) ÷ (${d2} × 10^${e2}). Give your answer in standard form.`,
-      answer: `${c} × 10^${e1 - e2}`,
+      prompt: <>Work out ({d1} × <Pow b={10} e={e1} />) ÷ ({d2} × <Pow b={10} e={e2} />). Give your answer in standard form.</>,
+      answer: <>{c} × <Pow b={10} e={e1 - e2} /></>,
     };
   },
 };
@@ -6026,10 +6085,11 @@ SUBTOPIC_BANK["sf-compare-order"] = {
       items.push({ d, e, value: d * Math.pow(10, e) });
     }
     const sorted = [...items].sort((a, b) => a.value - b.value);
-    const fmt = (it) => `${it.d.toFixed(1)} × 10^${it.e}`;
+    const fmt = (it) => <>{it.d.toFixed(1)} × <Pow b={10} e={it.e} /></>;
+    const list = (arr) => arr.map((it, i) => <React.Fragment key={i}>{i > 0 ? ", " : ""}{fmt(it)}</React.Fragment>);
     return {
-      prompt: `Write these numbers in order, starting with the smallest: ${items.map(fmt).join(", ")}`,
-      answer: sorted.map(fmt).join(", "),
+      prompt: <>Write these numbers in order, starting with the smallest: {list(items)}</>,
+      answer: <>{list(sorted)}</>,
     };
   },
 };
@@ -6042,10 +6102,10 @@ SUBTOPIC_BANK["sf-add-subtract"] = {
     const rawResult = operation === "add" ? d1 + d2 : d1 - d2;
     let coeff = rawResult, exp = e;
     while (coeff >= 10) { coeff /= 10; exp += 1; }
-    const symbol = operation === "add" ? "+" : "-";
+    const symbol = operation === "add" ? "+" : "\u2212";
     return {
-      prompt: `Work out (${d1} × 10^${e}) ${symbol} (${d2} × 10^${e}). Give your answer in standard form.`,
-      answer: `${coeff} × 10^${exp}`,
+      prompt: <>Work out ({d1} × <Pow b={10} e={e} />) {symbol} ({d2} × <Pow b={10} e={e} />). Give your answer in standard form.</>,
+      answer: <>{coeff} × <Pow b={10} e={exp} /></>,
     };
   },
 };
