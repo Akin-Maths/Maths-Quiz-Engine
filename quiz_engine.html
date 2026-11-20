@@ -927,25 +927,20 @@ function Pow({ b, e, tall }) {
   if (e === 1) return <>{b}</>;
   const plain = typeof e === "number" || typeof e === "string";
   const shown = typeof e === "number" ? (e < 0 ? `\u2212${-e}` : `${e}`) : e;
-  // A stacked fraction needs a larger, higher exponent than a single digit
-  // or it ends up tiny and sitting on the baseline of the base.
+  // Whole-number exponents sit at the usual superscript height. A fractional
+  // index is written inline ("3/5") rather than as a stacked fraction, so it reads
+  // like an exponent, raised a little higher so the slash clears the base.
   return (
     <>
       {b}
-      <sup style={{ fontSize: plain ? "0.7em" : "0.9em", lineHeight: tall ? 1 : 0, verticalAlign: tall ? "top" : plain ? "super" : "0.38em", marginLeft: 1 }}>{shown}</sup>
+      <sup style={{ fontSize: plain ? "0.7em" : "0.78em", lineHeight: tall ? 1 : 0, verticalAlign: tall ? "top" : plain ? "super" : "0.72em", marginLeft: 1, whiteSpace: "nowrap" }}>{shown}</sup>
     </>
   );
 }
-// Small stacked fraction for use inside an exponent (see Pow).
+// A fractional index written inline, e.g. 3/5 (or \u22121/3), for use as the
+// exponent in <Pow>.
 function IdxFrac({ n, d, neg }) {
-  const frac = (
-    <span style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", verticalAlign: "middle", lineHeight: 1.1, margin: "0 1px" }}>
-      <span style={{ padding: "0 2px" }}>{n}</span>
-      <span style={{ borderTop: "1px solid currentColor", width: "100%", textAlign: "center", padding: "0 2px" }}>{d}</span>
-    </span>
-  );
-  // The minus sits level with the fraction bar, not on the text baseline.
-  return neg ? <span style={{ display: "inline-flex", alignItems: "center", verticalAlign: "middle" }}><span style={{ marginRight: 3, fontWeight: 600 }}>{"\u2212"}</span>{frac}</span> : frac;
+  return `${neg ? "\u2212" : ""}${n}/${d}`;
 }
 // Brackets that stretch to the height of what they hold (a stacked fraction).
 function TallParens({ children }) {
@@ -9689,6 +9684,9 @@ const SPEED_CHECKS = [
 ];
 
 ReactDOM.createRoot(document.getElementById("root")).render(<QuizEngine />);
+
+
+
 
 
 
