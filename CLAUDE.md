@@ -237,6 +237,14 @@ script are in `LIBRARY_SETUP.md` and `supabase_setup.sql`. Notes for changes:
   (arc + label on the bisector, used by triangles, polygons and angle-fact diagrams). `mathify()` italicises
   bare x/y/z/n in prompts and answers at render time; `Mixed` puts a mixed number's whole part level with the
   fraction bar (and `Frac` now centres its bar). Multi-week Year 7 topics are labelled (W1), (W2), (W3).
+- Every scheme week is topped up to 6 topics after `SCHEMES` is built (`topUpWeeks`): a week with fewer
+  than 6 topics gets one topic from the week before, then one from the week before that, and so on, going
+  round again if still short (first weeks of a scheme can stay under 6). Topics that run over consecutive
+  weeks are labelled (W1), (W2), (W3) in every scheme's week keys, per comma-separated topic in the title.
+- Drawings added later: `AreaShapeSVG` (parallelogram / triangle / trapezium with dashed height),
+  `ParallelLinesSVG` (alternate, corresponding, co-interior and two-step parallel-line questions),
+  `ParallelogramAnglesSVG`; `RectangleSVG` always draws the long side horizontal. `like-terms-identify`
+  is a tick-box question (boxes drawn in `render`).
 - Booklet pages are scanned images (no text layer). To re-read them, OCR with macOS Vision
   through `pyobjc-framework-Vision`/`Quartz` in a throwaway venv.
 - `buildMeasuresSpeedCheck` (kind `"measures"`, tag `--tag-5`): 24 one-step conversions,

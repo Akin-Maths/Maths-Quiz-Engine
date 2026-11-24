@@ -188,7 +188,7 @@ function RightTriangleSVG({ base, height, orientation = "bl", baseLabel, heightL
       <polygon points={`${A[0]},${A[1]} ${B[0]},${B[1]} ${C[0]},${C[1]}`} fill="none" stroke="#000" strokeWidth="1.6" />
       <polyline points={markerPts} fill="none" stroke="#000" strokeWidth="1.2" />
       <text x={baseMid[0]} y={baseMid[1] + baseUp} fontSize="13" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#000">{baseLabel}</text>
-      <text x={heightMid[0] + heightSide} y={heightMid[1] + 4} fontSize="13" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#000">{heightLabel}</text>
+      <text x={heightMid[0] + (heightSide < 0 ? -8 : 8)} y={heightMid[1] + 4} fontSize="13" fontFamily="Arial, sans-serif" textAnchor={heightSide < 0 ? "end" : "start"} fill="#000">{heightLabel}</text>
       <text x={hypMid[0] + hypOffsetX} y={hypMid[1] + hypOffsetY} fontSize="13" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#000">{hypLabel}</text>
       {angleLabel && <text x={B[0] + (A[0] - B[0]) * 0.22} y={B[1] + (A[1] - B[1]) * 0.22 + 4} fontSize="12" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#000">{angleLabel}</text>}
     </svg>
@@ -507,7 +507,7 @@ function FrequencyTreeSVG({ labelsStage1, labelsStage2, freqs, unknownIndex }) {
   );
 }
 
-function AngleFactsSVG({ mode = "line", angles, unknownIndex }) {
+function AngleFactsSVG({ mode = "line", angles, unknownIndex, labels }) {
   const W = 300, R = mode === "line" ? 112 : 100;
   const cx = W / 2, cy = mode === "line" ? 128 : 116;
   const H = mode === "line" ? 150 : 232;
@@ -527,8 +527,8 @@ function AngleFactsSVG({ mode = "line", angles, unknownIndex }) {
       })}
       <circle cx={cx} cy={cy} r={2.4} fill="#000" />
       {angles.map((a, i) => {
-        const P = polarPt(cx, cy, 60, rays[i]), Q = polarPt(cx, cy, 60, rays[i + 1]);
-        const label = i === unknownIndex ? "?" : `${a}\u00B0`;
+        const P = polarPt(cx, cy, 110, rays[i]), Q = polarPt(cx, cy, 110, rays[i + 1]);
+        const label = labels ? labels[i] : i === unknownIndex ? "?" : `${a}\u00B0`;
         return <AngleMark key={i} V={[cx, cy]} P={P} Q={Q} label={label} arcR={arcR} inset bold={i === unknownIndex} fontSize={i === unknownIndex ? 15 : 13} />;
       })}
     </svg>
@@ -561,15 +561,23 @@ function BearingSVG({ bearingDeg, unknown }) {
   );
 }
 
-function RectangleSVG({ w, h }) {
-  const scale = 140 / Math.max(w, h);
-  const rw = Math.max(w * scale, 40), rh = Math.max(h * scale, 40);
-  const padTop = 24, padLeft = 46;
+function RectangleSVG({ w, h, wLabel, hLabel }) {
+  // With plain numbers, always draw the longer side horizontally (saves
+  // vertical space on the page). With explicit labels (e.g. "(3x + 7) cm"),
+  // keep w across the top/bottom and h down the side as given.
+  const custom = wLabel !== undefined || hLabel !== undefined;
+  const long = custom ? w : Math.max(w, h), short = custom ? h : Math.min(w, h);
+  const rw = custom ? 190 : Math.max(Math.min(190, 24 * long), 90);
+  const rh = Math.min(Math.max((short / long) * rw, 38), 78);
+  const padTop = 16, padLeft = 64, padRight = 20;
+  const bottom = wLabel !== undefined ? wLabel : `${long} cm`;
+  const side = hLabel !== undefined ? hLabel : `${short} cm`;
+  const svgText = (t, props) => <text {...props} fontSize="13" fontFamily="Arial, sans-serif" fill="#000">{svgMath(t)}</text>;
   return (
-    <svg viewBox={`0 0 ${rw + padLeft + 24} ${rh + 2 * padTop}`} width="100%" style={{ maxWidth: 240, display: "block" }}>
+    <svg viewBox={`0 0 ${rw + padLeft + padRight} ${rh + padTop + 30}`} width={Math.min(rw + padLeft + padRight, 300) * 1.1} style={{ maxWidth: "100%", height: "auto", display: "block", margin: "0 auto" }}>
       <rect x={padLeft} y={padTop} width={rw} height={rh} fill="none" stroke="#000" strokeWidth="1.6" />
-      <text x={padLeft + rw / 2} y={padTop + rh + 16} fontSize="13" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#000">{w} cm</text>
-      <text x={padLeft - 8} y={padTop + rh / 2 + 4} fontSize="13" fontFamily="Arial, sans-serif" textAnchor="end" fill="#000">{h} cm</text>
+      {svgText(bottom, { x: padLeft + rw / 2, y: padTop + rh + 18, textAnchor: "middle" })}
+      {svgText(side, { x: padLeft - 8, y: padTop + rh / 2 + 4, textAnchor: "end" })}
     </svg>
   );
 }
@@ -989,14 +997,17 @@ function AngleMark({ V, P, Q, label, arcR = 20, bold = false, fontSize = 12.5, i
   const bis = norm([u1[0] + u2[0], u1[1] + u2[1]]);
   const text = String(label);
   const halfW = text.length * 3.7 + 3;
-  const need = (halfW + 5) / Math.max(Math.sin(ang / 2), 0.25);
+  // Clearance needed so the text box (half-width halfW, half-height 7) fits
+  // inside the wedge, measured across the bisector.
+  const ext = halfW * Math.abs(bis[1]) + 7 * Math.abs(bis[0]);
+  const need = (ext + 3) / Math.max(Math.sin(ang / 2), 0.1);
   let lr = Math.max(arcR + 17, need);
   const cap = 0.75 * Math.min(dP, dQ);
   if (lr > cap) lr = Math.max(arcR + 10, cap);
   return (
     <g>
       <path d={`M${a1[0]},${a1[1]} A${arcR},${arcR} 0 0 ${cross > 0 ? 1 : 0} ${a2[0]},${a2[1]}`} fill="none" stroke="#000" strokeWidth="1.1" />
-      <text x={V[0] + bis[0] * lr} y={V[1] + bis[1] * lr + 4} fontSize={fontSize} fontFamily="Arial, sans-serif" fontWeight={bold ? 700 : 400} textAnchor="middle" fill="#000" stroke="#fff" strokeWidth="3" paintOrder="stroke">{text}</text>
+      <text x={V[0] + bis[0] * lr} y={V[1] + bis[1] * lr + 4} fontSize={fontSize} fontFamily="Arial, sans-serif" fontWeight={bold ? 700 : 400} textAnchor="middle" fill="#000" stroke="#fff" strokeWidth="3" paintOrder="stroke">{svgMath(text)}</text>
     </g>
   );
 }
@@ -3273,7 +3284,9 @@ SUBTOPIC_BANK["form-solve-perimeter-equation"] = {
     const side1 = a * x0 + b;
     const perimeter = 2 * (side1 + width);
     return {
-      prompt: `A rectangle has length (${a}x + ${b}) cm and width ${width} cm. The perimeter of the rectangle is ${perimeter} cm. Form and solve an equation to find x.`,
+      prompt: `The diagram shows a rectangle. The perimeter of the rectangle is ${perimeter} cm. Form and solve an equation to find x.`,
+      render: <RectangleSVG w={side1} h={width} wLabel={`(${a}x + ${b}) cm`} hLabel={`${width} cm`} />,
+      accurateDiagram: true,
       answer: `2((${a}x + ${b}) + ${width}) = ${perimeter}; ${2 * a}x + ${2 * (b + width)} = ${perimeter}; ${2 * a}x = ${perimeter - 2 * (b + width)}; x = ${x0}`,
     };
   },
@@ -4719,25 +4732,25 @@ const SET1_WEEKS = {
   "HT1 · Week 4 (28/09/26) — Equation of a Tangent": [
     "estimate-gradient-tangent", "linear-graph-perpendicular",
   ],
-  "HT1 · Week 5 (05/10/26) — Graphing Inequalities, Iteration": [
+  "HT1 · Week 5 (05/10/26) — Graphing Inequalities, Iteration (W1)": [
     "inequality-linear-twostep", "inequality-both-sides", "iterations-fixed-point",
   ],
-  "HT1 · Week 6 (12/10/26) — Iteration, Algebraic Fractions": [
+  "HT1 · Week 6 (12/10/26) — Iteration (W2), Algebraic Fractions": [
     "iteration-rearrange-first", "algebraic-fractions-simplify-basic", "algebraic-fractions-addsub-diffvars",
   ],
   "HT1 · Week 7 (19/10/26) — Evaluating Functions, Inverse & Composite Functions, Graph Transformations": [
     "functions-substitution-solving", "inverse-functions", "composite-functions", "curve-transform-translate",
   ],
-  "HT2 · Week 3 (23/11/26) — Speed-Time Graphs, Vectors": [
+  "HT2 · Week 3 (23/11/26) — Speed-Time Graphs, Vectors (W1)": [
     "distance-time-graph-read", "vectors-column-arithmetic",
   ],
-  "HT2 · Week 4 (30/11/26) — Vectors, Trig & Exponential Graphs, Congruent Triangles": [
+  "HT2 · Week 4 (30/11/26) — Vectors (W2), Trig & Exponential Graphs, Congruent Triangles": [
     "vectors-parallel-proof", "trig-graph-max-min", "exponential-graph-features", "congruence-criteria",
   ],
-  "HT2 · Week 5 (07/12/26) — Boxplots, Cumulative Frequency, Histograms": [
+  "HT2 · Week 5 (07/12/26) — Boxplots, Cumulative Frequency, Histograms (W1)": [
     "boxplot-range", "cf-median-class", "histogram-freq-density",
   ],
-  "HT2 · Week 6 (14/12/26) — Histograms, Assess & Review": [
+  "HT2 · Week 6 (14/12/26) — Histograms (W2), Assess & Review": [
     "histogram-read-bar", "histogram-total-frequency",
   ],
   "HT3 · Week 1 (04/01/27) — Venn Diagrams, Loci": [
@@ -4755,10 +4768,10 @@ const SET1_WEEKS = {
   "HT4 · Week 4 (15/03/27) — Similar Shapes (Area & Volume), Iterations": [
     "similar-shapes-area-scale", "similar-shapes-volume-scale", "iterations-fixed-point",
   ],
-  "HT4 · Week 5 (22/03/27) — Linear Graphs Recap, Equation of a Circle": [
+  "HT4 · Week 5 (22/03/27) — Linear Graphs Recap, Equation of a Circle (W1)": [
     "linear-graph-two-points", "circle-eq-radius-from-eq",
   ],
-  "HT5 · Week 1 (12/04/27) — Equation of a Circle, Inequalities": [
+  "HT5 · Week 1 (12/04/27) — Equation of a Circle (W2), Inequalities": [
     "circle-eq-write-given-radius", "inequality-linear-twostep", "inequality-quadratic-solve", "inequality-from-number-line",
   ],
   "HT5 · Week 2 (19/04/27) — Vectors, Algebraic Proof": [
@@ -4838,85 +4851,85 @@ const FOUNDATION_WEEKS = {
    represented; the teacher can still tick/untick topics after choosing a week. ---- */
 
 const Y10_SET1_WEEKS = {
-  "HT1 · Week 1 (07/09/26) — Recurring Decimals, Surds": [
+  "HT1 · Week 1 (07/09/26) — Recurring Decimals, Surds (W1)": [
     "frac-recurring-to-fraction", "surds-simplify", "surds-add-subtract", "surds-multiply-expand", "fdp-recurring-partial-nonrecurring",
   ],
-  "HT1 · Week 2 (14/09/26) — Surds, Indices": [
+  "HT1 · Week 2 (14/09/26) — Surds (W2), Indices (W1)": [
     "surds-basic-rationalising", "surds-rationalising-harder", "indices-negative", "indices-fractional", "indices-negative-fractional-base", "indices-non-unit-fractional",
   ],
-  "HT1 · Week 3 (21/09/26) — Indices, Product Rule for Counting, Bounds & Error Intervals": [
+  "HT1 · Week 3 (21/09/26) — Indices (W2), Product Rule for Counting, Bounds & Error Intervals (W1)": [
     "indices-negative-fractional-base", "product-rule-counting", "round-error-interval", "indices-combined-negative-fractional",
   ],
-  "HT1 · Week 4 (28/09/26) — Bounds & Error Intervals": [
+  "HT1 · Week 4 (28/09/26) — Bounds & Error Intervals (W2)": [
     "bounds-intro", "bounds-multiply", "bounds-accuracy",
   ],
-  "HT1 · Week 5 (05/10/26) — Expanding Brackets, Factorising": [
+  "HT1 · Week 5 (05/10/26) — Expanding Brackets, Factorising (W1)": [
     "eb-double-pos", "eb-double-neg", "fac-grouping", "eb-double-mixed", "eb-squared", "expanding-triple-brackets",
   ],
-  "HT1 · Week 6 (12/10/26) — Factorising, Solving Quadratics by Factorising": [
+  "HT1 · Week 6 (12/10/26) — Factorising (W2), Solving Quadratics by Factorising": [
     "fac-quadratic", "fac-quadratic-agt1", "fac-common-then-simplify", "solve-quadratic-factorise", "fac-monic-neg", "fac-nonmonic-neg",
   ],
-  "HT1 · Week 7 (19/10/26) — Linear Equations, Rearranging Equations": [
+  "HT1 · Week 7 (19/10/26) — Linear Equations, Rearranging Equations (W1)": [
     "solve-equation-both-sides-brackets", "changing-subject-expand", "solve-equation-fractions", "rearrange-square-root", "solve-equation-negative-coefficient",
   ],
-  "HT2 · Week 1 (09/11/26) — Rearranging Equations, Sequences": [
+  "HT2 · Week 1 (09/11/26) — Rearranging Equations (W2), Sequences": [
     "changing-subject-factorise", "find-nth-term-linear", "quadratic-sequences", "rearrange-square-root", "generate-terms-from-nth-term", "rearrange-square",
   ],
   "HT2 · Week 2 (16/11/26) — Solving Quadratics by Factorising": [
     "solve-quadratic-factorise", "solve-quadratic-factorise-agt1", "solve-quadratic-rearrange",
   ],
-  "HT2 · Week 3 (23/11/26) — Quadratics": [
+  "HT2 · Week 3 (23/11/26) — Quadratics (W1)": [
     "completing-the-square", "solve-completing-square", "solve-quadratic-formula", "solve-quadratic-word-problem", "completing-the-square-odd-b", "completing-square-non-monic",
   ],
-  "HT2 · Week 4 (30/11/26) — Quadratics, Transformations": [
+  "HT2 · Week 4 (30/11/26) — Quadratics (W2), Transformations (W1)": [
     "solve-quadratic-word-problem", "transform-translate-shape", "transform-reflect-shape", "solve-quadratic-formula",
   ],
-  "HT2 · Week 5 (07/12/26) — Transformations": [
+  "HT2 · Week 5 (07/12/26) — Transformations (W2)": [
     "transform-rotate-shape", "transform-enlarge-shape",
   ],
-  "HT3 · Week 1 (04/01/27) — Transformations": [
+  "HT3 · Week 1 (04/01/27) — Transformations (W3)": [
     "transform-enlarge-shape",
   ],
-  "HT3 · Week 2 (11/01/27) — Coordinate Geometry": [
+  "HT3 · Week 2 (11/01/27) — Coordinate Geometry (W1)": [
     "plot-nonlinear-graph", "cubic-graph-features", "equation-from-gradient-and-point", "plot-cubic-graph", "reciprocal-graph-features", "x-and-y-intercepts-from-equation",
   ],
-  "HT3 · Week 3 (18/01/27) — Coordinate Geometry": [
+  "HT3 · Week 3 (18/01/27) — Coordinate Geometry (W2)": [
     "linear-graph-parallel", "sketch-quadratic-a1", "turning-point-from-completed-square", "plot-cubic-graph", "linear-graph-perpendicular", "sketch-quadratic-agt1",
   ],
-  "HT3 · Week 4 (25/01/27) — Coordinate Geometry, Quadratic Simultaneous Equations": [
+  "HT3 · Week 4 (25/01/27) — Coordinate Geometry (W3), Quadratic Simultaneous Equations (W1)": [
     "circle-eq-radius-from-eq", "exponential-graph-features", "simultaneous-linear-scaling", "circle-eq-write-given-radius", "simultaneous-equations-word-problem",
   ],
-  "HT3 · Week 5 (01/02/27) — Quadratic Simultaneous Equations, Surface Area & Volume": [
+  "HT3 · Week 5 (01/02/27) — Quadratic Simultaneous Equations (W2), Surface Area & Volume (W1)": [
     "quadratic-simultaneous", "plot-nonlinear-graph", "measures-convert-area-units", "volume-triangular-prism", "quadratic-simultaneous-circle", "volume-cuboid",
   ],
-  "HT3 · Week 6 (08/02/27) — Surface Area & Volume": [
+  "HT3 · Week 6 (08/02/27) — Surface Area & Volume (W2)": [
     "volume-cuboid", "volume-cone", "volume-cylinder", "surface-area-cuboid", "surface-area-cylinder",
   ],
-  "HT4 · Week 1 (22/02/27) — Direct & Inverse Proportion": [
+  "HT4 · Week 1 (22/02/27) — Direct & Inverse Proportion (W1)": [
     "direct-proportion", "inverse-proportion",
   ],
-  "HT4 · Week 2 (01/03/27) — Direct & Inverse Proportion, Probability": [
+  "HT4 · Week 2 (01/03/27) — Direct & Inverse Proportion (W2), Probability (W1)": [
     "applied-proportion-graph", "venn-independence-check", "tree-replacement", "mutually-exclusive-missing-probability",
   ],
-  "HT4 · Week 3 (08/03/27) — Probability": [
+  "HT4 · Week 3 (08/03/27) — Probability (W2)": [
     "tree-no-replacement", "combinations-list-two-groups", "venn-complete", "combinations-choose-two", "venn-prob-set-notation", "product-rule-counting",
   ],
-  "HT4 · Week 4 (15/03/27) — Similarity & Congruence": [
+  "HT4 · Week 4 (15/03/27) — Similarity & Congruence (W1)": [
     "similar-shapes-identify", "similar-shapes-find-length", "similar-shapes-area-scale", "similar-shapes-volume-scale",
   ],
-  "HT4 · Week 5 (22/03/27) — Pythagoras & Trigonometry, Similarity & Congruence": [
+  "HT4 · Week 5 (22/03/27) — Pythagoras & Trigonometry, Similarity & Congruence (W2)": [
     "pythagoras-hypotenuse", "congruence-criteria", "pythagoras-shorter-side", "trig-find-side", "trig-find-angle",
   ],
-  "HT5 · Week 1 (12/04/27) — Further Trigonometry": [
+  "HT5 · Week 1 (12/04/27) — Further Trigonometry (W1)": [
     "trig-exact-values", "trig-elevation-depression", "sine-rule-side", "pythagoras-surd-answer", "sine-rule-angle",
   ],
-  "HT5 · Week 2 (19/04/27) — Further Trigonometry": [
+  "HT5 · Week 2 (19/04/27) — Further Trigonometry (W2)": [
     "area-rule", "sine-rule-side", "cosine-rule-side", "cosine-rule-angle",
   ],
-  "HT5 · Week 3 (26/04/27) — Data": [
+  "HT5 · Week 3 (26/04/27) — Data (W1)": [
     "averages-range-listed", "boxplot-range", "cf-table-complete", "boxplot-iqr", "mean-from-grouped-table", "cf-median-class",
   ],
-  "HT5 · Week 4 (03/05/27) — Data": [
+  "HT5 · Week 4 (03/05/27) — Data (W2)": [
     "histogram-freq-density", "histogram-read-bar", "histogram-total-frequency",
   ],
   "HT5 · Week 5 (10/05/27) — Gradient & Area Under a Graph": [
@@ -4925,13 +4938,13 @@ const Y10_SET1_WEEKS = {
   "HT5 · Week 6 (17/05/27) — Circle Theorems": [
     "circle-theorem-semicircle", "circle-theorem-cyclic-quadrilateral", "circle-theorem-alternate-segment", "circle-theorem-isosceles-radii", "circle-theorem-centre-circumference", "circle-theorem-same-segment",
   ],
-  "HT5 · Week 7 (24/05/27) — Algebraic Fractions": [
+  "HT5 · Week 7 (24/05/27) — Algebraic Fractions (W1)": [
     "algebraic-fractions-simplify-basic", "algebraic-fractions-muldiv", "algebraic-fractions-addsub", "algebraic-fractions-simplify-factorise", "algebraic-fractions-divide", "algebraic-fractions-addsub-diffvars",
   ],
-  "HT6 · Week 1 (07/06/27) — Algebraic Fractions, Functions": [
+  "HT6 · Week 1 (07/06/27) — Algebraic Fractions (W2), Functions (W1)": [
     "algebraic-fractions-solve-equation", "functions-substitution-solving", "functions-substitute-expression", "solve-function-equation", "composite-functions",
   ],
-  "HT6 · Week 2 (14/06/27) — Functions": [
+  "HT6 · Week 2 (14/06/27) — Functions (W2)": [
     "composite-functions", "inverse-functions", "solve-function-equation",
   ],
 };
@@ -4964,10 +4977,10 @@ const Y10_SET2_WEEKS = {
   "HT2 · Week 2 (16/11/26) — Form and Solve, Equations - Quadratics, Sequences - Rules,Missing Terms, Patterns": [
     "form-solve-perimeter-equation", "solve-quadratic-factorise", "generate-terms-from-nth-term", "form-equation-angles", "solve-quadratic-square-rooting", "arithmetic-sequence-nth-term-value",
   ],
-  "HT2 · Week 3 (23/11/26) — Sequences - Non-linear and Patterns, Sequences - Nth term, Changing the subject, …": [
+  "HT2 · Week 3 (23/11/26) — Sequences - Non-linear and Patterns, Sequences - Nth term, Changing the subject, … (W1)": [
     "quadratic-sequences", "find-nth-term-linear", "changing-subject-expand", "powers-laws-multiply", "generate-terms-from-nth-term", "rearrange-square-root",
   ],
-  "HT2 · Week 4 (30/11/26) — Negative Indices, Standard Form Conversion, Standard Form - Multiply/Divide, …": [
+  "HT2 · Week 4 (30/11/26) — Negative Indices, Standard Form Conversion, Standard Form - Multiply/Divide, … (W2)": [
     "indices-negative", "sf-large-to-sf", "sf-multiply", "sf-add-subtract", "sf-small-to-sf", "sf-divide",
   ],
   "HT3 · Week 1 (04/01/27) — Averages and Range From List, Combined Mean, Averages from Discrete Data": [
@@ -4982,10 +4995,10 @@ const Y10_SET2_WEEKS = {
   "HT3 · Week 4 (25/01/27) — Basic Angle Facts, Angles in Parallel Lines": [
     "angles-on-a-line", "angles-triangle-sum", "angles-alternate", "angles-co-interior", "angles-about-a-point", "angles-isosceles-triangle",
   ],
-  "HT3 · Week 5 (01/02/27) — Angles in Polygons, Bearings": [
+  "HT3 · Week 5 (01/02/27) — Angles in Polygons, Bearings (W1)": [
     "angles-interior-polygon-sum", "angles-exterior-regular-polygon", "bearings-find", "angles-missing-in-polygon", "angles-interior-regular-polygon", "angles-polygon-sides-from-angle",
   ],
-  "HT3 · Week 6 (08/02/27) — Bearings, Pythag, Trig Side - Numerator": [
+  "HT3 · Week 6 (08/02/27) — Bearings (W2), Pythag, Trig Side - Numerator": [
     "bearings-back-bearing", "pythagoras-hypotenuse", "trig-find-side", "pythagoras-shorter-side",
   ],
   "HT4 · Week 1 (22/02/27) — Trig Side - Denominator, Trig Angles, Mixed Right Angles": [
@@ -5006,10 +5019,10 @@ const Y10_SET2_WEEKS = {
   "HT5 · Week 1 (12/04/27) — Coordinates, midpoints, hor and vert lines, y=mx+c, Plotting Graphs, Equation of a line": [
     "coordinates-identify-point", "x-and-y-intercepts-from-equation", "equation-from-gradient-and-point", "coordinates-midpoint-calc",
   ],
-  "HT5 · Week 2 (19/04/27) — Equation from two points, Parallel Lines and Mixed Practice, Plotting Quadratic, …": [
+  "HT5 · Week 2 (19/04/27) — Equation from two points, Parallel Lines and Mixed Practice, Plotting Quadratic, … (W1)": [
     "linear-graph-two-points", "linear-graph-parallel", "plot-nonlinear-graph", "conversion-graph-read", "parallel-or-perpendicular-classify", "distance-time-graph-read",
   ],
-  "HT5 · Week 3 (26/04/27) — Basic Probability, Mutually Exclusive and Expected Outcomes, …": [
+  "HT5 · Week 3 (26/04/27) — Basic Probability, Mutually Exclusive and Expected Outcomes, … (W2)": [
     "probability-scale-words", "mutually-exclusive-missing-probability", "combinations-list-two-groups", "theoretical-probability-single", "expected-value-biased", "product-rule-counting",
   ],
   "HT5 · Week 4 (03/05/27) — Probability Tree, Venn Diagram, Set Notation": [
@@ -5024,10 +5037,10 @@ const Y10_SET2_WEEKS = {
   "HT5 · Week 7 (24/05/27) — Similar Shapes, Column Vectors": [
     "similar-shapes-find-length", "similar-shapes-area-scale", "vectors-column-arithmetic", "similar-shapes-volume-scale",
   ],
-  "HT6 · Week 1 (07/06/27) — Vectors and 2D Shapes, Sim Equ": [
+  "HT6 · Week 1 (07/06/27) — Vectors and 2D Shapes, Sim Equ (W1)": [
     "vectors-negative-scalar-multiply", "simultaneous-linear-basic", "simultaneous-linear-scale-one", "vectors-equal-parallel",
   ],
-  "HT6 · Week 2 (14/06/27) — Sim Equ": [
+  "HT6 · Week 2 (14/06/27) — Sim Equ (W2)": [
     "simultaneous-linear-scaling", "simultaneous-equations-word-problem",
   ],
 };
@@ -5036,187 +5049,187 @@ const Y10_SET3_WEEKS = {
   "HT1 · Week 1 (07/09/26) — Two-way tables": [
     "two-way-table-complete", "ungrouped-freq-table-form",
   ],
-  "HT1 · Week 2 (14/09/26) — Frequency trees, Rounding & estimation": [
+  "HT1 · Week 2 (14/09/26) — Frequency trees, Rounding & estimation (W1)": [
     "frequency-tree-complete", "round-decimal-places",
   ],
-  "HT1 · Week 3 (21/09/26) — Rounding & estimation, Using a calculator": [
+  "HT1 · Week 3 (21/09/26) — Rounding & estimation (W2), Using a calculator": [
     "round-significant-figures", "estimation-calculation", "round-error-interval", "calculator-fractions", "calculator-powers-roots", "calculator-nested-rounding",
   ],
-  "HT1 · Week 4 (28/09/26) — Factors & multiples": [
+  "HT1 · Week 4 (28/09/26) — Factors & multiples (W1)": [
     "fmp-list-factors", "fmp-list-multiples",
   ],
-  "HT1 · Week 5 (05/10/26) — Factors & multiples, Fractions": [
+  "HT1 · Week 5 (05/10/26) — Factors & multiples (W2), Fractions (W1)": [
     "number-properties-prime-or-composite", "fmp-prime-factorisation", "fmp-hcf-lcm", "frac-simplify", "fmp-lcm",
   ],
-  "HT1 · Week 6 (12/10/26) — Fractions": [
+  "HT1 · Week 6 (12/10/26) — Fractions (W2)": [
     "frac-compare-different-denom", "frac-add-same-denom", "frac-subtract-different-denom", "frac-add-mixed-numbers", "frac-improper-mixed-convert", "frac-add-different-denom",
   ],
-  "HT1 · Week 7 (19/10/26) — Fractions, Ratio": [
+  "HT1 · Week 7 (19/10/26) — Fractions (W3), Ratio (W1)": [
     "frac-divide-fraction-by-fraction", "ratio-simplify", "ratio-share-amount", "frac-of-amount",
   ],
-  "HT2 · Week 1 (09/11/26) — Ratio": [
+  "HT2 · Week 1 (09/11/26) — Ratio (W2)": [
     "ratio-total-parts", "ratio-quantity-one-part-given", "ratio-to-fraction", "fraction-to-ratio", "ratio-quantity-difference-given",
   ],
-  "HT2 · Week 2 (16/11/26) — Ratio, Proportion": [
+  "HT2 · Week 2 (16/11/26) — Ratio (W3), Proportion (W1)": [
     "ratio-combine-two", "ratio-to-percentage", "multiplicative-recipe-scaling", "direct-proportion", "percentage-to-ratio",
   ],
-  "HT2 · Week 3 (23/11/26) — Proportion": [
+  "HT2 · Week 3 (23/11/26) — Proportion (W2)": [
     "multiplicative-best-value", "conversion-graph-read", "inverse-proportion", "applied-proportion-graph",
   ],
-  "HT2 · Week 4 (30/11/26) — Proportion, Percentages": [
+  "HT2 · Week 4 (30/11/26) — Proportion (W3), Percentages (W1)": [
     "compound-measures-calc", "percent-of-amount", "percent-one-of-another", "percent-simple-interest",
   ],
-  "HT2 · Week 5 (07/12/26) — Percentages": [
+  "HT2 · Week 5 (07/12/26) — Percentages (W2)": [
     "percent-compound-increase", "percent-reverse", "percent-reverse-after-increase",
   ],
-  "HT3 · Week 1 (04/01/27) — Algebra basics": [
+  "HT3 · Week 1 (04/01/27) — Algebra basics (W1)": [
     "algebraic-notation-write", "collect-like-terms-multi",
   ],
-  "HT3 · Week 2 (11/01/27) — Algebra basics": [
+  "HT3 · Week 2 (11/01/27) — Algebra basics (W2)": [
     "multiply-algebraic-terms", "substitution-one-variable", "eb-single-pos", "eb-single-neg", "divide-algebraic-terms-basic", "fac-common",
   ],
-  "HT3 · Week 3 (18/01/27) — Equations & changing the subject": [
+  "HT3 · Week 3 (18/01/27) — Equations & changing the subject (W1)": [
     "solve-two-step-equation", "solve-equation-negative-coefficient", "solve-equation-both-sides-brackets",
   ],
-  "HT3 · Week 4 (25/01/27) — Equations & changing the subject": [
+  "HT3 · Week 4 (25/01/27) — Equations & changing the subject (W2)": [
     "form-equation-angles", "form-solve-perimeter-equation", "solve-equation-fractions", "changing-subject-expand",
   ],
-  "HT3 · Week 5 (01/02/27) — Sequences": [
+  "HT3 · Week 5 (01/02/27) — Sequences (W1)": [
     "generate-terms-from-nth-term", "arithmetic-sequence-nth-term-value",
   ],
-  "HT3 · Week 6 (08/02/27) — Sequences, Quadratics": [
+  "HT3 · Week 6 (08/02/27) — Sequences (W2), Quadratics (W1)": [
     "find-nth-term-linear", "quadratic-sequences", "eb-double-pos",
   ],
-  "HT4 · Week 1 (22/02/27) — Quadratics": [
+  "HT4 · Week 1 (22/02/27) — Quadratics (W2)": [
     "eb-double-mixed", "fac-quadratic", "fac-dots", "solve-quadratic-factorise",
   ],
   "HT4 · Week 2 (01/03/27) — Indices": [
     "powers-laws-multiply", "indices-divide-same-base", "indices-power-of-power-numeric", "indices-negative",
   ],
-  "HT4 · Week 3 (08/03/27) — Standard form": [
+  "HT4 · Week 3 (08/03/27) — Standard form (W1)": [
     "sf-large-to-sf", "sf-small-to-sf", "sf-small-to-ordinary", "sf-multiply", "sf-compare-order",
   ],
-  "HT4 · Week 4 (15/03/27) — Standard form, Averages": [
+  "HT4 · Week 4 (15/03/27) — Standard form (W2), Averages (W1)": [
     "sf-divide", "averages-range-listed", "averages-missing-value-given-mean", "sf-add-subtract",
   ],
-  "HT4 · Week 5 (22/03/27) — Averages": [
+  "HT4 · Week 5 (22/03/27) — Averages (W2)": [
     "ungrouped-frequency-table-mean", "grouped-table-modal-median-class", "mean-from-grouped-table",
   ],
-  "HT5 · Week 1 (12/04/27) — Representing data": [
+  "HT5 · Week 1 (12/04/27) — Representing data (W1)": [
     "bar-chart-read-frequency", "pie-chart-angle-to-frequency", "scatter-correlation-type", "line-of-best-fit-estimate",
   ],
-  "HT5 · Week 2 (19/04/27) — Representing data, Angles": [
+  "HT5 · Week 2 (19/04/27) — Representing data (W2), Angles (W1)": [
     "moving-average-calc", "ungrouped-freq-table-form", "angles-on-a-line", "angles-about-a-point",
   ],
-  "HT5 · Week 3 (26/04/27) — Angles": [
+  "HT5 · Week 3 (26/04/27) — Angles (W2)": [
     "angles-vertically-opposite", "angles-isosceles-triangle", "angles-corresponding", "angles-interior-polygon-sum", "angles-triangle-sum", "angles-quadrilateral-sum",
   ],
-  "HT5 · Week 4 (03/05/27) — Bearings & scales": [
+  "HT5 · Week 4 (03/05/27) — Bearings & scales (W1)": [
     "bearings-find", "bearings-back-bearing",
   ],
-  "HT5 · Week 5 (10/05/27) — Bearings & scales, Pythagoras": [
+  "HT5 · Week 5 (10/05/27) — Bearings & scales (W2), Pythagoras (W1)": [
     "bearings-back-bearing", "pythagoras-hypotenuse", "pythagoras-shorter-side",
   ],
-  "HT5 · Week 6 (17/05/27) — Pythagoras": [
+  "HT5 · Week 6 (17/05/27) — Pythagoras (W2)": [
     "pythagoras-distance-between-points",
   ],
 };
 
 const Y10_SET4_WEEKS = {
-  "HT1 · Week 1 (07/09/26) — Integers & place value": [
+  "HT1 · Week 1 (07/09/26) — Integers & place value (W1)": [
     "place-value-digit-value", "number-properties-next-even-odd", "addsub-word-problem", "multiply-two-two-digit",
   ],
-  "HT1 · Week 2 (14/09/26) — Integers & place value": [
+  "HT1 · Week 2 (14/09/26) — Integers & place value (W2)": [
     "divide-with-remainder-decimal", "bidmas-two-operations", "neg-order", "neg-difference",
   ],
-  "HT1 · Week 3 (21/09/26) — Integers & place value, Decimals": [
+  "HT1 · Week 3 (21/09/26) — Integers & place value (W3), Decimals (W1)": [
     "neg-multiply", "neg-divide", "order-decimals",
   ],
-  "HT1 · Week 4 (28/09/26) — Decimals": [
+  "HT1 · Week 4 (28/09/26) — Decimals (W2)": [
     "decimal-add-different-dp", "decimal-subtract-different-dp", "decimal-multiply-by-integer",
   ],
-  "HT1 · Week 5 (05/10/26) — Decimals, Indices, powers & roots": [
+  "HT1 · Week 5 (05/10/26) — Decimals (W3), Indices, powers & roots (W1)": [
     "decimal-multiply-decimal-by-decimal", "decimal-divide-by-decimal", "number-properties-square-or-cube", "decimal-divide-integer-by-decimal",
   ],
-  "HT1 · Week 6 (12/10/26) — Indices, powers & roots": [
+  "HT1 · Week 6 (12/10/26) — Indices, powers & roots (W2)": [
     "powers-laws-multiply", "indices-divide-same-base", "indices-power-of-power-numeric", "bidmas-with-powers",
   ],
-  "HT1 · Week 7 (19/10/26) — Indices, powers & roots, Factors, multiples & primes": [
+  "HT1 · Week 7 (19/10/26) — Indices, powers & roots (W3), Factors, multiples & primes (W1)": [
     "calculator-powers-roots", "fmp-list-factors", "fmp-list-multiples",
   ],
-  "HT2 · Week 1 (09/11/26) — Factors, multiples & primes": [
+  "HT2 · Week 1 (09/11/26) — Factors, multiples & primes (W2)": [
     "fmp-common-factors", "fmp-prime-factorisation", "fmp-hcf-lcm", "number-properties-prime-or-composite", "fmp-lcm",
   ],
-  "HT2 · Week 2 (16/11/26) — Fractions": [
+  "HT2 · Week 2 (16/11/26) — Fractions (W1)": [
     "frac-simplify", "frac-improper-mixed-convert", "frac-add-different-denom", "frac-add-mixed-numbers", "frac-compare-different-denom", "frac-add-same-denom",
   ],
-  "HT2 · Week 3 (23/11/26) — Fractions, Fractions, decimals & percentages": [
+  "HT2 · Week 3 (23/11/26) — Fractions (W2), Fractions, decimals & percentages (W1)": [
     "frac-divide-fraction-by-fraction", "fdp-percent-to-decimal", "frac-of-amount",
   ],
-  "HT2 · Week 4 (30/11/26) — Fractions, decimals & percentages": [
+  "HT2 · Week 4 (30/11/26) — Fractions, decimals & percentages (W2)": [
     "fdp-order-mixed", "fdp-fraction-to-recurring",
   ],
-  "HT3 · Week 1 (04/01/27) — Percentages": [
+  "HT3 · Week 1 (04/01/27) — Percentages (W1)": [
     "percent-of-amount", "percent-one-of-another",
   ],
-  "HT3 · Week 2 (11/01/27) — Percentages": [
+  "HT3 · Week 2 (11/01/27) — Percentages (W2)": [
     "percent-simple-interest", "percent-compound-increase", "percent-reverse", "percent-reverse-after-increase",
   ],
-  "HT3 · Week 3 (18/01/27) — Ratio": [
+  "HT3 · Week 3 (18/01/27) — Ratio (W1)": [
     "ratio-simplify", "ratio-total-parts", "ratio-quantity-difference-given", "fraction-to-ratio", "ratio-share-amount", "ratio-quantity-one-part-given",
   ],
-  "HT3 · Week 4 (25/01/27) — Ratio, Proportion": [
+  "HT3 · Week 4 (25/01/27) — Ratio (W2), Proportion (W1)": [
     "ratio-to-percentage", "multiplicative-recipe-scaling", "direct-proportion", "multiplicative-best-value", "percentage-to-ratio", "conversion-graph-read",
   ],
-  "HT3 · Week 5 (01/02/27) — Proportion, Simple algebra": [
+  "HT3 · Week 5 (01/02/27) — Proportion (W2), Simple algebra (W1)": [
     "inverse-proportion", "applied-proportion-graph", "algebraic-notation-write", "compound-measures-calc",
   ],
-  "HT3 · Week 6 (08/02/27) — Simple algebra": [
+  "HT3 · Week 6 (08/02/27) — Simple algebra (W2)": [
     "collect-like-terms-multi", "divide-algebraic-terms-basic", "substitution-one-variable", "eb-single-neg", "multiply-algebraic-terms", "eb-single-pos",
   ],
-  "HT4 · Week 1 (22/02/27) — Substitution & equations": [
+  "HT4 · Week 1 (22/02/27) — Substitution & equations (W1)": [
     "substitution-one-variable", "substitution-formula-negatives", "solve-two-step-equation",
   ],
-  "HT4 · Week 2 (01/03/27) — Substitution & equations, Sequences": [
+  "HT4 · Week 2 (01/03/27) — Substitution & equations (W2), Sequences (W1)": [
     "solve-equation-both-sides-brackets", "form-solve-perimeter-equation", "generate-terms-from-nth-term", "arithmetic-sequence-nth-term-value", "form-equation-angles",
   ],
-  "HT4 · Week 3 (08/03/27) — Sequences, Averages": [
+  "HT4 · Week 3 (08/03/27) — Sequences (W2), Averages (W1)": [
     "find-nth-term-linear", "quadratic-sequences", "averages-range-listed",
   ],
-  "HT4 · Week 4 (15/03/27) — Averages": [
+  "HT4 · Week 4 (15/03/27) — Averages (W2)": [
     "averages-missing-value-given-mean", "ungrouped-frequency-table-mean", "grouped-table-modal-median-class", "mean-from-grouped-table",
   ],
-  "HT4 · Week 5 (22/03/27) — Tables & data collection": [
+  "HT4 · Week 5 (22/03/27) — Tables & data collection (W1)": [
     "ungrouped-freq-table-form", "two-way-table-complete", "timetable-read", "bar-chart-read-frequency",
   ],
-  "HT5 · Week 1 (12/04/27) — Tables & data collection": [
+  "HT5 · Week 1 (12/04/27) — Tables & data collection (W2)": [
     "pie-chart-angle-to-frequency", "scatter-correlation-type", "line-of-best-fit-estimate", "stratified-sample-one-category",
   ],
-  "HT5 · Week 2 (19/04/27) — Tables & data collection, Measurements & units": [
+  "HT5 · Week 2 (19/04/27) — Tables & data collection (W3), Measurements & units (W1)": [
     "frequency-tree-complete", "suitable-unit-estimate", "metric-conversion",
   ],
-  "HT5 · Week 3 (26/04/27) — Measurements & units": [
+  "HT5 · Week 3 (26/04/27) — Measurements & units (W2)": [
     "clock-reading", "time-duration-calc", "conversion-graph-read", "compound-measures-calc",
   ],
-  "HT5 · Week 4 (03/05/27) — 2D shapes": [
+  "HT5 · Week 4 (03/05/27) — 2D shapes (W1)": [
     "shape-naming-polygon-by-sides", "shape-properties-quadrilateral-name",
   ],
-  "HT5 · Week 5 (10/05/27) — 2D shapes, Angles": [
+  "HT5 · Week 5 (10/05/27) — 2D shapes (W2), Angles (W1)": [
     "shape-properties-quadrilateral-name", "shape-properties-symmetry", "angles-on-a-line", "angles-about-a-point",
   ],
-  "HT5 · Week 6 (17/05/27) — Angles": [
+  "HT5 · Week 6 (17/05/27) — Angles (W2)": [
     "angles-vertically-opposite", "angles-isosceles-triangle", "angles-corresponding", "angles-interior-polygon-sum", "angles-triangle-sum", "angles-quadrilateral-sum",
   ],
-  "HT5 · Week 7 (24/05/27) — Perimeter & area": [
+  "HT5 · Week 7 (24/05/27) — Perimeter & area (W1)": [
     "area-rectangle-triangle", "composite-rectilinear-area-perimeter",
   ],
-  "HT6 · Week 1 (07/06/27) — Perimeter & area, 3D forms": [
+  "HT6 · Week 1 (07/06/27) — Perimeter & area (W2), 3D forms": [
     "circle-facts-parts", "circle-facts-circumference-area", "three-d-faces-edges-vertices", "volume-cuboid", "three-d-name-from-properties", "surface-area-cuboid",
   ],
-  "HT6 · Week 2 (14/06/27) — Probability": [
+  "HT6 · Week 2 (14/06/27) — Probability (W1)": [
     "probability-scale-words", "probability-scale-compare", "theoretical-probability-single", "theoretical-probability-not-event",
   ],
-  "HT6 · Week 3 (21/06/27) — Probability": [
+  "HT6 · Week 3 (21/06/27) — Probability (W2)": [
     "mutually-exclusive-missing-probability", "relative-frequency-from-data", "expected-value-biased",
   ],
 };
@@ -5347,6 +5360,31 @@ const SCHEMES = {
   "Year 10 · Set 4 (2026/27)": Y10_SET4_WEEKS,
   "Year 7 (2026/27)": Y7_WEEKS,
 };
+
+// Every week should give a full 6-topic quiz. A week with fewer than 6 topics
+// is topped up from earlier weeks of the same scheme: one topic from the week
+// before, then one from the week before that, and so on (going round again if
+// it still needs more). Added topics go after the week's own.
+(function topUpWeeks(minTopics) {
+  Object.values(SCHEMES).forEach((weeks) => {
+    const keys = Object.keys(weeks);
+    const original = keys.map((k) => weeks[k].slice());
+    keys.forEach((key, idx) => {
+      const own = original[idx];
+      if (own.length >= minTopics) return;
+      const list = own.slice();
+      let added = true;
+      while (list.length < minTopics && added) {
+        added = false;
+        for (let back = 1; back <= idx && list.length < minTopics; back++) {
+          const candidate = original[idx - back].find((id) => !list.includes(id));
+          if (candidate) { list.push(candidate); added = true; }
+        }
+      }
+      weeks[key] = list;
+    });
+  });
+})(6);
 
 /* =====================================================================
    Algebra strand expansion — bringing every Algebra group up to a fuller
@@ -5863,8 +5901,12 @@ SUBTOPIC_BANK["form-equation-angles"] = {
     const x0 = seededInt(rng, 10, 50);
     const angle1 = a * x0 + b;
     const angle2 = 180 - angle1;
+    const expr = `(${a}x ${b >= 0 ? "+" : "\u2212"} ${Math.abs(b)})\u00B0`;
+    const first = rng() < 0.5;
     return {
-      prompt: `Two angles on a straight line are ${a}x ${pm(b)} and ${angle2}°. Form and solve an equation to find x.`,
+      prompt: `The diagram shows two angles on a straight line. Form and solve an equation to find x.`,
+      render: <AngleFactsSVG mode="line" angles={first ? [angle1, angle2] : [angle2, angle1]} unknownIndex={-1} labels={first ? [expr, `${angle2}\u00B0`] : [`${angle2}\u00B0`, expr]} />,
+      accurateDiagram: true,
       answer: `${a}x ${pm(b)}${pm0(angle2)} = 180  ⟹  x = ${x0}`,
     };
   },
@@ -6593,11 +6635,15 @@ SUBTOPIC_BANK["angles-parallelogram"] = {
     if (askOpposite) {
       return {
         prompt: `In parallelogram ABCD, angle A = ${a}°. Find the size of angle C.`,
+        render: <ParallelogramAnglesSVG angleA={a} ask="C" />,
+        accurateDiagram: true,
         answer: `Opposite angles in a parallelogram are equal, so angle C = ${a}°`,
       };
     }
     return {
       prompt: `In parallelogram ABCD, angle A = ${a}°. Find the size of angle B.`,
+      render: <ParallelogramAnglesSVG angleA={a} ask="B" />,
+      accurateDiagram: true,
       answer: `Adjacent angles in a parallelogram sum to 180°, so angle B = 180° - ${a}° = ${b}°`,
     };
   },
@@ -6714,12 +6760,19 @@ SUBTOPIC_BANK["angles-polygon-sides-from-angle"] = {
 };
 
 /* --- Angles: Angles in Parallel Lines (new group) --- */
+// Given the value of angle a at (line, quad), the transversal angle phi.
+const y7PhiFor = (quad, a) => (quad === "NE" || quad === "SW" ? a : 180 - a);
 SUBTOPIC_BANK["angles-alternate"] = {
   topic: "Angles in Parallel Lines", title: "Alternate angles", marks: 1,
   build(rng) {
     const a = seededInt(rng, 30, 150);
+    let pairs = [[["P", "SE"], ["Q", "NW"]], [["P", "SW"], ["Q", "NE"]]];
+    let [pa, pb] = pick(rng, pairs);
+    if (rng() < 0.5) [pa, pb] = [pb, pa];
     return {
       prompt: `Two parallel lines are crossed by a transversal. Angle a and angle b are alternate angles. Angle a = ${a}°. Find the size of angle b.`,
+      render: <ParallelLinesSVG phi={y7PhiFor(pa[1], a)} marks={[{ line: pa[0], quad: pa[1], label: `${a}\u00B0` }, { line: pb[0], quad: pb[1], label: "b", bold: true }]} />,
+      accurateDiagram: true,
       answer: `${a}° (alternate angles are equal)`,
     };
   },
@@ -6728,8 +6781,12 @@ SUBTOPIC_BANK["angles-corresponding"] = {
   topic: "Angles in Parallel Lines", title: "Corresponding angles", marks: 1,
   build(rng) {
     const a = seededInt(rng, 30, 150);
+    const quad = pick(rng, ["NE", "NW", "SE", "SW"]);
+    const aOnP = rng() < 0.5;
     return {
       prompt: `Two parallel lines are crossed by a transversal. Angle a and angle b are corresponding angles. Angle a = ${a}°. Find the size of angle b.`,
+      render: <ParallelLinesSVG phi={y7PhiFor(quad, a)} marks={[{ line: aOnP ? "P" : "Q", quad, label: `${a}\u00B0` }, { line: aOnP ? "Q" : "P", quad, label: "b", bold: true }]} />,
+      accurateDiagram: true,
       answer: `${a}° (corresponding angles are equal)`,
     };
   },
@@ -6739,8 +6796,13 @@ SUBTOPIC_BANK["angles-co-interior"] = {
   build(rng) {
     const a = seededInt(rng, 30, 150);
     const b = 180 - a;
+    let pairs = [[["P", "SE"], ["Q", "NE"]], [["P", "SW"], ["Q", "NW"]]];
+    let [pa, pb] = pick(rng, pairs);
+    if (rng() < 0.5) [pa, pb] = [pb, pa];
     return {
       prompt: `Two parallel lines are crossed by a transversal. Angle a and angle b are co-interior (allied) angles. Angle a = ${a}°. Find the size of angle b.`,
+      render: <ParallelLinesSVG phi={y7PhiFor(pa[1], a)} marks={[{ line: pa[0], quad: pa[1], label: `${a}\u00B0` }, { line: pb[0], quad: pb[1], label: "b", bold: true }]} />,
+      accurateDiagram: true,
       answer: `180° - ${a}° = ${b}° (co-interior angles sum to 180°)`,
     };
   },
@@ -6750,8 +6812,16 @@ SUBTOPIC_BANK["angles-parallel-lines-two-step"] = {
   build(rng) {
     const a = seededInt(rng, 40, 140);
     const b = 180 - a;
+    const alt = [[["P", "SE"], ["Q", "NW"]], [["P", "SW"], ["Q", "NE"]]];
+    let [pa, palt] = pick(rng, alt);
+    if (rng() < 0.5) [pa, palt] = [palt, pa];
+    const q = palt[1];
+    const supp = { NE: ["NW", "SE"], NW: ["NE", "SW"], SW: ["NW", "SE"], SE: ["NE", "SW"] }[q];
+    const bq = pick(rng, supp);
     return {
       prompt: `Two parallel lines are crossed by a transversal, forming angle a = ${a}°. Angle b is on the same straight line as the angle alternate to angle a. Find the size of angle b.`,
+      render: <ParallelLinesSVG phi={y7PhiFor(pa[1], a)} marks={[{ line: pa[0], quad: pa[1], label: `${a}\u00B0` }, { line: palt[0], quad: bq, label: "b", bold: true }]} />,
+      accurateDiagram: true,
       answer: `The angle alternate to a is also ${a}° (alternate angles are equal). Angle b = 180° - ${a}° = ${b}° (angles on a straight line sum to 180°)`,
     };
   },
@@ -7261,6 +7331,105 @@ function PolygonAnglesSVG({ angles, unknownIndex }) {
   );
 }
 
+/* --- Year 7 drawings: area shapes, parallel lines, parallelogram angles --- */
+// SVG text with an italic serif x (so the variable never looks like a times sign).
+function svgMath(t) {
+  const parts = String(t).split(/(x)/g);
+  return parts.map((q, i) => (q === "x" ? <tspan key={i} fontStyle="italic" fontFamily="'Times New Roman', Times, serif">x</tspan> : q));
+}
+function rightAngleMark(x, y, dirX, dirY, size = 9) {
+  // square marker at (x, y); dirX/dirY (+1/-1) point along the two arms
+  return <polyline points={`${x + dirX * size},${y} ${x + dirX * size},${y + dirY * size} ${x},${y + dirY * size}`} fill="none" stroke="#000" strokeWidth="1.2" />;
+}
+// Parallelogram, triangle or trapezium with a dashed perpendicular height.
+function AreaShapeSVG({ kind, b, h, s, a }) {
+  const W = 320, H = 190, padX = 46, padTop = 22, padBot = 34;
+  let pts; // in maths units, y up; bottom edge on y = 0
+  let dx = 0;
+  if (kind === "parallelogram") { dx = Math.sqrt(Math.max(s * s - h * h, 0.25)); pts = [[0, 0], [b, 0], [b + dx, h], [dx, h]]; }
+  else if (kind === "triangle") { dx = Math.sqrt(Math.max(s * s - h * h, 0.25)); pts = [[0, 0], [b, 0], [dx, h]]; }
+  else { dx = (b - a) / 2; pts = [[0, 0], [b, 0], [dx + a, h], [dx, h]]; }
+  const xs = pts.map((q) => q[0]).concat(kind === "triangle" || kind === "parallelogram" ? [dx] : []);
+  const minX = Math.min(...xs), maxX = Math.max(...xs);
+  const sc = Math.min((W - 2 * padX) / (maxX - minX), (H - padTop - padBot) / h);
+  const ox = (W - (maxX - minX) * sc) / 2 - minX * sc, oy = H - padBot;
+  const X = (x) => ox + x * sc, Y = (y) => oy - y * sc;
+  const foot = kind === "trapezium" ? dx : dx; // foot of the perpendicular from the top-left vertex / apex
+  const topPt = kind === "triangle" ? [dx, h] : [dx, h];
+  const tx = (v, extra) => <text {...extra} fontSize="13" fontFamily="Arial, sans-serif" fill="#000" stroke="#fff" strokeWidth="3" paintOrder="stroke">{v}</text>;
+  const beyond = foot > b ? foot : null;
+  const left = foot < 0 ? foot : null;
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} width={340} style={{ maxWidth: "100%", height: "auto", display: "block", margin: "0 auto" }}>
+      <polygon points={pts.map(([x, y]) => `${X(x)},${Y(y)}`).join(" ")} fill="none" stroke="#000" strokeWidth="1.6" strokeLinejoin="round" />
+      {beyond !== null && <line x1={X(b)} y1={Y(0)} x2={X(beyond)} y2={Y(0)} stroke="#000" strokeWidth="1.2" strokeDasharray="4 3" />}
+      {left !== null && <line x1={X(left)} y1={Y(0)} x2={X(0)} y2={Y(0)} stroke="#000" strokeWidth="1.2" strokeDasharray="4 3" />}
+      <line x1={X(foot)} y1={Y(h)} x2={X(foot)} y2={Y(0)} stroke="#000" strokeWidth="1.3" strokeDasharray="5 3" />
+      {rightAngleMark(X(foot), Y(0), foot + 0.0001 < b ? 1 : -1, -1)}
+      {tx(`${b} cm`, { x: X(b / 2), y: Y(0) + 20, textAnchor: "middle" })}
+      {tx(`${h} cm`, { x: X(foot) + (foot < b / 2 ? 7 : -7), y: Y(h / 2) + 4, textAnchor: foot < b / 2 ? "start" : "end" })}
+      {kind === "parallelogram" && tx(`${s} cm`, { x: X(b + dx / 2) + 10, y: Y(h / 2) + 4 })}
+      {kind === "triangle" && tx(`${s} cm`, { x: X(dx / 2) - 11, y: Y(h / 2) - 4, textAnchor: "end" })}
+      {kind === "trapezium" && tx(`${a} cm`, { x: X(dx + a / 2), y: Y(h) - 7, textAnchor: "middle" })}
+    </svg>
+  );
+}
+
+// Two parallel lines cut by a transversal. `phi` is the angle (degrees, from
+// the right-hand direction of the lines) of the transversal's upward ray.
+// Angle positions: line "P" (upper) or "Q" (lower) and quadrant NE/NW/SE/SW.
+function ParallelLinesSVG({ phi, marks }) {
+  const W = 340, H = 210, yP = 78, yQ = 148;
+  const rad = (d) => (d * Math.PI) / 180;
+  const c = Math.cos(rad(phi)), sn = Math.sin(rad(phi));
+  const cot = c / sn;
+  const Px = 170 + (yQ - yP) * cot / 2, Qx = Px - (yQ - yP) * cot;
+  const up = [c, -sn], down = [-c, sn];
+  const V = { P: [Px, yP], Q: [Qx, yQ] };
+  const dirs = { NE: [[1, 0], up], NW: [up, [-1, 0]], SW: [[-1, 0], down], SE: [down, [1, 0]] };
+  const ray = (v, d, len = 60) => [v[0] + d[0] * len, v[1] + d[1] * len];
+  const chev = (y) => <polyline points={`292,${y - 6} 300,${y} 292,${y + 6}`} fill="none" stroke="#000" strokeWidth="1.3" />;
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} width={360} style={{ maxWidth: "100%", height: "auto", display: "block", margin: "0 auto" }}>
+      <line x1={16} y1={yP} x2={W - 16} y2={yP} stroke="#000" strokeWidth="1.5" />
+      <line x1={16} y1={yQ} x2={W - 16} y2={yQ} stroke="#000" strokeWidth="1.5" />
+      {chev(yP)}{chev(yQ)}
+      <line x1={Px + up[0] * 62} y1={yP + up[1] * 62} x2={Qx + down[0] * 62} y2={yQ + down[1] * 62} stroke="#000" strokeWidth="1.5" />
+      {marks.map((m, i) => {
+        const v = V[m.line], [d1, d2] = dirs[m.quad];
+        return <AngleMark key={i} V={v} P={ray(v, d1)} Q={ray(v, d2)} label={m.label} arcR={20} bold={m.bold} fontSize={m.bold ? 15 : 13} />;
+      })}
+    </svg>
+  );
+}
+
+// Parallelogram ABCD with the angle at A drawn to size, plus one marked angle.
+function ParallelogramAnglesSVG({ angleA, ask }) {
+  const rad = (d) => (d * Math.PI) / 180;
+  const A = [0, 0], B = [1.5, 0], D = [Math.cos(rad(angleA)) * 0.95, Math.sin(rad(angleA)) * 0.95];
+  const C = [B[0] + D[0], D[1]];
+  const pts = [A, B, C, D];
+  const xs = pts.map((q) => q[0]), ys = pts.map((q) => q[1]);
+  const minX = Math.min(...xs), maxX = Math.max(...xs), maxY = Math.max(...ys);
+  const boxW = 340, boxH = 200, padX = 50, padT = 34, padB = 34;
+  const sc = Math.min((boxW - 2 * padX) / (maxX - minX), (boxH - padT - padB) / maxY);
+  const ox = (boxW - (maxX - minX) * sc) / 2 - minX * sc, oy = boxH - padB;
+  const Pt = pts.map(([x, y]) => [ox + x * sc, oy - y * sc]);
+  const cen = [(Pt[0][0] + Pt[2][0]) / 2, (Pt[0][1] + Pt[2][1]) / 2];
+  const letters = ["A", "B", "C", "D"];
+  const labels = [`${angleA}\u00B0`, ask === "B" ? "?" : "", ask === "C" ? "?" : "", ""];
+  return (
+    <svg viewBox={`0 0 ${boxW} ${boxH}`} width={360} style={{ maxWidth: "100%", height: "auto", display: "block", margin: "0 auto" }}>
+      <polygon points={Pt.map((q) => q.join(",")).join(" ")} fill="none" stroke="#000" strokeWidth="1.6" strokeLinejoin="round" />
+      {Pt.map((q, i) => {
+        const d = [q[0] - cen[0], q[1] - cen[1]], l = Math.hypot(d[0], d[1]) || 1;
+        return <text key={`t${i}`} x={q[0] + (d[0] / l) * 15} y={q[1] + (d[1] / l) * 15 + 5} fontSize="14" fontFamily="Arial, sans-serif" fontWeight="700" textAnchor="middle" fill="#000">{letters[i]}</text>;
+      })}
+      {Pt.map((q, i) => labels[i] ? <AngleMark key={i} V={q} P={Pt[(i + 3) % 4]} Q={Pt[(i + 1) % 4]} label={labels[i]} arcR={20} bold={labels[i] === "?"} fontSize={labels[i] === "?" ? 15 : 13} /> : null)}
+    </svg>
+  );
+}
+
 /* --- Sequences: drawn pattern sequences (students continue the pattern) --- */
 function y7PatternShape(kind, n, p) {
   const cells = [], sticks = [];
@@ -7566,13 +7735,20 @@ SUBTOPIC_BANK["like-terms-identify"] = {
       const c = coef();
       if (used.has(c)) continue;
       used.add(c);
-      likes.push(rng() < 0.25 ? `−${c}${v}` : `${c}${v}`);
+      likes.push(rng() < 0.25 ? `\u2212${c}${v}` : `${c}${v}`);
     }
     const unlikePool = [`${coef()}${w}`, `${coef()}${v}²`, `${coef()}${v}${w}`, `${coef()}`, `${coef()}${w}²`];
     const unlikes = y7shuffle(rng, unlikePool).slice(0, 5 - likeCount + 1);
     const all = y7shuffle(rng, likes.concat(unlikes));
+    const box = { display: "inline-block", width: 16, height: 16, border: "1.6px solid #000", marginRight: 7, verticalAlign: "-3px", background: "#fff" };
     return {
-      prompt: `Which of these are like terms with ${base}?  ${all.join(",   ")}`,
+      prompt: <>Tick the boxes next to all the terms that are like terms with {mathify(base)}.</>,
+      render: (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "10px 26px", justifyContent: "center", fontSize: "1.05em" }}>
+          {all.map((t, i) => <span key={i} style={{ whiteSpace: "nowrap" }}><span style={box} />{mathify(t)}</span>)}
+        </div>
+      ),
+      accurateDiagram: true,
       answer: `${likes.join(", ")} (they all contain exactly ${v}, with no other letters or powers)`,
     };
   },
@@ -7937,7 +8113,9 @@ SUBTOPIC_BANK["area-parallelogram"] = {
   build(rng) {
     const b = seededInt(rng, 5, 15), h = seededInt(rng, 3, 12), s = h + seededInt(rng, 1, 4);
     return {
-      prompt: `A parallelogram has a base of ${b} cm, a slanted side of ${s} cm and a perpendicular height of ${h} cm. Work out its area.`,
+      prompt: `The diagram shows a parallelogram. Work out its area.`,
+      render: <AreaShapeSVG kind="parallelogram" b={b} h={h} s={s} />,
+      accurateDiagram: true,
       answer: `${b} × ${h} = ${b * h} cm² (use the perpendicular height, not the slanted side)`,
     };
   },
@@ -7949,8 +8127,10 @@ SUBTOPIC_BANK["area-triangle-base-height"] = {
     do { b = seededInt(rng, 4, 16); h = seededInt(rng, 3, 12); } while ((b * h) % 2 !== 0);
     const s = h + seededInt(rng, 1, 4);
     return {
-      prompt: `A triangle has a base of ${b} cm, a slanted side of ${s} cm and a perpendicular height of ${h} cm. Work out its area.`,
-      answer: `½ × ${b} × ${h} = ${(b * h) / 2} cm²`,
+      prompt: `The diagram shows a triangle. Work out its area.`,
+      render: <AreaShapeSVG kind="triangle" b={b} h={h} s={s} />,
+      accurateDiagram: true,
+      answer: `½ × ${b} × ${h} = ${(b * h) / 2} cm² (use the perpendicular height, not the slanted side)`,
     };
   },
 };
@@ -7960,7 +8140,9 @@ SUBTOPIC_BANK["area-trapezium"] = {
     let a, b, h;
     do { a = seededInt(rng, 3, 10); b = seededInt(rng, a + 1, 16); h = seededInt(rng, 3, 10); } while (((a + b) * h) % 2 !== 0);
     return {
-      prompt: `A trapezium has parallel sides of ${a} cm and ${b} cm. The perpendicular distance between them is ${h} cm. Work out its area.`,
+      prompt: `The diagram shows a trapezium. Work out its area.`,
+      render: <AreaShapeSVG kind="trapezium" b={b} h={h} a={a} />,
+      accurateDiagram: true,
       answer: `½ × (${a} + ${b}) × ${h} = ${((a + b) * h) / 2} cm²`,
     };
   },
@@ -11267,6 +11449,11 @@ const SPEED_CHECKS = [
 ];
 
 ReactDOM.createRoot(document.getElementById("root")).render(<QuizEngine />);
+
+
+
+
+
 
 
 
