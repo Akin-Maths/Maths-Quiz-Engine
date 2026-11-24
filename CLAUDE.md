@@ -264,8 +264,17 @@ script are in `LIBRARY_SETUP.md` and `supabase_setup.sql`. Notes for changes:
   classify, perimeter, polygon names, faces/edges/vertices). `CoordinateGridSVG` now takes `lines`, `segments`
   and `polygon`; `ShapeGridSVG` takes `lines`; `BarChartSVG` takes `yStart`; `PolygonAnglesSVG` takes `labels`.
   Add `accurateDiagram: true` and a diagram to any new geometry/number-line builder.
-- Still text-only geometry in the bank (Year 10/11 topics, not in the Year 7/8 schemes): vectors, trigonometry,
-  Pythagoras, volume/surface area of pyramids/cones/spheres, circle theorems, bearings, etc.
+- Year 10/11 geometry is now drawn too (vectors on a grid/triangle/lattice, Pythagoras, trig triangles,
+  elevation/depression, exact-value triangles, trig graphs, pyramid/cone/sphere/cylinder solids, circle theorems,
+  back bearings, polyhedra in the mark scheme). Components live in the "Year 10/11 geometry build-out" block
+  (`VectorGridSVG`, `VectorTriangleSVG`, `VectorLatticeSVG`, `SSSTriangleSVG`, `IsoscelesSVG`, `SquareDiagonalSVG`,
+  `ExactTrigSVG`, `ElevationSVG`, `TrigGraphSVG`, `BackBearingSVG`, `SameSegmentSVG`, `AlternateSegmentSVG`,
+  `TangentsSVG`, `RadiiTriangleSVG`, `PolyhedronSVG`); `CoordinateGridSVG` takes `step` and dashed/coloured
+  segments, `SolidSVG` pyramid/cone take height/slant/radius labels. Remaining text-only: pure unit/time
+  conversions (not geometry).
+- Year 9 schemes ("Year 9 · Set 1–4 (2026/27)") come from `Year 9 (Y9) Timelines 26-27.xlsx` (Sets 3 and 4 share one
+  timeline). Weeks use the Y10 key format; unit-coded sets slice a per-unit question pool by lesson number. Constructions
+  and loci have no question types yet, so those lessons fall back to bearings/scale questions.
 
 ## Changelog (this session, roughly chronological)
 

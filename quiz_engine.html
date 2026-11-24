@@ -376,16 +376,16 @@ function CircleTheoremSVG({ theorem, ...props }) {
    regular polygons, and a general axis+polyline reader for conversion
    and distance-time graphs. Same division of labour as the components
    above: callers resolve all geometry/values, these just render. ---------- */
-function CoordinateGridSVG({ points, xMin = -6, xMax = 6, yMin = -6, yMax = 6, lines = [], segments = [], polygon = null }) {
+function CoordinateGridSVG({ points, xMin = -6, xMax = 6, yMin = -6, yMax = 6, lines = [], segments = [], polygon = null, step = 1 }) {
   const boxW = 280, boxH = 280, pad = 26;
   const sx = (boxW - 2 * pad) / (xMax - xMin);
   const sy = (boxH - 2 * pad) / (yMax - yMin);
   const px = (x) => pad + (x - xMin) * sx;
   const py = (y) => boxH - pad - (y - yMin) * sy;
   const gridX = [];
-  for (let x = Math.ceil(xMin); x <= Math.floor(xMax); x++) gridX.push(x);
+  for (let x = Math.ceil(xMin / step) * step; x <= xMax; x += step) gridX.push(x);
   const gridY = [];
-  for (let y = Math.ceil(yMin); y <= Math.floor(yMax); y++) gridY.push(y);
+  for (let y = Math.ceil(yMin / step) * step; y <= yMax; y += step) gridY.push(y);
   const lab = (v) => (v < 0 ? "\u2212" + Math.abs(v) : String(v));
   return (
     <svg viewBox={`0 0 ${boxW} ${boxH}`} width={320} style={{ maxWidth: "100%", height: "auto", display: "block", margin: "0 auto" }}>
@@ -403,7 +403,7 @@ function CoordinateGridSVG({ points, xMin = -6, xMax = 6, yMin = -6, yMax = 6, l
       ))}
       <text x={px(0) - 5} y={py(0) + 12} fontSize="9.5" fontFamily="Arial, sans-serif" textAnchor="end" fill="#444">0</text>
       {polygon && <polygon points={polygon.map((q) => `${px(q.x)},${py(q.y)}`).join(" ")} fill="#cfe0f588" stroke="#1f3d66" strokeWidth="1.6" />}
-      {segments.map((sg, i) => <line key={`sg${i}`} x1={px(sg.x1)} y1={py(sg.y1)} x2={px(sg.x2)} y2={py(sg.y2)} stroke="#1f3d66" strokeWidth="1.7" />)}
+      {segments.map((sg, i) => <line key={`sg${i}`} x1={px(sg.x1)} y1={py(sg.y1)} x2={px(sg.x2)} y2={py(sg.y2)} stroke={sg.color || "#1f3d66"} strokeWidth="1.7" strokeDasharray={sg.dash ? "5 4" : undefined} />)}
       {lines.map((ln, i) => { const c = y8ClipLine(ln.x1, ln.y1, ln.x2, ln.y2, xMin, xMax, yMin, yMax); return c ? <line key={`ln${i}`} x1={px(c[0])} y1={py(c[1])} x2={px(c[2])} y2={py(c[3])} stroke="#b23b2e" strokeWidth="2" /> : null; })}
       {points.map((p, i) => (
         <g key={i}>
@@ -5407,6 +5407,110 @@ const Y8_WEEKS = {
   "Summer · Week 12 — Sequences consolidation": ["find-nth-term-linear", "seq-pattern-nth-term", "seq-is-term-of-sequence", "arithmetic-sequence-nth-term-value", "seq-missing-terms-linear"],
 };
 
+/* ---- Year 9 (2026/27) schemes of work, from "Year 9 (Y9) Timelines 26-27.xlsx" (Sets 1-4; Sets 3 and 4 share one timeline).
+   Same shape as the Year 10 tables: one entry per teaching week, listing the subtopics that week's lessons cover; quiz, revision, assessment,
+   INSET and buffer lessons carry no questions, and weeks with no teaching lessons are left out. Units that run for several weeks are
+   labelled (W1), (W2)... Lessons with no matching question type yet (constructions, loci) fall back to the nearest available topics. ---- */
+const Y9_SET1_WEEKS = {
+  "HT1 · Week 1 (07/09/26) — Rounding and Estimating, LCM/HCF": ["round-decimal-places", "fmp-prime-factorisation", "round-significant-figures", "fmp-hcf-lcm", "estimation-calculation", "fmp-lcm"],
+  "HT1 · Week 2 (14/09/26) — Fractions, Ratio and Proportion (W1)": ["frac-add-different-denom", "ratio-simplify", "frac-subtract-different-denom", "ratio-one-to-n", "frac-multiply-two", "frac-divide-fraction-by-fraction"],
+  "HT1 · Week 3 (21/09/26) — Ratio and Proportion (W2)": ["ratio-one-to-n", "ratio-share-amount", "ratio-quantity-one-part-given", "ratio-quantity-difference-given", "ratio-combine-two", "direct-proportion"],
+  "HT1 · Week 4 (28/09/26) — Ratio and Proportion (W3)": ["currency-convert", "multiplicative-recipe-scaling", "inverse-proportion", "multiplicative-best-value", "ratio-to-fraction"],
+  "HT1 · Week 5 (05/10/26) — Percentages (W1)": ["percent-of-amount", "percent-one-of-another", "percent-increase-decrease", "percent-change-find"],
+  "HT1 · Week 6 (12/10/26) — Percentages (W2)": ["percent-multiplier", "percent-reverse", "percent-simple-interest", "percent-compound-increase"],
+  "HT1 · Week 7 (19/10/26) — Expand, Factorise and Simplify (W1)": ["collect-like-terms-multi", "multiply-algebraic-terms", "eb-single-pos", "eb-single-neg", "eb-single-term-outside", "eb-double-pos"],
+  "HT2 · Week 1 (09/11/26) — Expand, Factorise and Simplify (W2), Equations and Sequences (W1)": ["fac-common-algebraic", "solve-one-step-equation", "fac-quadratic", "solve-two-step-equation", "fac-dots", "fac-quadratic-agt1"],
+  "HT2 · Week 2 (16/11/26) — Equations and Sequences (W2)": ["solve-two-step-equation", "solve-linear-brackets", "solve-equation-both-sides-brackets", "seq-continue-linear", "seq-term-to-term-rule", "find-nth-term-linear"],
+  "HT2 · Week 3 (23/11/26) — Equations and Sequences (W3), Index Laws and Standard Form (W1)": ["arithmetic-sequence-nth-term-value", "powers-laws-multiply", "seq-is-term-of-sequence", "indices-power-of-a-power", "indices-divide-same-base", "indices-negative"],
+  "HT2 · Week 4 (30/11/26) — Index Laws and Standard Form (W2)": ["indices-negative", "sf-large-to-sf", "sf-small-to-sf", "sf-multiply", "sf-divide", "sf-add-subtract"],
+  "HT3 · Week 1 (04/01/27) — Averages (W1)": ["averages-range-listed", "averages-four-measures", "ungrouped-frequency-table-mean"],
+  "HT3 · Week 2 (11/01/27) — Averages (W2), Representing Data (W1)": ["ungrouped-frequency-table-mean", "bar-chart-read-frequency", "mean-from-grouped-table", "pie-chart-angle-from-frequency", "grouped-table-modal-median-class", "pie-chart-angle-to-frequency"],
+  "HT3 · Week 3 (18/01/27) — Representing Data (W2), Angles (W1)": ["scatter-correlation-type", "angles-on-a-line", "line-of-best-fit-estimate", "angles-about-a-point", "misleading-bar-chart", "angles-vertically-opposite"],
+  "HT3 · Week 4 (25/01/27) — Angles (W2)": ["angles-vertically-opposite", "angles-triangle-sum", "angles-alternate", "angles-corresponding", "angles-co-interior", "angles-parallel-lines-two-step"],
+  "HT3 · Week 5 (01/02/27) — Bearings, Loci and Constructions (W1)": ["bearings-find", "bearings-back-bearing"],
+  "HT3 · Week 6 (08/02/27) — Bearings, Loci and Constructions (W2)": ["bearings-back-bearing", "scale-map-distance"],
+  "HT4 · Week 1 (22/02/27) — Right Angle Triangles (W1)": ["pythagoras-hypotenuse", "pythagoras-shorter-side", "pythagoras-converse-test", "pythagoras-distance-between-points", "trig-find-side", "trig-find-angle"],
+  "HT4 · Week 2 (01/03/27) — Right Angle Triangles (W2), Circles and Sectors (W1)": ["trig-find-angle", "circle-facts-parts", "trig-exact-values", "trig-elevation-depression"],
+  "HT4 · Week 3 (08/03/27) — Circles and Sectors (W2)": ["circle-facts-circumference-area", "circle-arc-sector", "circle-compound"],
+  "HT4 · Week 4 (15/03/27) — 3D Shapes": ["three-d-faces-edges-vertices", "solid-name-identify", "volume-cuboid", "volume-triangular-prism", "volume-cylinder", "surface-area-cuboid"],
+  "HT4 · Week 5 (22/03/27) — Compound Measure (W1)": ["speed-calc", "distance-calc", "time-calc", "density-calc", "density-find-mass-volume"],
+  "HT5 · Week 1 (12/04/27) — Compound Measure (W2), Coordinate Geometry (W1)": ["density-find-mass-volume", "coordinates-midpoint-calc", "compound-measures-calc", "line-table-of-values", "line-equation-from-graph", "line-gradient-intercept-read"],
+  "HT5 · Week 2 (19/04/27) — Coordinate Geometry (W2), Simultaneous Equations (W1)": ["line-gradient-intercept-read", "simultaneous-linear-basic", "equation-from-gradient-and-point", "linear-graph-two-points", "linear-graph-parallel"],
+  "HT5 · Week 3 (26/04/27) — Simultaneous Equations (W2)": ["simultaneous-linear-scale-one", "simultaneous-linear-scaling", "simultaneous-equations-word-problem"],
+  "HT5 · Week 4 (03/05/27) — Transformations (W1)": ["transform-reflect-shape", "describe-reflection", "transform-translate-shape", "transform-rotate-shape"],
+  "HT5 · Week 5 (10/05/27) — Transformations (W2), Probability (W1)": ["transform-enlarge-shape", "probability-scale-words", "theoretical-probability-single", "theoretical-probability-not-event", "mutually-exclusive-missing-probability", "expected-value-biased"],
+  "HT5 · Week 6 (17/05/27) — Probability (W2), Venn Diagrams": ["sample-space-spinners", "set-notation-membership", "tree-replacement", "venn-complete", "venn-shade", "venn-prob-only"],
+};
+const Y9_SET2_WEEKS = {
+  "HT1 · Week 1 (07/09/26) — Two-Way Tables & Frequency Trees, Rounding & Estimation (W1)": ["two-way-table-complete", "round-decimal-places", "frequency-tree-complete", "round-significant-figures", "two-way-table-probability"],
+  "HT1 · Week 2 (14/09/26) — Rounding & Estimation (W2), Factors, Multiples & Primes": ["round-error-interval", "fmp-prime-factorisation", "estimation-calculation", "number-properties-classify", "bounds-intro", "number-properties-square-or-cube"],
+  "HT1 · Week 3 (21/09/26) — HCF & LCM, Fractions (W1)": ["fmp-list-factors", "frac-simplify", "fmp-hcf-lcm", "frac-of-amount", "fmp-common-factors", "frac-compare-different-denom"],
+  "HT1 · Week 4 (28/09/26) — Fractions (W2)": ["frac-add-different-denom", "frac-multiply-two", "frac-subtract-different-denom", "frac-multiply-mixed", "frac-add-mixed-numbers", "frac-divide-fraction-by-fraction"],
+  "HT1 · Week 5 (05/10/26) — Ratio": ["ratio-simplify", "ratio-share-amount", "ratio-combine-two", "ratio-to-fraction", "ratio-one-to-n", "ratio-quantity-one-part-given"],
+  "HT1 · Week 6 (12/10/26) — Proportion": ["direct-proportion", "multiplicative-recipe-scaling", "currency-convert", "inverse-proportion", "multiplicative-best-value"],
+  "HT1 · Week 7 (19/10/26) — Calculator Skills, Percentages (W1)": ["bidmas-two-operations", "percent-one-of-another", "calculator-fractions", "percent-reverse", "percent-of-amount-mental", "percent-find-whole"],
+  "HT2 · Week 1 (09/11/26) — Percentages (W2)": ["percent-increase-decrease", "percent-simple-interest", "percent-change-find", "percent-multiplier"],
+  "HT2 · Week 2 (16/11/26) — Algebra (W1)": ["collect-like-terms-multi", "multiply-algebraic-terms", "eb-single-pos", "eb-double-pos", "like-terms-identify", "divide-algebraic-terms-basic"],
+  "HT2 · Week 3 (23/11/26) — Algebra (W2)": ["fac-common", "fac-quadratic", "substitution-one-variable", "fac-common-algebraic", "fac-quadratic-agt1", "substitution-two-variables"],
+  "HT2 · Week 4 (30/11/26) — Equations": ["solve-one-step-equation", "solve-two-step-equation", "solve-linear-brackets", "solve-equation-both-sides-brackets"],
+  "HT2 · Week 5 (07/12/26) — Quadratic Equations": ["solve-quadratic-factorise", "solve-quadratic-factorise-agt1"],
+  "HT3 · Week 1 (04/01/27) — Changing the Subject": ["changing-subject-expand", "rearrange-square-root", "rearrange-square", "changing-subject-factorise"],
+  "HT3 · Week 2 (11/01/27) — Sequences (W1)": ["seq-continue-linear", "find-nth-term-linear", "generate-terms-from-nth-term", "seq-term-to-term-rule", "arithmetic-sequence-nth-term-value", "seq-missing-terms-linear"],
+  "HT3 · Week 3 (18/01/27) — Sequences (W2), Indices & Standard Form (W1)": ["seq-pattern-draw-next", "powers-laws-multiply", "seq-pattern-count-terms", "indices-negative", "seq-pattern-nth-term", "sf-large-to-sf"],
+  "HT3 · Week 4 (25/01/27) — Indices & Standard Form (W2), Averages (W1)": ["sf-multiply", "averages-range-listed", "sf-add-subtract", "averages-missing-value-given-mean", "sf-divide", "averages-four-measures"],
+  "HT3 · Week 5 (01/02/27) — Averages (W2), Frequency Polygons": ["ungrouped-frequency-table-mean", "histogram-read-bar", "mean-from-grouped-table", "cf-table-complete", "ungrouped-freq-table-form", "grouped-table-modal-median-class"],
+  "HT3 · Week 6 (08/02/27) — Scatter Graphs, Pie Charts": ["scatter-correlation-type", "pie-chart-angle-from-frequency", "line-of-best-fit-estimate", "pie-chart-angle-to-frequency"],
+  "HT4 · Week 1 (22/02/27) — Angles (W1)": ["angles-on-a-line", "angles-alternate", "angles-about-a-point", "angles-corresponding", "angles-vertically-opposite", "angles-co-interior"],
+  "HT4 · Week 2 (01/03/27) — Angles (W2), Maps & Scales": ["angles-alternate", "scale-map-distance", "angles-interior-polygon-sum", "angles-corresponding", "angles-exterior-regular-polygon", "angles-co-interior"],
+  "HT4 · Week 3 (08/03/27) — Bearings, Plans & Elevations, Constructions & Loci (W1)": ["bearings-find", "three-d-faces-edges-vertices", "bearings-back-bearing", "solid-name-identify", "scale-map-distance"],
+  "HT4 · Week 4 (15/03/27) — Constructions & Loci (W2), Pythagoras, Trigonometry (W1)": ["bearings-find", "pythagoras-hypotenuse", "trig-find-side", "scale-map-distance", "pythagoras-shorter-side", "trig-exact-values"],
+  "HT4 · Week 5 (22/03/27) — Trigonometry (W2)": ["trig-find-side", "trig-find-angle", "trig-exact-values", "trig-elevation-depression"],
+  "HT5 · Week 1 (12/04/27) — Circles (W1)": ["circle-facts-parts", "circle-arc-sector", "circle-facts-circumference-area"],
+  "HT5 · Week 2 (19/04/27) — Circles (W2), Area": ["circle-compound", "area-rectangle-triangle", "circle-arc-sector", "area-trapezium", "composite-rectilinear-area-perimeter", "area-parallelogram"],
+  "HT5 · Week 3 (26/04/27) — Surface Area & Volume": ["surface-area-cuboid", "volume-triangular-prism", "volume-sphere", "volume-cuboid", "volume-cylinder", "volume-cone"],
+  "HT5 · Week 4 (03/05/27) — Compound Measures": ["speed-calc", "density-calc", "compound-measures-calc", "distance-calc", "density-find-mass-volume", "time-calc"],
+  "HT5 · Week 5 (10/05/27) — Coordinates & Straight Lines (W1)": ["coordinates-identify-point", "coordinates-midpoint-calc", "line-gradient-intercept-read", "coord-fourth-vertex", "pythagoras-distance-between-points", "line-equation-from-graph"],
+  "HT5 · Week 6 (17/05/27) — Coordinates & Straight Lines (W2)": ["equation-from-gradient-and-point", "linear-graph-two-points", "linear-graph-parallel", "line-table-of-values", "line-equation-from-graph", "parallel-or-perpendicular-classify"],
+  "HT5 · Week 7 (24/05/27) — Quadratic Graphs": ["plot-nonlinear-graph", "significant-points", "plot-cubic-graph", "quadratic-roots-and-intercept", "cubic-graph-features", "sketch-quadratic-a1"],
+  "HT6 · Week 1 (07/06/27) — Real-Life Graphs, Congruence & Similarity (W1)": ["conversion-graph-read", "congruence-criteria", "distance-time-graph-read", "similar-shapes-identify", "similar-shapes-find-length", "similar-shapes-area-scale"],
+  "HT6 · Week 2 (14/06/27) — Congruence & Similarity (W2), Transformations (W1)": ["similar-shapes-find-length", "transform-translate-shape", "similar-shapes-identify", "transform-reflect-shape", "transform-rotate-shape", "describe-reflection"],
+  "HT6 · Week 3 (21/06/27) — Transformations (W2)": ["transform-enlarge-shape", "transform-reflect-shape", "transform-rotate-shape"],
+};
+const Y9_SET34_WEEKS = {
+  "HT1 · Week 1 (07/09/26) — Integers and place value (W1)": ["place-value-digit-value", "place-value-write-in-words", "number-line-interval-value", "order-decimals", "addsub-word-problem"],
+  "HT1 · Week 2 (14/09/26) — Integers and place value (W2)": ["addsub-word-problem", "multiply-two-two-digit", "divide-integer-written", "neg-order", "neg-add-subtract", "neg-multiply"],
+  "HT1 · Week 3 (21/09/26) — Integers and place value (W3), Decimals (W1)": ["neg-multiply", "decimal-add-different-dp", "neg-divide", "decimal-subtract-different-dp", "bidmas-two-operations"],
+  "HT1 · Week 4 (28/09/26) — Decimals (W2)": ["decimal-subtract-different-dp", "decimal-multiply-by-integer", "decimal-divide-by-integer", "multiply-divide-by-powers-of-10", "decimal-multiply-decimal-by-decimal"],
+  "HT1 · Week 5 (05/10/26) — Decimals (W3), Indices, Powers and Roots (W1)": ["decimal-multiply-decimal-by-decimal", "index-notation-evaluate", "decimal-divide-by-decimal", "number-properties-square-or-cube", "round-decimal-places"],
+  "HT1 · Week 6 (12/10/26) — Indices, Powers and Roots (W2)": ["number-properties-square-or-cube", "roots-evaluate", "powers-laws-multiply", "indices-divide-same-base", "bidmas-with-powers"],
+  "HT1 · Week 7 (19/10/26) — Indices, Powers and Roots (W3), Factors, Multiples and Primes (W1)": ["bidmas-with-powers", "fmp-list-factors", "calculator-powers-roots", "fmp-list-multiples", "fmp-prime-factorisation"],
+  "HT2 · Week 1 (09/11/26) — Factors, Multiples and Primes (W2)": ["fmp-prime-factorisation", "fmp-common-factors", "fmp-hcf-lcm", "fmp-lcm", "number-properties-prime-or-composite"],
+  "HT2 · Week 2 (16/11/26) — Fractions (W1)": ["frac-simplify", "equivalent-fraction-missing", "frac-compare-different-denom", "frac-improper-mixed-convert", "frac-of-amount", "frac-add-different-denom"],
+  "HT2 · Week 3 (23/11/26) — Fractions (W2), FDP (W1)": ["frac-divide-fraction-by-fraction", "fdp-percent-to-decimal", "frac-add-mixed-numbers", "fdp-convert-fraction-decimal-percentage", "frac-multiply-mixed"],
+  "HT2 · Week 4 (30/11/26) — FDP (W2)": ["fraction-as-division", "fdp-order-mixed"],
+  "HT3 · Week 1 (04/01/27) — Percentages (W1)": ["percent-of-amount-mental", "percent-of-amount", "percent-one-of-another"],
+  "HT3 · Week 2 (11/01/27) — Percentages (W2)": ["percent-one-of-another", "percent-increase-decrease", "percent-change-find", "percent-multiplier"],
+  "HT3 · Week 3 (18/01/27) — Ratio (W1)": ["ratio-simplify", "ratio-one-to-n", "ratio-share-amount", "ratio-total-parts", "ratio-quantity-one-part-given", "ratio-to-fraction"],
+  "HT3 · Week 4 (25/01/27) — Ratio (W2), Proportion (W1)": ["ratio-to-fraction", "direct-proportion", "ratio-combine-two", "multiplicative-recipe-scaling", "currency-convert"],
+  "HT3 · Week 5 (01/02/27) — Proportion (W2), Simple Algebra (W1)": ["multiplicative-best-value", "algebraic-notation-write", "inverse-proportion", "like-terms-identify"],
+  "HT3 · Week 6 (08/02/27) — Simple Algebra (W2)": ["like-terms-identify", "collect-like-terms-multi", "multiply-algebraic-terms", "divide-algebraic-terms-basic", "eb-single-pos", "eb-single-neg"],
+  "HT4 · Week 1 (22/02/27) — Substitution and Equations (W1)": ["substitution-one-variable", "substitution-two-variables", "solve-one-step-equation", "solve-two-step-equation"],
+  "HT4 · Week 2 (01/03/27) — Substitution and Equations (W2), Sequences (W1)": ["solve-two-step-equation", "seq-continue-linear", "solve-linear-brackets", "seq-term-to-term-rule", "solve-equation-both-sides-brackets", "find-nth-term-linear"],
+  "HT4 · Week 3 (08/03/27) — Sequences (W2), Averages (W1)": ["find-nth-term-linear", "averages-range-listed", "generate-terms-from-nth-term", "seq-pattern-nth-term"],
+  "HT4 · Week 4 (15/03/27) — Averages (W2)": ["averages-four-measures", "averages-missing-value-given-mean", "ungrouped-frequency-table-mean"],
+  "HT4 · Week 5 (22/03/27) — Tables and Data Collection (W1)": ["two-way-table-complete", "frequency-tree-complete", "ungrouped-freq-table-form", "timetable-read"],
+  "HT5 · Week 1 (12/04/27) — Tables and Data Collection (W2)": ["bar-chart-read-frequency", "pie-chart-angle-from-frequency", "stratified-sample-one-category", "scatter-correlation-type"],
+  "HT5 · Week 2 (19/04/27) — Tables and Data Collection (W3), Measurements and Units (W1)": ["line-of-best-fit-estimate", "metric-conversion", "suitable-unit-estimate", "capacity-mass-convert"],
+  "HT5 · Week 3 (26/04/27) — Measurements and Units (W2)": ["capacity-mass-convert", "time-units-convert", "time-duration-calc", "clock-reading", "measures-convert-area-units"],
+  "HT5 · Week 4 (03/05/27) — 2D Shapes (W1)": ["shape-naming-polygon-by-sides", "shape-properties-quadrilateral-name", "triangle-classify"],
+  "HT5 · Week 5 (10/05/27) — 2D Shapes (W2), Angles (W1)": ["shape-properties-symmetry", "angle-type-name", "symmetry-lines-rotation", "angles-on-a-line"],
+  "HT5 · Week 6 (17/05/27) — Angles (W2)": ["angles-about-a-point", "angles-vertically-opposite", "angles-triangle-sum", "angles-isosceles-triangle", "angles-quadrilateral-sum", "angles-alternate"],
+  "HT5 · Week 7 (24/05/27) — Perimeter and Area (W1)": ["perimeter-polygon-calc", "area-rectangle-triangle", "area-parallelogram", "area-triangle-base-height"],
+  "HT6 · Week 1 (07/06/27) — Perimeter and Area (W2), 3D Forms": ["area-triangle-base-height", "three-d-faces-edges-vertices", "area-trapezium", "solid-name-identify", "composite-rectilinear-area-perimeter", "volume-cuboid"],
+  "HT6 · Week 2 (14/06/27) — Probability (W1)": ["probability-scale-words", "theoretical-probability-single", "theoretical-probability-not-event", "mutually-exclusive-missing-probability", "sample-space-spinners"],
+  "HT6 · Week 3 (21/06/27) — Probability (W2)": ["sample-space-spinners", "relative-frequency-from-data", "expected-value-biased"],
+};
+
 const SCHEMES = {
   "Year 11 · Set 2 (2026/27)": SET2_WEEKS,
   "Year 11 · Set 1 (2026/27)": SET1_WEEKS,
@@ -5417,6 +5521,10 @@ const SCHEMES = {
   "Year 10 · Set 4 (2026/27)": Y10_SET4_WEEKS,
   "Year 7 (2026/27)": Y7_WEEKS,
   "Year 8 (2026/27)": Y8_WEEKS,
+  "Year 9 · Set 1 (2026/27)": Y9_SET1_WEEKS,
+  "Year 9 · Set 2 (2026/27)": Y9_SET2_WEEKS,
+  "Year 9 · Set 3 (2026/27)": Y9_SET34_WEEKS,
+  "Year 9 · Set 4 (2026/27)": Y9_SET34_WEEKS,
 };
 
 // Every week should give a full 6-topic quiz. A week with fewer than 6 topics
@@ -8614,13 +8722,19 @@ function SolidSVG({ kind, labels = {} }) {
   if (kind === "cylinder") return <CylinderSVG r={3} h={7} showR={labels.r || ""} showH={labels.h || ""} />;
   if (kind === "triangular prism") return <TriangularPrismSVG base={5} height={4} length={8} showBase={labels.base || ""} showHeight={labels.height || ""} showLength={labels.length || ""} />;
   if (kind === "cone") {
+    const st = { ...stroke, strokeWidth: 1.2 }, ds = { ...dash, strokeWidth: 0.8 };
+    const halo = { fill: "#000", stroke: "#fff", strokeWidth: 3, paintOrder: "stroke", fontSize: 12.5, fontFamily: "Arial, sans-serif" };
     return (
-      <svg viewBox="0 0 200 200" width={190} style={{ maxWidth: "100%", height: "auto", display: "block", margin: "0 auto" }}>
-        <path d="M100,24 L36,150 A64,20 0 0 0 164,150 Z" {...stroke} />
-        <path d="M36,150 A64,20 0 0 1 164,150" {...dash} />
-        <line x1="100" y1="24" x2="100" y2="150" {...dash} />
-        {labels.h && <text x="106" y="92" fontSize="13" fontFamily="Arial, sans-serif" fill="#000">{labels.h}</text>}
-        {labels.r && <text x="132" y="146" fontSize="13" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#000">{labels.r}</text>}
+      <svg viewBox="0 0 280 270" width={266} style={{ maxWidth: "100%", height: "auto", display: "block", margin: "0 auto" }}>
+        <g transform="scale(1.4)">
+          <path d="M100,24 L36,150 A64,20 0 0 0 164,150 Z" {...st} />
+          <path d="M36,150 A64,20 0 0 1 164,150" {...ds} />
+          <line x1="100" y1="24" x2="100" y2="150" {...ds} />
+          {labels.r && <line x1="100" y1="150" x2="164" y2="150" {...ds} />}
+          {labels.r && <polyline points="100,141 109,141 109,150" fill="none" stroke="#000" strokeWidth="0.8" />}
+        </g>
+        {labels.h && <text x="136" y="129" textAnchor="end" {...halo}>{labels.h}</text>}
+        {labels.r && <text x="185" y="226" textAnchor="middle" {...halo}>{labels.r}</text>}
       </svg>
     );
   }
@@ -8630,21 +8744,29 @@ function SolidSVG({ kind, labels = {} }) {
         <circle cx="100" cy="100" r="68" {...stroke} />
         <path d="M32,100 A68,18 0 0 0 168,100" {...stroke} strokeWidth="1.2" />
         <path d="M32,100 A68,18 0 0 1 168,100" {...dash} />
-        {labels.r && <><line x1="100" y1="100" x2="168" y2="100" stroke="#000" strokeWidth="1.2" /><text x="136" y="94" fontSize="13" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#000">{labels.r}</text></>}
+        {labels.r && <><line x1="100" y1="100" x2="168" y2="100" stroke="#000" strokeWidth="1.2" /><text x="136" y="97" fontSize="12.5" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#000" stroke="#fff" strokeWidth="3" paintOrder="stroke">{labels.r}</text></>}
       </svg>
     );
   }
   // square-based pyramid
+  const st = { ...stroke, strokeWidth: 1.2 }, ds = { ...dash, strokeWidth: 0.8 };
+  const halo = { fill: "#000", stroke: "#fff", strokeWidth: 4, paintOrder: "stroke", fontSize: 12.5, fontFamily: "Arial, sans-serif" };
   return (
-    <svg viewBox="0 0 220 200" width={210} style={{ maxWidth: "100%", height: "auto", display: "block", margin: "0 auto" }}>
-      <polygon points="40,140 140,140 186,112 86,112" {...dash} fill="none" />
-      <line x1="40" y1="140" x2="86" y2="112" {...dash} /><line x1="86" y1="112" x2="186" y2="112" {...dash} />
-      <polygon points="40,140 140,140 112,26" {...stroke} />
-      <polygon points="140,140 186,112 112,26" {...stroke} />
-      <line x1="40" y1="140" x2="112" y2="26" {...stroke} />
-      <line x1="86" y1="112" x2="112" y2="26" {...dash} />
-      {labels.base && <text x="90" y="160" fontSize="13" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#000">{labels.base}</text>}
-      {labels.height && <text x="120" y="86" fontSize="13" fontFamily="Arial, sans-serif" fill="#000">{labels.height}</text>}
+    <svg viewBox="0 0 308 250" width={294} style={{ maxWidth: "100%", height: "auto", display: "block", margin: "0 auto" }}>
+      <g transform="scale(1.4)">
+        <polygon points="40,140 140,140 186,112 86,112" {...ds} fill="none" />
+        <line x1="40" y1="140" x2="86" y2="112" {...ds} /><line x1="86" y1="112" x2="186" y2="112" {...ds} />
+        <polygon points="40,140 140,140 112,26" {...st} />
+        <polygon points="140,140 186,112 112,26" {...st} />
+        <line x1="40" y1="140" x2="112" y2="26" {...st} />
+        <line x1="86" y1="112" x2="112" y2="26" {...ds} />
+        {labels.height && <line x1="112" y1="26" x2="112" y2="126" {...ds} />}
+        {labels.height && <polyline points="112,117 121,117 121,126" fill="none" stroke="#000" strokeWidth="0.8" />}
+        {labels.slant && <line x1="112" y1="26" x2="90" y2="140" stroke="#000" strokeWidth="0.9" strokeDasharray="2.5 2.5" />}
+      </g>
+      {labels.slant && <text x="162" y="150" textAnchor="middle" {...halo}>{labels.slant}</text>}
+      {labels.base && <text x="126" y="226" textAnchor="middle" {...halo} stroke="none">{labels.base}</text>}
+      {labels.height && <text x="157" y="134" textAnchor="middle" {...halo}>{labels.height}</text>}
     </svg>
   );
 }
@@ -9701,6 +9823,876 @@ SUBTOPIC_BANK["shape-naming-polygon-by-sides"] = {
     const polygons = [{ n: 3, name: "triangle" }, { n: 4, name: "quadrilateral" }, { n: 5, name: "pentagon" }, { n: 6, name: "hexagon" }, { n: 7, name: "heptagon" }, { n: 8, name: "octagon" }, { n: 9, name: "nonagon" }, { n: 10, name: "decagon" }];
     const item = pick(rng, polygons);
     return { prompt: `What is the mathematical name of this polygon?`, render: <RegularPolygonSVG sides={item.n} />, accurateDiagram: true, answer: `${item.name} (${item.n} sides)` };
+  },
+};
+
+/* ---------- Year 10/11 geometry build-out — every geometry question gets a drawing.
+   Components: VectorGridSVG, VectorTriangleSVG, VectorLatticeSVG, SSSTriangleSVG,
+   IsoscelesSVG, SquareDiagonalSVG, ExactTrigSVG, ElevationSVG, TrigGraphSVG,
+   BackBearingSVG, SameSegmentSVG, AlternateSegmentSVG, TangentsSVG, RadiiTriangleSVG,
+   PolyhedronSVG. Callers resolve the geometry, these only draw it. ---------- */
+const Y10_BLUE = "#1f3d66";
+const Y10_GREEN = "#2a7a3b";
+function y10T(x, y, t, o = {}) {
+  return <text key={o.key} x={x} y={y} fontSize={o.size || 13} fontFamily="Arial, sans-serif" fontWeight={o.bold ? 700 : 400} textAnchor={o.anchor || "middle"} fill={o.fill || "#000"} stroke="#fff" strokeWidth="3" paintOrder="stroke">{svgMath(t)}</text>;
+}
+function y10RightMark(V, P, Q, size = 9) {
+  const nrm = (a) => { const l = Math.hypot(a[0] - V[0], a[1] - V[1]) || 1; return [(a[0] - V[0]) / l, (a[1] - V[1]) / l]; };
+  const u = nrm(P), w = nrm(Q);
+  const p1 = [V[0] + u[0] * size, V[1] + u[1] * size], p3 = [V[0] + w[0] * size, V[1] + w[1] * size];
+  const p2 = [p1[0] + w[0] * size, p1[1] + w[1] * size];
+  return <polyline points={`${p1[0]},${p1[1]} ${p2[0]},${p2[1]} ${p3[0]},${p3[1]}`} fill="none" stroke="#000" strokeWidth="1.2" />;
+}
+function y10Arrow(x1, y1, x2, y2, color, w = 2.2, key) {
+  const dx = x2 - x1, dy = y2 - y1, L = Math.hypot(dx, dy);
+  if (L < 1e-6) return <circle key={key} cx={x1} cy={y1} r="3" fill={color} />;
+  const ux = dx / L, uy = dy / L, h = Math.min(10, L * 0.45), hw = h * 0.42;
+  const bx = x2 - ux * h, by = y2 - uy * h;
+  return (
+    <g key={key}>
+      <line x1={x1} y1={y1} x2={bx} y2={by} stroke={color} strokeWidth={w} />
+      <polygon points={`${x2},${y2} ${bx - uy * hw},${by + ux * hw} ${bx + uy * hw},${by - ux * hw}`} fill={color} />
+    </g>
+  );
+}
+function y10Circle(cx, cy, R) { return <circle cx={cx} cy={cy} r={R} fill="none" stroke="#000" strokeWidth="1.6" />; }
+function y10Svg(W, H, width, children) {
+  return <svg viewBox={`0 0 ${W} ${H}`} width={width} style={{ maxWidth: "100%", height: "auto", display: "block", margin: "0 auto" }}>{children}</svg>;
+}
+
+// Column vectors drawn as arrows on an auto-scaled coordinate grid.
+function VectorGridSVG({ vecs, comps = false }) {
+  const W = 300, H = 300, pad = 30;
+  const pts = [[0, 0]];
+  vecs.forEach((v) => { pts.push(v.from, v.to); });
+  let xMin = Math.min(...pts.map((p) => p[0])), xMax = Math.max(...pts.map((p) => p[0]));
+  let yMin = Math.min(...pts.map((p) => p[1])), yMax = Math.max(...pts.map((p) => p[1]));
+  const span0 = Math.max(xMax - xMin, yMax - yMin, 4);
+  const step = span0 <= 12 ? 1 : span0 <= 24 ? 2 : span0 <= 60 ? 5 : 10;
+  xMin = Math.floor((xMin - 1) / step) * step; yMin = Math.floor((yMin - 1) / step) * step;
+  xMax = Math.ceil((xMax + 1) / step) * step; yMax = Math.ceil((yMax + 1) / step) * step;
+  const span = Math.max(xMax - xMin, yMax - yMin);
+  const padTo = (lo, hi) => { const down = Math.floor((span - (hi - lo)) / 2 / step) * step; return [lo - down, lo - down + span]; };
+  [xMin, xMax] = padTo(xMin, xMax); [yMin, yMax] = padTo(yMin, yMax);
+  const s = (W - 2 * pad) / span;
+  const px = (x) => pad + (x - xMin) * s, py = (y) => H - pad - (y - yMin) * s;
+  const gx = [], gy = [];
+  for (let x = xMin; x <= xMax; x += step) gx.push(x);
+  for (let y = yMin; y <= yMax; y += step) gy.push(y);
+  const lab = (v) => (v < 0 ? "−" + Math.abs(v) : String(v));
+  return y10Svg(W, H, 320, <>
+    {gx.map((x) => <line key={`gx${x}`} x1={px(x)} y1={pad} x2={px(x)} y2={H - pad} stroke="#e2e2e2" strokeWidth="1" />)}
+    {gy.map((y) => <line key={`gy${y}`} x1={pad} y1={py(y)} x2={W - pad} y2={py(y)} stroke="#e2e2e2" strokeWidth="1" />)}
+    <line x1={pad} y1={py(0)} x2={W - pad} y2={py(0)} stroke="#000" strokeWidth="1.4" />
+    <line x1={px(0)} y1={pad} x2={px(0)} y2={H - pad} stroke="#000" strokeWidth="1.4" />
+    {gx.filter((x) => x !== 0).map((x) => <text key={`tx${x}`} x={px(x)} y={py(0) + 12} fontSize="9.5" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#555">{lab(x)}</text>)}
+    {gy.filter((y) => y !== 0).map((y) => <text key={`ty${y}`} x={px(0) - 5} y={py(y) + 3.5} fontSize="9.5" fontFamily="Arial, sans-serif" textAnchor="end" fill="#555">{lab(y)}</text>)}
+    {comps && vecs.map((v, i) => v.comps && <polyline key={`c${i}`} points={`${px(v.from[0])},${py(v.from[1])} ${px(v.to[0])},${py(v.from[1])} ${px(v.to[0])},${py(v.to[1])}`} fill="none" stroke="#777" strokeWidth="1.3" strokeDasharray="5 4" />)}
+    {vecs.map((v, i) => y10Arrow(px(v.from[0]), py(v.from[1]), px(v.to[0]), py(v.to[1]), v.color, 2.6, `v${i}`))}
+    {vecs.map((v, i) => {
+      const mx = (px(v.from[0]) + px(v.to[0])) / 2, my = (py(v.from[1]) + py(v.to[1])) / 2;
+      const dx = px(v.to[0]) - px(v.from[0]), dy = py(v.to[1]) - py(v.from[1]), L = Math.hypot(dx, dy) || 1;
+      let nx = dy / L, ny = -dx / L;
+      if (ny > 0.1 || (Math.abs(ny) <= 0.1 && nx < 0)) { nx = -nx; ny = -ny; }
+      return y10T(mx + nx * 14, my + ny * 14 + 4, v.label, { bold: true, size: 14, fill: v.color, key: `l${i}` });
+    })}
+  </>);
+}
+
+// Triangle OAB with OA = a, OB = b and P on AB (not to scale).
+function VectorTriangleSVG({ m, n, showOP = false }) {
+  const W = 300, H = 200;
+  const O = [44, 168], A = [96, 40], B = [256, 138];
+  const f = m / (m + n);
+  const P = [A[0] + f * (B[0] - A[0]), A[1] + f * (B[1] - A[1])];
+  const ab = [B[0] - A[0], B[1] - A[1]], abl = Math.hypot(ab[0], ab[1]);
+  const nrm = [ab[1] / abl, -ab[0] / abl];
+  return y10Svg(W, H, 320, <>
+    <line x1={A[0]} y1={A[1]} x2={B[0]} y2={B[1]} stroke="#000" strokeWidth="1.8" />
+    {y10Arrow(O[0], O[1], A[0], A[1], Y10_BLUE, 2.4, "a")}
+    {y10Arrow(O[0], O[1], B[0], B[1], Y10_BLUE, 2.4, "b")}
+    {showOP && y10Arrow(O[0], O[1], P[0], P[1], Y8_RED, 2.4, "op")}
+    <circle cx={P[0]} cy={P[1]} r="3.6" fill="#000" />
+    {y10T(66, 108, "a", { bold: true, size: 15, fill: Y10_BLUE, anchor: "end" })}
+    {y10T(150, 168, "b", { bold: true, size: 15, fill: Y10_BLUE })}
+    {y10T(O[0] - 8, O[1] + 16, "O", { bold: true, anchor: "end" })}
+    {y10T(A[0] - 2, A[1] - 9, "A", { bold: true })}
+    {y10T(B[0] + 10, B[1] + 6, "B", { bold: true, anchor: "start" })}
+    {y10T(P[0] + nrm[0] * 15, P[1] + nrm[1] * 15 + 4, "P", { bold: true })}
+    {showOP && y10T((O[0] + P[0]) / 2 + 14, (O[1] + P[1]) / 2 + 14, "OP", { bold: true, fill: Y8_RED, anchor: "start" })}
+  </>);
+}
+
+// Basis vectors a and b, with O, A and C plotted on the lattice they generate.
+function VectorLatticeSVG({ p, q, k, showLine = false }) {
+  const W = 320, H = 220, bx = 0.4, by = 0.9;
+  const sc = (i, j) => [i + j * bx, j * by];
+  const A = sc(p, q), C = sc(k * p, k * q);
+  const maxX = Math.max(C[0], 1.2), maxY = Math.max(C[1], by);
+  const s = Math.min(34, (W - 90) / maxX, (H - 70) / maxY);
+  const ox = 40, oy = H - 36;
+  const X = (u) => ox + u * s, Y = (v) => oy - v * s;
+  const dots = [];
+  if ((k * p + 1) * (k * q + 1) <= 340) for (let i = 0; i <= k * p; i++) for (let j = 0; j <= k * q; j++) { const c = sc(i, j); dots.push(<circle key={`${i}-${j}`} cx={X(c[0])} cy={Y(c[1])} r="1.8" fill="#bbb" />); }
+  return y10Svg(W, H, 340, <>
+    {dots}
+    {showLine && <line x1={X(0)} y1={Y(0)} x2={X(C[0])} y2={Y(C[1])} stroke={Y8_RED} strokeWidth="1.6" strokeDasharray="5 4" />}
+    {y10Arrow(X(0), Y(0), X(1), Y(0), Y10_BLUE, 2.6, "a")}
+    {y10Arrow(X(0), Y(0), X(bx), Y(by), Y10_BLUE, 2.6, "b")}
+    {y10T(X(0.5), Y(0) + 16, "a", { bold: true, size: 15, fill: Y10_BLUE })}
+    {y10T(X(bx) - 8, Y(by) - 2, "b", { bold: true, size: 15, fill: Y10_BLUE, anchor: "end" })}
+    {[["O", [0, 0]], ["A", A], ["C", C]].map(([t, c]) => <g key={t}><circle cx={X(c[0])} cy={Y(c[1])} r="3.8" fill="#000" />{y10T(X(c[0]) + 8, Y(c[1]) - 8, t, { bold: true, anchor: "start" })}</g>)}
+  </>);
+}
+
+// Triangle drawn from its three side lengths (SSS), longest side as the base.
+function SSSTriangleSVG({ sides }) {
+  const W = 330, H = 210;
+  const sorted = sides.slice().sort((u, v) => v.len - u.len);
+  const [b, l, r] = sorted;
+  const x = (b.len * b.len + l.len * l.len - r.len * r.len) / (2 * b.len);
+  const y = Math.sqrt(Math.max(l.len * l.len - x * x, 0.01));
+  const sc = Math.min(250 / b.len, 120 / y);
+  const baseY = H - 52, left = (W - b.len * sc) / 2;
+  const P0 = [left, baseY], P1 = [left + b.len * sc, baseY], P2 = [left + x * sc, baseY - y * sc];
+  const cen = [(P0[0] + P1[0] + P2[0]) / 3, (P0[1] + P1[1] + P2[1]) / 3];
+  const edge = (p, q, text) => {
+    const m = [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2];
+    let nx = -(q[1] - p[1]), ny = q[0] - p[0];
+    const nl = Math.hypot(nx, ny) || 1; nx /= nl; ny /= nl;
+    if (nx * (m[0] - cen[0]) + ny * (m[1] - cen[1]) < 0) { nx = -nx; ny = -ny; }
+    return y10T(m[0] + nx * 18, m[1] + ny * 18 + 4, text, { key: text });
+  };
+  return y10Svg(W, H, 340, <>
+    <polygon points={`${P0.join(",")} ${P1.join(",")} ${P2.join(",")}`} fill="none" stroke="#000" strokeWidth="1.8" strokeLinejoin="round" />
+    {edge(P0, P1, b.label)}{edge(P0, P2, l.label)}{edge(P1, P2, r.label)}
+  </>);
+}
+
+// Isosceles triangle: base, equal sides, optional dashed height and apex angle.
+function IsoscelesSVG({ halfBase, height, baseLabel, sideLabel, heightLabel, apexLabel }) {
+  const W = 330, H = 215;
+  const s = Math.min(230 / (2 * halfBase), 125 / height);
+  const baseY = (H + height * s) / 2 + 6;
+  const A = [W / 2, baseY - height * s], L = [W / 2 - halfBase * s, baseY], R = [W / 2 + halfBase * s, baseY], M = [W / 2, baseY];
+  const tick = (p, q) => {
+    const m = [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2];
+    const dx = q[0] - p[0], dy = q[1] - p[1], l = Math.hypot(dx, dy);
+    const nx = -dy / l * 5, ny = dx / l * 5;
+    return <line key={`${p}-${q}`} x1={m[0] - nx} y1={m[1] - ny} x2={m[0] + nx} y2={m[1] + ny} stroke="#000" strokeWidth="1.6" />;
+  };
+  return y10Svg(W, H, 350, <>
+    <polygon points={`${A.join(",")} ${L.join(",")} ${R.join(",")}`} fill="none" stroke="#000" strokeWidth="1.8" strokeLinejoin="round" />
+    {tick(A, L)}{tick(A, R)}
+    {heightLabel && <line x1={A[0]} y1={A[1]} x2={M[0]} y2={M[1]} stroke="#000" strokeWidth="1.2" strokeDasharray="4 3" />}
+    {heightLabel && y10RightMark(M, [M[0] + 1, M[1]], [M[0], M[1] - 1], 9)}
+    {heightLabel && y10T(M[0] + 8, (A[1] + M[1]) / 2 + 4, heightLabel, { anchor: "start" })}
+    {y10T(M[0], baseY + 20, baseLabel)}
+    {sideLabel && y10T((A[0] + L[0]) / 2 - 12, (A[1] + L[1]) / 2 - 2, sideLabel, { anchor: "end" })}
+    {sideLabel && y10T((A[0] + R[0]) / 2 + 12, (A[1] + R[1]) / 2 - 2, sideLabel, { anchor: "start" })}
+    {apexLabel && <AngleMark V={A} P={L} Q={R} label={apexLabel} arcR={24} />}
+  </>);
+}
+
+function SquareDiagonalSVG({ sideLabel, diagLabel = "?" }) {
+  const W = 260, H = 220, x0 = 60, y0 = 24, S = 130;
+  return y10Svg(W, H, 260, <>
+    <rect x={x0} y={y0} width={S} height={S} fill="none" stroke="#000" strokeWidth="1.8" />
+    <line x1={x0} y1={y0 + S} x2={x0 + S} y2={y0} stroke="#000" strokeWidth="1.5" strokeDasharray="5 4" />
+    {y10RightMark([x0 + S, y0 + S], [x0 + S - 1, y0 + S], [x0 + S, y0 + S - 1], 10)}
+    {y10T(x0 + S / 2, y0 + S + 22, sideLabel)}
+    {y10T(x0 + S / 2 - 14, y0 + S / 2 - 8, diagLabel, { bold: true })}
+  </>);
+}
+
+// Exact trig values: the 30-60-90 and 45-45-90 triangles, or a unit quarter circle for 0 and 90.
+function ExactTrigSVG({ angle }) {
+  const W = 300, H = 200;
+  if (angle === 0 || angle === 90) {
+    const ox = 60, oy = 170, R = 120;
+    const tx = ox + R * Math.cos((angle * Math.PI) / 180), ty = oy - R * Math.sin((angle * Math.PI) / 180);
+    return y10Svg(W, H, 310, <>
+      <line x1={ox} y1={oy} x2={ox + R + 24} y2={oy} stroke="#000" strokeWidth="1.3" />
+      <line x1={ox} y1={oy} x2={ox} y2={oy - R - 24} stroke="#000" strokeWidth="1.3" />
+      <path d={`M${ox + R},${oy} A${R},${R} 0 0 0 ${ox},${oy - R}`} fill="none" stroke="#888" strokeWidth="1.4" strokeDasharray="5 4" />
+      <line x1={ox} y1={oy} x2={tx} y2={ty} stroke={Y8_RED} strokeWidth="2.6" />
+      <circle cx={tx} cy={ty} r="4" fill={Y8_RED} />
+      <circle cx={ox} cy={oy} r="2.6" fill="#000" />
+      {angle === 0 ? y10T((ox + tx) / 2, oy - 10, "1", { bold: true }) : y10T(ox + 10, (oy + ty) / 2, "1", { bold: true, anchor: "start" })}
+      {y10T(ox + 150, oy - 100, `θ = ${angle}°`, { bold: true, size: 15 })}
+      {y10T(ox + 150, oy - 78, "unit circle (radius 1)", { size: 11.5, fill: "#555" })}
+    </>);
+  }
+  const u = angle === 45 ? 118 : 84;
+  const bx = angle === 45 ? u : Math.sqrt(3) * u, by = u;
+  const R0 = [56, 168], B = [56 + bx, 168], T = [56, 168 - by];
+  const base = angle === 45 ? "1" : "√3", hyp = angle === 45 ? "√2" : "2";
+  return y10Svg(W, H, 320, <>
+    <polygon points={`${R0.join(",")} ${B.join(",")} ${T.join(",")}`} fill="none" stroke="#000" strokeWidth="1.8" strokeLinejoin="round" />
+    {y10RightMark(R0, B, T, 11)}
+    {y10T((R0[0] + B[0]) / 2, 168 + 20, base)}
+    {y10T(R0[0] - 10, (R0[1] + T[1]) / 2 + 4, "1", { anchor: "end" })}
+    {y10T((B[0] + T[0]) / 2 + 14, (B[1] + T[1]) / 2 - 6, hyp, { anchor: "start" })}
+    {angle === 60 ? <AngleMark V={T} P={R0} Q={B} label="60°" arcR={24} /> : <AngleMark V={B} P={R0} Q={T} label={`${angle}°`} arcR={26} />}
+  </>);
+}
+
+// Angle of elevation / depression, drawn with the true proportions.
+function ElevationSVG({ mode, angle, distLabel, heightLabel = "?" }) {
+  const W = 330, H = 210, gy = 172;
+  const r = Math.tan((angle * Math.PI) / 180);
+  const Lpx = Math.min(210, 125 / r), Hpx = Lpx * r;
+  const ground = <line x1="14" y1={gy} x2="318" y2={gy} stroke="#000" strokeWidth="1.6" />;
+  if (mode === "elevation") {
+    const ox = 40, bx = ox + Lpx, ty = gy - Hpx;
+    return y10Svg(W, H, 350, <>
+      {ground}
+      <rect x={bx - 6} y={ty} width="12" height={Hpx} fill="#e4e4e4" stroke="#000" strokeWidth="1.5" />
+      <line x1={ox} y1={gy} x2={bx} y2={ty} stroke="#000" strokeWidth="1.4" strokeDasharray="5 4" />
+      <circle cx={ox} cy={gy} r="3.4" fill="#000" />
+      {y10RightMark([bx, gy], [bx - 1, gy], [bx, gy - 1], 9)}
+      <AngleMark V={[ox, gy]} P={[bx, gy]} Q={[bx, ty]} label={`${angle}°`} arcR={30} />
+      {y10T((ox + bx) / 2, gy + 20, distLabel)}
+      {y10T(bx + 14, (ty + gy) / 2 + 4, heightLabel, { anchor: "start", bold: heightLabel === "?" })}
+    </>);
+  }
+  const cx0 = 84, bx = cx0 + Lpx, ty = gy - Hpx;
+  return y10Svg(W, H, 350, <>
+    {ground}
+    <rect x={cx0 - 36} y={ty} width="36" height={Hpx} fill="#e4e4e4" stroke="#000" strokeWidth="1.5" />
+    <line x1={cx0} y1={ty} x2={cx0 + Lpx + 10} y2={ty} stroke="#000" strokeWidth="1.2" strokeDasharray="5 4" />
+    <line x1={cx0} y1={ty} x2={bx} y2={gy} stroke="#000" strokeWidth="1.4" strokeDasharray="5 4" />
+    <polygon points={`${bx - 13},${gy - 9} ${bx + 13},${gy - 9} ${bx + 8},${gy} ${bx - 8},${gy}`} fill="#fff" stroke="#000" strokeWidth="1.5" />
+    {y10RightMark([cx0, gy], [cx0 + 1, gy], [cx0, gy - 1], 9)}
+    <AngleMark V={[cx0, ty]} P={[cx0 + Lpx, ty]} Q={[bx, gy]} label={`${angle}°`} arcR={34} />
+    {y10T((cx0 + bx) / 2, gy + 20, distLabel)}
+    {y10T(cx0 - 42, (ty + gy) / 2 + 4, heightLabel, { anchor: "end", bold: heightLabel === "?" })}
+  </>);
+}
+
+// Graph of y = amp·sin(x) or amp·cos(x) for 0° ≤ x ≤ 360°, with an optional horizontal line and marked points.
+function TrigGraphSVG({ func, amp = 1, hLine = null, pts = [] }) {
+  const W = 440, H = 250, L = 56, R = 20, T = 22, B = 40;
+  const top = amp * 1.3;
+  const px = (x) => L + (x / 360) * (W - L - R);
+  const py = (y) => T + ((top - y) / (2 * top)) * (H - T - B);
+  const f = (x) => amp * (func === "sin" ? Math.sin((x * Math.PI) / 180) : Math.cos((x * Math.PI) / 180));
+  let d = "";
+  for (let x = 0; x <= 360; x += 3) d += `${x === 0 ? "M" : "L"}${px(x).toFixed(1)},${py(f(x)).toFixed(1)} `;
+  const yt = [];
+  for (let v = -Math.floor(amp); v <= Math.floor(amp); v++) yt.push(v);
+  return y10Svg(W, H, 460, <>
+    {[0, 90, 180, 270, 360].map((x) => <g key={x}><line x1={px(x)} y1={T} x2={px(x)} y2={H - B} stroke="#e2e2e2" strokeWidth="1" /><text x={px(x)} y={H - B + 17} fontSize="11.5" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#333">{x}°</text></g>)}
+    {yt.map((v) => <g key={v}><line x1={L} y1={py(v)} x2={W - R} y2={py(v)} stroke="#e2e2e2" strokeWidth="1" /><text x={L - 7} y={py(v) + 4} fontSize="11.5" fontFamily="Arial, sans-serif" textAnchor="end" fill="#333">{y8lab(v)}</text></g>)}
+    <line x1={L} y1={py(0)} x2={W - R} y2={py(0)} stroke="#000" strokeWidth="1.4" />
+    <line x1={L} y1={T - 6} x2={L} y2={H - B} stroke="#000" strokeWidth="1.4" />
+    <path d={d} fill="none" stroke={Y10_BLUE} strokeWidth="2.4" />
+    {hLine && <line x1={L} y1={py(hLine.y)} x2={W - R} y2={py(hLine.y)} stroke={Y8_RED} strokeWidth="1.8" strokeDasharray="6 4" />}
+    {hLine && y10T(L - 7, py(hLine.y) + 4, hLine.label, { anchor: "end", bold: true, fill: Y8_RED })}
+    {pts.map((q, i) => <g key={i}><circle cx={px(q.x)} cy={py(q.y)} r="4.4" fill={Y8_RED} />{y10T(px(q.x) + (q.x === 0 ? 8 : q.x === 360 ? -8 : 0), py(q.y) + (q.y >= 0 ? -10 : 18), q.label, { bold: true, fill: Y8_RED, anchor: q.x === 0 ? "start" : q.x === 360 ? "end" : "middle" })}</g>)}
+  </>);
+}
+
+// Bearing of B from A is given; the bearing of A from B is the unknown.
+function BackBearingSVG({ bearing, labelB = "?" }) {
+  const W = 320, H = 290, cx = 160, cy = 158, half = 58;
+  const rad = (bearing * Math.PI) / 180;
+  const ux = Math.sin(rad), uy = -Math.cos(rad);
+  const A = [cx - ux * half, cy - uy * half], B = [cx + ux * half, cy + uy * half];
+  const back = (bearing + 180) % 360;
+  const pad3 = (v) => String(v).padStart(3, "0");
+  const arc = (V, deg, r, label, bold) => {
+    const e = [V[0] + r * Math.sin((deg * Math.PI) / 180), V[1] - r * Math.cos((deg * Math.PI) / 180)];
+    const lp = [V[0] + (r + 19) * Math.sin((deg / 2 * Math.PI) / 180), V[1] - (r + 19) * Math.cos((deg / 2 * Math.PI) / 180)];
+    return <g>
+      <path d={`M${V[0]},${V[1] - r} A${r},${r} 0 ${deg > 180 ? 1 : 0} 1 ${e[0]},${e[1]}`} fill="none" stroke="#000" strokeWidth="1.2" />
+      {y10T(lp[0], lp[1] + 4, label, { bold, size: 12.5 })}
+    </g>;
+  };
+  const north = (V) => <g>
+    <line x1={V[0]} y1={V[1]} x2={V[0]} y2={V[1] - 70} stroke="#000" strokeWidth="1.2" strokeDasharray="4 3" />
+    <polygon points={`${V[0]},${V[1] - 76} ${V[0] - 4},${V[1] - 66} ${V[0] + 4},${V[1] - 66}`} fill="#000" />
+    {y10T(V[0], V[1] - 82, "N", { size: 12 })}
+  </g>;
+  return y10Svg(W, H, 330, <>
+    {north(A)}{north(B)}
+    <line x1={A[0]} y1={A[1]} x2={B[0]} y2={B[1]} stroke="#000" strokeWidth="1.8" />
+    {arc(A, bearing, 30, `${pad3(bearing)}°`, false)}
+    {arc(B, back, 30, labelB === "?" ? "?" : labelB, labelB === "?")}
+    <circle cx={A[0]} cy={A[1]} r="3" fill="#000" /><circle cx={B[0]} cy={B[1]} r="3" fill="#000" />
+    {y10T(A[0] - ux * 15, A[1] - uy * 15 + 5, "A", { bold: true })}
+    {y10T(B[0] + ux * 15, B[1] + uy * 15 + 5, "B", { bold: true })}
+  </>);
+}
+
+// Angles in the same segment: A, B on the bottom arc, C and D on the major arc.
+function SameSegmentSVG({ angle, labelC, labelD }) {
+  const W = 260, H = 240, cx = 130, cy = 112, R = 78;
+  const pol = (deg, r = R) => [cx + r * Math.cos((deg * Math.PI) / 180), cy - r * Math.sin((deg * Math.PI) / 180)];
+  const A = pol(270 - angle), B = pol(270 + angle), C = pol(122), D = pol(50);
+  const seg = (p, q) => <line x1={p[0]} y1={p[1]} x2={q[0]} y2={q[1]} stroke="#000" strokeWidth="1.5" />;
+  return y10Svg(W, H, 300, <>
+    {y10Circle(cx, cy, R)}
+    {seg(C, A)}{seg(C, B)}{seg(D, A)}{seg(D, B)}
+    <AngleMark V={C} P={A} Q={B} label={labelC} arcR={24} />
+    <AngleMark V={D} P={A} Q={B} label={labelD} arcR={24} bold={labelD === "?"} />
+    {[["A", 270 - angle], ["B", 270 + angle], ["C", 122], ["D", 50]].map(([t, a]) => { const p = pol(a, R + 14); return <g key={t}>{y10T(p[0], p[1] + 5, t, { bold: true })}</g>; })}
+  </>);
+}
+
+// Tangent at T, chord TP, and the inscribed angle at Q in the alternate segment.
+function AlternateSegmentSVG({ theta, labelT, labelQ }) {
+  const W = 260, H = 235, cx = 130, cy = 98, R = 70;
+  const pol = (deg) => [cx + R * Math.cos((deg * Math.PI) / 180), cy - R * Math.sin((deg * Math.PI) / 180)];
+  const T = pol(270), P = pol(270 + 2 * theta), Q = pol(90 + theta);
+  const seg = (p, q) => <line x1={p[0]} y1={p[1]} x2={q[0]} y2={q[1]} stroke="#000" strokeWidth="1.5" />;
+  const out = (p, d) => [p[0] + ((p[0] - cx) / R) * d, p[1] + ((p[1] - cy) / R) * d];
+  return y10Svg(W, H, 300, <>
+    {y10Circle(cx, cy, R)}
+    <line x1={cx - 112} y1={T[1]} x2={cx + 112} y2={T[1]} stroke="#000" strokeWidth="1.6" />
+    {seg(T, P)}{seg(Q, T)}{seg(Q, P)}
+    <AngleMark V={T} P={[T[0] + 60, T[1]]} Q={P} label={labelT} arcR={26} />
+    <AngleMark V={Q} P={T} Q={P} label={labelQ} arcR={24} bold={labelQ === "?"} />
+    {y10T(T[0], T[1] + 18, "T", { bold: true })}
+    {y10T(out(P, 13)[0], out(P, 13)[1] + 5, "P", { bold: true })}
+    {y10T(out(Q, 13)[0], out(Q, 13)[1] + 5, "Q", { bold: true })}
+  </>);
+}
+
+// Two tangents from P touching the circle (centre O) at A and B.
+function TangentsSVG({ aob, labelO, labelP }) {
+  const W = 300, H = 230, cy = 115;
+  const al = ((aob / 2) * Math.PI) / 180;
+  const R = Math.min(72, 215 / (1 + 1 / Math.cos(al)));
+  const d = R / Math.cos(al);
+  const ox = (W - d) / 2;
+  const O = [ox, cy], A = [ox + R * Math.cos(al), cy - R * Math.sin(al)], B = [ox + R * Math.cos(al), cy + R * Math.sin(al)], P = [ox + d, cy];
+  const pOut = 180 - aob > 70;
+  const seg = (p, q) => <line x1={p[0]} y1={p[1]} x2={q[0]} y2={q[1]} stroke="#000" strokeWidth="1.5" />;
+  return y10Svg(W, H, 320, <>
+    {y10Circle(ox, cy, R)}
+    {seg(O, A)}{seg(O, B)}{seg(A, P)}{seg(B, P)}
+    {y10RightMark(A, O, P, 8)}{y10RightMark(B, O, P, 8)}
+    <circle cx={O[0]} cy={O[1]} r="2.6" fill="#000" />
+    <AngleMark V={O} P={A} Q={B} label={labelO} arcR={14} bold={labelO === "?"} />
+    <AngleMark V={P} P={A} Q={B} label={labelP} arcR={12} bold={labelP === "?"} outside={pOut} />
+    {y10T(O[0] - 12, O[1] + 5, "O", { bold: true, anchor: "end" })}
+    {y10T(A[0] - 2, A[1] - 9, "A", { bold: true })}
+    {y10T(B[0] - 2, B[1] + 19, "B", { bold: true })}
+    {pOut ? y10T(P[0], P[1] - 16, "P", { bold: true }) : y10T(P[0] + 10, P[1] + 5, "P", { bold: true, anchor: "start" })}
+  </>);
+}
+
+// Triangle OAB where OA and OB are radii (A and B on the circle).
+function RadiiTriangleSVG({ centre, labelO, labelA, labelB }) {
+  const W = 260, H = 235, cx = 130, cy = 82, R = 76;
+  const pol = (deg, r = R) => [cx + r * Math.cos((deg * Math.PI) / 180), cy - r * Math.sin((deg * Math.PI) / 180)];
+  const O = [cx, cy], A = pol(270 - centre / 2), B = pol(270 + centre / 2);
+  const seg = (p, q) => <line x1={p[0]} y1={p[1]} x2={q[0]} y2={q[1]} stroke="#000" strokeWidth="1.6" />;
+  const tick = (p) => { const m = [(O[0] + p[0]) / 2, (O[1] + p[1]) / 2], dx = p[0] - O[0], dy = p[1] - O[1], l = Math.hypot(dx, dy); return <line x1={m[0] - (-dy / l) * 5} y1={m[1] - (dx / l) * 5} x2={m[0] + (-dy / l) * 5} y2={m[1] + (dx / l) * 5} stroke="#000" strokeWidth="1.6" />; };
+  const lp = (p, d) => [p[0] + ((p[0] - cx) / R) * d, p[1] + ((p[1] - cy) / R) * d];
+  return y10Svg(W, H, 300, <>
+    {y10Circle(cx, cy, R)}
+    {seg(O, A)}{seg(O, B)}{seg(A, B)}
+    {tick(A)}{tick(B)}
+    <circle cx={O[0]} cy={O[1]} r="2.6" fill="#000" />
+    <AngleMark V={O} P={A} Q={B} label={labelO} arcR={12} bold={labelO === "?"} />
+    {labelA && <AngleMark V={A} P={O} Q={B} label={labelA} arcR={16} bold={labelA === "?"} outside />}
+    {labelB && <AngleMark V={B} P={O} Q={A} label={labelB} arcR={16} bold={labelB === "?"} outside />}
+    {y10T(O[0] + 10, O[1] - 8, "O", { bold: true, anchor: "start" })}
+    {y10T(A[0] - 9, A[1] - 8, "A", { bold: true, anchor: "end" })}
+    {y10T(B[0] + 9, B[1] - 8, "B", { bold: true, anchor: "start" })}
+  </>);
+}
+
+// Tetrahedron, octahedron and regular-polygon prisms (hidden edges dashed).
+function PolyhedronSVG({ kind }) {
+  const solid = { stroke: "#000", strokeWidth: 1.7, strokeLinecap: "round" };
+  const hid = { stroke: "#000", strokeWidth: 1.1, strokeDasharray: "3 3" };
+  const seg = (p, q, style, key) => <line key={key} x1={p[0]} y1={p[1]} x2={q[0]} y2={q[1]} {...style} />;
+  if (kind === "tetrahedron") {
+    const A = [40, 152], B = [182, 152], C = [208, 116], D = [100, 26];
+    return y10Svg(240, 190, 230, <>
+      {seg(A, B, solid, 1)}{seg(A, D, solid, 2)}{seg(B, D, solid, 3)}{seg(B, C, solid, 4)}{seg(D, C, solid, 5)}{seg(A, C, hid, 6)}
+    </>);
+  }
+  if (kind === "octahedron") {
+    const E1 = [30, 104], E2 = [112, 130], E3 = [194, 104], E4 = [112, 78], T = [112, 18], U = [112, 188];
+    return y10Svg(224, 205, 220, <>
+      {seg(E1, E2, solid, 1)}{seg(E2, E3, solid, 2)}{seg(E3, E4, hid, 3)}{seg(E4, E1, hid, 4)}
+      {seg(T, E1, solid, 5)}{seg(T, E2, solid, 6)}{seg(T, E3, solid, 7)}{seg(T, E4, hid, 8)}
+      {seg(U, E1, solid, 9)}{seg(U, E2, solid, 10)}{seg(U, E3, solid, 11)}{seg(U, E4, hid, 12)}
+    </>);
+  }
+  const n = kind === "pentagonal prism" ? 5 : 6;
+  const c = [74, 128], rho = 44, s = [52, -34];
+  const F = [];
+  for (let k = 0; k < n; k++) { const a = ((270 - 180 / n + (360 * k) / n) * Math.PI) / 180; F.push([c[0] + rho * Math.cos(a), c[1] - rho * Math.sin(a)]); }
+  const Bk = F.map((p) => [p[0] + s[0], p[1] + s[1]]);
+  const vis = F.map((p, i) => {
+    const q = F[(i + 1) % n], e = [q[0] - p[0], q[1] - p[1]];
+    let nx = e[1], ny = -e[0];
+    const m = [(p[0] + q[0]) / 2 - c[0], (p[1] + q[1]) / 2 - c[1]];
+    if (nx * m[0] + ny * m[1] < 0) { nx = -nx; ny = -ny; }
+    return nx * s[0] + ny * s[1] > 0;
+  });
+  return y10Svg(230, 205, 230, <>
+    {F.map((p, i) => seg(Bk[i], Bk[(i + 1) % n], vis[i] ? solid : hid, `b${i}`))}
+    {F.map((p, i) => seg(p, Bk[i], vis[i] || vis[(i + n - 1) % n] ? solid : hid, `c${i}`))}
+    <polygon points={F.map((p) => p.join(",")).join(" ")} fill="none" {...solid} strokeLinejoin="round" />
+  </>);
+}
+function y10SolidFor(name) {
+  const k = { "cube": "cube", "triangular prism": "triangular prism", "square-based pyramid": "square pyramid" }[name];
+  return k ? <SolidSVG kind={k} /> : <PolyhedronSVG kind={name} />;
+}
+
+/* ---- Vectors ---- */
+SUBTOPIC_BANK["vectors-column-arithmetic"] = {
+  topic: "Vectors", title: "Column vector arithmetic", marks: 2,
+  build(rng) {
+    const a1 = seededInt(rng, -6, 6), a2 = seededInt(rng, -6, 6);
+    const b1 = seededInt(rng, -6, 6), b2 = seededInt(rng, -6, 6);
+    const p = seededInt(rng, 2, 4), q = seededInt(rng, 2, 4);
+    const r1 = p * a1 - q * b1, r2 = p * a2 - q * b2;
+    const va = { from: [0, 0], to: [a1, a2], label: "a", color: Y10_BLUE }, vb = { from: [0, 0], to: [b1, b2], label: "b", color: Y8_RED };
+    return {
+      prompt: `a = (${a1}, ${a2}) and b = (${b1}, ${b2}), drawn on the grid. Find ${p}a − ${q}b as a column vector.`,
+      render: <VectorGridSVG vecs={[va, vb]} />, accurateDiagram: true,
+      answer: `(${p}×${a1} − ${q}×${b1}, ${p}×${a2} − ${q}×${b2}) = (${r1}, ${r2})`,
+      answerRender: <VectorGridSVG vecs={[va, vb, { from: [0, 0], to: [r1, r2], label: `${p}a − ${q}b`, color: Y10_GREEN }]} />,
+    };
+  },
+};
+SUBTOPIC_BANK["vectors-route-midpoint"] = {
+  topic: "Vectors", title: "Vector routes — dividing a line in a ratio", marks: 3,
+  build(rng) {
+    const m = seededInt(rng, 1, 3), n = seededInt(rng, 1, 3);
+    return {
+      prompt: `OAB is a triangle with OA = a and OB = b. P lies on AB such that AP : PB = ${m} : ${n}. Find the vector OP in terms of a and b.`,
+      render: <VectorTriangleSVG m={m} n={n} />,
+      answer: <>OP = a + <Frac n={m} d={m + n} />(b − a) = <Frac n={n} d={m + n} />a + <Frac n={m} d={m + n} />b</>,
+      answerRender: <VectorTriangleSVG m={m} n={n} showOP />,
+    };
+  },
+};
+SUBTOPIC_BANK["vectors-parallel-proof"] = {
+  topic: "Vectors", title: "Show that two vectors are parallel", marks: 2,
+  build(rng) {
+    const p = seededInt(rng, 1, 3), q = seededInt(rng, 1, 3);
+    const k = seededInt(rng, 2, 3);
+    return {
+      prompt: `a and b are shown on the diagram. OA = ${p}a + ${q}b and OC = ${p * k}a + ${q * k}b. Show that OA and OC are parallel.`,
+      render: <VectorLatticeSVG p={p} q={q} k={k} />, accurateDiagram: true,
+      answer: `OC = ${k}(${p}a + ${q}b) = ${k} × OA, so OC is a scalar multiple of OA — the vectors are parallel.`,
+      answerRender: <VectorLatticeSVG p={p} q={q} k={k} showLine />,
+    };
+  },
+};
+SUBTOPIC_BANK["vectors-magnitude"] = {
+  topic: "Vectors", title: "Calculate the magnitude of a vector", marks: 2,
+  build(rng) {
+    const triples = [[3, 4, 5], [5, 12, 13], [6, 8, 10], [8, 15, 17], [7, 24, 25], [9, 12, 15], [20, 21, 29]];
+    const [x, y, mag] = pick(rng, triples);
+    const vx = x * pick(rng, [1, -1]), vy = y * pick(rng, [1, -1]);
+    return {
+      prompt: `The vector v = (${vx}, ${vy}) is drawn on the grid. Find the magnitude of v.`,
+      render: <VectorGridSVG vecs={[{ from: [0, 0], to: [vx, vy], label: "v", color: Y8_RED, comps: true }]} comps />, accurateDiagram: true,
+      answer: `√((${vx})² + (${vy})²) = √(${x * x} + ${y * y}) = ${mag}`,
+    };
+  },
+};
+SUBTOPIC_BANK["vectors-equal-parallel"] = {
+  topic: "Vectors", title: "Determine if two vectors are equal, parallel, or neither", marks: 2,
+  build(rng) {
+    const x = seededInt(rng, 1, 6), y = seededInt(rng, 1, 6);
+    const relationship = pick(rng, ["equal", "parallel", "neither"]);
+    let vx, vy;
+    if (relationship === "equal") { vx = x; vy = y; }
+    else if (relationship === "parallel") { const k = pick(rng, [2, 3, -2, -3]); vx = x * k; vy = y * k; }
+    else {
+      let kx, ky, guard = 0;
+      do { kx = seededInt(rng, 1, 6); ky = seededInt(rng, 1, 6); guard++; } while (kx * y === ky * x && guard < 30);
+      vx = kx; vy = ky;
+    }
+    const start = [x + 1, 0];
+    return {
+      prompt: `a = (${x}, ${y}) and b = (${vx}, ${vy}) are drawn on the grid. State whether vector b is equal to vector a, parallel to vector a, or neither.`,
+      render: <VectorGridSVG vecs={[{ from: [0, 0], to: [x, y], label: "a", color: Y10_BLUE }, { from: start, to: [start[0] + vx, start[1] + vy], label: "b", color: Y8_RED }]} />, accurateDiagram: true,
+      answer: relationship === "equal" ? "Equal (b is identical to a)" : relationship === "parallel" ? "Parallel (b is a scalar multiple of a)" : "Neither",
+    };
+  },
+};
+SUBTOPIC_BANK["vectors-negative-scalar-multiply"] = {
+  topic: "Vectors", title: "Multiply a vector by a negative scalar", marks: 1,
+  build(rng) {
+    let x = seededInt(rng, -8, 8), y = seededInt(rng, -8, 8);
+    if (x === 0 && y === 0) x = 3;
+    const k = -seededInt(rng, 2, 5);
+    const va = { from: [0, 0], to: [x, y], label: "a", color: Y10_BLUE };
+    return {
+      prompt: `a = (${x}, ${y}) is drawn on the grid. Find ${k}a as a column vector.`,
+      render: <VectorGridSVG vecs={[va]} />, accurateDiagram: true,
+      answer: `(${k} × ${x}, ${k} × ${y}) = (${k * x}, ${k * y})`,
+      answerRender: <VectorGridSVG vecs={[va, { from: [0, 0], to: [k * x, k * y], label: `${k}a`.replace("-", "−"), color: Y10_GREEN }]} />,
+    };
+  },
+};
+
+/* ---- Pythagoras ---- */
+SUBTOPIC_BANK["pythagoras-converse-test"] = {
+  topic: "Pythagoras", title: "Use the converse of Pythagoras' theorem", marks: 3,
+  build(rng) {
+    const isRightAngled = pick(rng, [true, false]);
+    const rightTriples = [[3, 4, 5], [5, 12, 13], [6, 8, 10], [8, 15, 17], [7, 24, 25], [9, 12, 15], [10, 24, 26], [12, 16, 20]];
+    const nearTriples = [[5, 6, 8], [6, 7, 9], [7, 8, 11], [5, 7, 9], [8, 9, 13], [6, 9, 11], [9, 10, 14], [7, 9, 12]];
+    const [a, b, c] = pick(rng, isRightAngled ? rightTriples : nearTriples);
+    const lhs = a * a + b * b, rhs = c * c;
+    const equal = lhs === rhs;
+    return {
+      prompt: `A triangle has sides ${a} cm, ${b} cm and ${c} cm. Determine whether the triangle is right-angled.`,
+      render: <SSSTriangleSVG sides={[{ len: a, label: `${a} cm` }, { len: b, label: `${b} cm` }, { len: c, label: `${c} cm` }]} />, accurateDiagram: true,
+      answer: `${a}² + ${b}² = ${lhs}. ${c}² = ${rhs}. Since ${lhs} ${equal ? "=" : "≠"} ${rhs}, the triangle is ${equal ? "" : "not "}right-angled.`,
+    };
+  },
+};
+SUBTOPIC_BANK["pythagoras-distance-between-points"] = {
+  topic: "Pythagoras", title: "Find the distance between two coordinates", marks: 3,
+  build(rng) {
+    const x1 = seededInt(rng, -8, 8), y1 = seededInt(rng, -8, 8);
+    const dx = seededInt(rng, 3, 12), dy = seededInt(rng, 3, 12);
+    const x2 = x1 + dx, y2 = y1 + dy;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    const lo = Math.min(0, x1, y1) - 2, hi = Math.max(0, x2, y2) + 3;
+    const span0 = hi - lo;
+    const step = span0 <= 14 ? 1 : span0 <= 30 ? 2 : 5;
+    const gMin = Math.floor(lo / step) * step, gMax = gMin + Math.ceil(span0 / step) * step;
+    const lab = (v) => (v < 0 ? "−" + Math.abs(v) : String(v));
+    return {
+      prompt: `Find the distance between the points (${x1}, ${y1}) and (${x2}, ${y2}). Give your answer to 1 decimal place.`,
+      render: <CoordinateGridSVG xMin={gMin} xMax={gMax} yMin={gMin} yMax={gMax} step={step}
+        points={[{ x: x1, y: y1, label: `(${lab(x1)}, ${lab(y1)})` }, { x: x2, y: y2, label: `(${lab(x2)}, ${lab(y2)})` }]}
+        segments={[{ x1, y1, x2, y2 }, { x1, y1, x2: x2, y2: y1, dash: true, color: "#777" }, { x1: x2, y1, x2, y2, dash: true, color: "#777" }]} />,
+      accurateDiagram: true,
+      answer: `√(${dx}² + ${dy}²) = √(${dx * dx} + ${dy * dy}) = ${dist.toFixed(1)}`,
+    };
+  },
+};
+SUBTOPIC_BANK["pythagoras-isosceles-length"] = {
+  topic: "Pythagoras", title: "Find the height of an isosceles triangle using Pythagoras", marks: 3,
+  build(rng) {
+    const halfBase = seededInt(rng, 3, 10);
+    const height = seededInt(rng, 4, 12);
+    const equalSide = Math.sqrt(halfBase * halfBase + height * height);
+    return {
+      prompt: `An isosceles triangle has a base of ${halfBase * 2} cm and two equal sides of length ${equalSide.toFixed(1)} cm. Find the height of the triangle, splitting it into two right-angled triangles. Give your answer to 1 decimal place.`,
+      render: <IsoscelesSVG halfBase={halfBase} height={height} baseLabel={`${halfBase * 2} cm`} sideLabel={`${equalSide.toFixed(1)} cm`} heightLabel="h" />, accurateDiagram: true,
+      answer: `√(${equalSide.toFixed(1)}² − ${halfBase}²) = ${height.toFixed(1)} cm`,
+    };
+  },
+};
+SUBTOPIC_BANK["pythagoras-square-diagonal"] = {
+  topic: "Pythagoras", title: "Find the diagonal of a square using Pythagoras", marks: 2,
+  build(rng) {
+    const side = seededInt(rng, 3, 15);
+    const diag = side * Math.SQRT2;
+    return {
+      prompt: `A square has side length ${side} cm. Find the length of its diagonal. Give your answer to 1 decimal place.`,
+      render: <SquareDiagonalSVG sideLabel={`${side} cm`} />, accurateDiagram: true,
+      answer: `√(${side}² + ${side}²) = √${2 * side * side} = ${diag.toFixed(1)} cm`,
+    };
+  },
+};
+
+/* ---- Trigonometry ---- */
+SUBTOPIC_BANK["trig-exact-values"] = {
+  topic: "Trigonometry", title: "Recall an exact trigonometric value", marks: 1,
+  build(rng) {
+    const table = [
+      { expr: "sin(30°)", deg: 30, val: <Frac n="1" d="2" /> },
+      { expr: "cos(60°)", deg: 60, val: <Frac n="1" d="2" /> },
+      { expr: "sin(45°)", deg: 45, val: <><Frac n="1" d="√2" /> (or <Frac n="√2" d="2" />)</> },
+      { expr: "cos(45°)", deg: 45, val: <><Frac n="1" d="√2" /> (or <Frac n="√2" d="2" />)</> },
+      { expr: "sin(60°)", deg: 60, val: <Frac n="√3" d="2" /> },
+      { expr: "cos(30°)", deg: 30, val: <Frac n="√3" d="2" /> },
+      { expr: "tan(30°)", deg: 30, val: <><Frac n="1" d="√3" /> (or <Frac n="√3" d="3" />)</> },
+      { expr: "tan(45°)", deg: 45, val: "1" },
+      { expr: "tan(60°)", deg: 60, val: "√3" },
+      { expr: "sin(0°)", deg: 0, val: "0" },
+      { expr: "cos(0°)", deg: 0, val: "1" },
+      { expr: "sin(90°)", deg: 90, val: "1" },
+      { expr: "cos(90°)", deg: 90, val: "0" },
+    ];
+    const item = pick(rng, table);
+    return { prompt: `Write down the exact value of ${item.expr}. Use the diagram to help.`, render: <ExactTrigSVG angle={item.deg} />, accurateDiagram: true, answer: item.val };
+  },
+};
+SUBTOPIC_BANK["trig-elevation-depression"] = {
+  topic: "Trigonometry", title: "Angles of elevation and depression", marks: 3,
+  build(rng) {
+    const angle = pick(rng, [20, 25, 30, 35, 40, 45, 50, 55]);
+    const dist = seededInt(rng, 10, 60);
+    const height = dist * Math.tan((angle * Math.PI) / 180);
+    const isElevation = pick(rng, [true, false]);
+    return {
+      prompt: isElevation
+        ? `From a point on the ground ${dist} m from the base of a tower, the angle of elevation to the top of the tower is ${angle}°. Find the height of the tower. Give your answer to 1 decimal place.`
+        : `From the top of a cliff, the angle of depression to a boat is ${angle}°. The boat is ${dist} m from the base of the cliff. Find the height of the cliff. Give your answer to 1 decimal place.`,
+      render: <ElevationSVG mode={isElevation ? "elevation" : "depression"} angle={angle} distLabel={`${dist} m`} />, accurateDiagram: true,
+      answer: <>tan({angle}°) = <Frac n="height" d={dist} /> → height = {dist} × tan({angle}°) = {height.toFixed(1)} m</>,
+    };
+  },
+};
+SUBTOPIC_BANK["trig-isosceles"] = {
+  topic: "Trigonometry", title: "Use trigonometry in an isosceles triangle", marks: 3,
+  build(rng) {
+    const apex = pick(rng, [30, 40, 50, 60, 70, 80]);
+    const equalSide = seededInt(rng, 6, 15);
+    const base = 2 * equalSide * Math.sin(((apex / 2) * Math.PI) / 180);
+    const halfBase = equalSide * Math.sin(((apex / 2) * Math.PI) / 180), height = equalSide * Math.cos(((apex / 2) * Math.PI) / 180);
+    return {
+      prompt: `An isosceles triangle has two equal sides of length ${equalSide} cm, with an angle of ${apex}° between them. Find the length of the base. Give your answer to 1 decimal place.`,
+      render: <IsoscelesSVG halfBase={halfBase} height={height} baseLabel="?" sideLabel={`${equalSide} cm`} apexLabel={`${apex}°`} />, accurateDiagram: true,
+      answer: <>Split into two right triangles: base = 2 × {equalSide} × sin({apex}° ÷ 2) = {base.toFixed(1)} cm</>,
+    };
+  },
+};
+SUBTOPIC_BANK["trig-equation-sin-cos"] = {
+  topic: "Trigonometric Equations", title: "Solve a trigonometric equation for 0° ≤ x ≤ 360°", marks: 3,
+  build(rng) {
+    const func = pick(rng, ["sin", "cos"]);
+    const base = pick(rng, TRIG_REF_ANGLES);
+    const valueJSX =
+      base === 45 ? <Frac n="√2" d="2" /> :
+      (func === "sin") === (base === 30) ? "0.5" : <Frac n="√3" d="2" />;
+    const valueTxt = base === 45 ? "√2/2" : (func === "sin") === (base === 30) ? "0.5" : "√3/2";
+    const yv = func === "sin" ? Math.sin((base * Math.PI) / 180) : Math.cos((base * Math.PI) / 180);
+    const sol1 = base;
+    const sol2 = func === "sin" ? 180 - base : 360 - base;
+    return {
+      prompt: <>Solve {func}(x) = {valueJSX} for 0° ≤ x ≤ 360°. Give both solutions. The graph of y = {func}(x) is shown with the line y = {valueJSX}.</>,
+      render: <TrigGraphSVG func={func} hLine={{ y: yv, label: valueTxt }} />, accurateDiagram: true,
+      answer: `x = ${sol1}° or x = ${sol2}°`,
+      answerRender: <TrigGraphSVG func={func} hLine={{ y: yv, label: valueTxt }} pts={[{ x: sol1, y: yv, label: `${sol1}°` }, { x: sol2, y: yv, label: `${sol2}°` }]} />,
+    };
+  },
+};
+SUBTOPIC_BANK["trig-graph-max-min"] = {
+  topic: "Trigonometric Graphs", title: "Key features of a sine or cosine graph", marks: 2,
+  build(rng) {
+    const func = pick(rng, ["sin", "cos"]);
+    const a = seededInt(rng, 2, 5);
+    const extremum = pick(rng, ["max", "min"]);
+    const xVal = func === "sin" ? (extremum === "max" ? 90 : 270) : (extremum === "max" ? 0 : 180);
+    const yVal = extremum === "max" ? a : -a;
+    return {
+      prompt: `The graph of y = ${a}${func}(x°) is drawn for 0° ≤ x < 360°. Write down the coordinates of its ${extremum === "max" ? "maximum" : "minimum"} point.`,
+      render: <TrigGraphSVG func={func} amp={a} />, accurateDiagram: true,
+      answer: `(${xVal}, ${yVal})`,
+      answerRender: <TrigGraphSVG func={func} amp={a} pts={[{ x: xVal, y: yVal, label: `(${xVal}°, ${yVal < 0 ? "−" + (-yVal) : yVal})` }]} />,
+    };
+  },
+};
+
+/* ---- Volume & surface area ---- */
+SUBTOPIC_BANK["volume-pyramid"] = {
+  topic: "Volume", title: "Volume of a pyramid", marks: 3,
+  build(rng) {
+    const baseArea = seededInt(rng, 4, 20) * 6;
+    const height = seededInt(rng, 3, 15) * 3;
+    const v = (baseArea * height) / 3;
+    return {
+      prompt: `A pyramid has a base area of ${baseArea} cm² and a perpendicular height of ${height} cm. Calculate the volume of the pyramid.`,
+      render: <SolidSVG kind="square pyramid" labels={{ base: `Base area ${baseArea} cm²`, height: `${height} cm` }} />, accurateDiagram: true,
+      answer: <>⅓ × {baseArea} × {height} = {v} cm³</>,
+    };
+  },
+};
+SUBTOPIC_BANK["volume-cone"] = {
+  topic: "Volume", title: "Volume of a cone", marks: 3,
+  build(rng) {
+    const r = seededInt(rng, 2, 8), h = seededInt(rng, 4, 15);
+    const v = (1 / 3) * Math.PI * r * r * h;
+    return {
+      prompt: `A cone has a base radius of ${r} cm and a perpendicular height of ${h} cm. Calculate the volume of the cone. Give your answer to 1 decimal place.`,
+      render: <SolidSVG kind="cone" labels={{ r: `${r} cm`, h: `${h} cm` }} />, accurateDiagram: true,
+      answer: <>⅓ × π × {r}² × {h} = {v.toFixed(1)} cm³</>,
+    };
+  },
+};
+SUBTOPIC_BANK["volume-sphere"] = {
+  topic: "Volume", title: "Volume of a sphere", marks: 2,
+  build(rng) {
+    const r = seededInt(rng, 2, 10);
+    const v = (4 / 3) * Math.PI * r * r * r;
+    return {
+      prompt: `A sphere has a radius of ${r} cm. Calculate the volume of the sphere. Give your answer to 1 decimal place.`,
+      render: <SolidSVG kind="sphere" labels={{ r: `${r} cm` }} />, accurateDiagram: true,
+      answer: <>4/3 × π × {r}³ = {v.toFixed(1)} cm³</>,
+    };
+  },
+};
+SUBTOPIC_BANK["surface-area-cylinder"] = {
+  topic: "Surface Area", title: "Surface area of a cylinder", marks: 3,
+  build(rng) {
+    const r = seededInt(rng, 2, 8), h = seededInt(rng, 4, 15);
+    const sa = 2 * Math.PI * r * r + 2 * Math.PI * r * h;
+    return {
+      prompt: `A cylinder has a base radius of ${r} cm and a height of ${h} cm. Calculate the total surface area of the cylinder. Give your answer to 1 decimal place.`,
+      render: <SolidSVG kind="cylinder" labels={{ r: `${r} cm`, h: `${h} cm` }} />, accurateDiagram: true,
+      answer: <>2 × π × {r}² + 2 × π × {r} × {h} = {sa.toFixed(1)} cm²</>,
+    };
+  },
+};
+SUBTOPIC_BANK["surface-area-pyramid"] = {
+  topic: "Surface Area", title: "Surface area of a square-based pyramid", marks: 3,
+  build(rng) {
+    const base = seededInt(rng, 2, 6) * 2;
+    const slantHeight = seededInt(rng, 6, 15);
+    const baseArea = base * base;
+    const triangleArea = 0.5 * base * slantHeight;
+    const sa = baseArea + 4 * triangleArea;
+    return {
+      prompt: `A square-based pyramid has a base of side ${base} cm and a slant height of ${slantHeight} cm (the height of each triangular face). Calculate the total surface area of the pyramid.`,
+      render: <SolidSVG kind="square pyramid" labels={{ base: `${base} cm`, slant: `${slantHeight} cm` }} />, accurateDiagram: true,
+      answer: <>Base area = {base}² = {baseArea} cm². 4 triangular faces = 4 × ½ × {base} × {slantHeight} = {4 * triangleArea} cm². Total = {sa} cm²</>,
+    };
+  },
+};
+SUBTOPIC_BANK["surface-area-sphere"] = {
+  topic: "Surface Area", title: "Surface area of a sphere", marks: 1,
+  build(rng) {
+    const r = seededInt(rng, 2, 10);
+    const sa = 4 * Math.PI * r * r;
+    return {
+      prompt: `A sphere has a radius of ${r} cm. Calculate the surface area of the sphere. Give your answer to 1 decimal place.`,
+      render: <SolidSVG kind="sphere" labels={{ r: `${r} cm` }} />, accurateDiagram: true,
+      answer: <>4 × π × {r}² = {sa.toFixed(1)} cm²</>,
+    };
+  },
+};
+SUBTOPIC_BANK["three-d-name-from-properties"] = {
+  topic: "Properties of 3D Shapes", title: "Name a 3D shape from its faces, edges and vertices", marks: 2,
+  build(rng) {
+    const s = pick(rng, UNIQUE_POLYHEDRA);
+    return { prompt: `A polyhedron has ${s.f} faces, ${s.e} edges and ${s.v} vertices. Name the shape.`, answer: s.name, answerRender: y10SolidFor(s.name) };
+  },
+};
+
+/* ---- Circle theorems ---- */
+SUBTOPIC_BANK["circle-theorem-same-segment"] = {
+  topic: "Circle Theorems", title: "Angles in the same segment", marks: 2,
+  build(rng) {
+    const angle = seededInt(rng, 25, 75);
+    return {
+      prompt: `A, B, C and D are points on the circumference of a circle. Angles ACB and ADB are angles in the same segment, standing on the same arc AB. Angle ACB = ${angle}°. Find the size of angle ADB.`,
+      render: <SameSegmentSVG angle={angle} labelC={`${angle}°`} labelD="?" />, accurateDiagram: true,
+      answer: `${angle}° (angles in the same segment, standing on the same arc, are equal)`,
+    };
+  },
+};
+SUBTOPIC_BANK["circle-theorem-alternate-segment"] = {
+  topic: "Circle Theorems", title: "Alternate segment theorem", marks: 3,
+  build(rng) {
+    const angle = seededInt(rng, 25, 80);
+    return {
+      prompt: `A tangent touches a circle at point T. A chord TP is drawn from T, making an angle of ${angle}° with the tangent. Using the alternate segment theorem, find the size of the angle in the alternate segment (the inscribed angle subtended by TP on the other side of the chord).`,
+      render: <AlternateSegmentSVG theta={angle} labelT={`${angle}°`} labelQ="?" />, accurateDiagram: true,
+      answer: `${angle}° (the alternate segment theorem: the angle between a tangent and a chord equals the angle in the alternate segment)`,
+    };
+  },
+};
+SUBTOPIC_BANK["circle-theorem-equal-tangents"] = {
+  topic: "Circle Theorems", title: "Equal tangents from an external point", marks: 2,
+  build(rng) {
+    const angleAPB = seededInt(rng, 30, 100);
+    const angleAOB = 180 - angleAPB;
+    const askOAB = pick(rng, [true, false]);
+    if (askOAB) {
+      return {
+        prompt: `Two tangents are drawn from an external point P to a circle with centre O, touching the circle at A and B. Angle APB = ${angleAPB}°. Find the size of angle AOB (the angle at the centre between the two radii).`,
+        render: <TangentsSVG aob={angleAOB} labelO="?" labelP={`${angleAPB}°`} />, accurateDiagram: true,
+        answer: `PA = PB and OA ⊥ PA, OB ⊥ PB, so in quadrilateral OAPB: angle AOB = 360° − 90° − 90° − ${angleAPB}° = ${angleAOB}°`,
+      };
+    }
+    return {
+      prompt: `Two tangents are drawn from an external point P to a circle with centre O, touching the circle at A and B. Angle AOB = ${angleAOB}°. Find the size of angle APB.`,
+      render: <TangentsSVG aob={angleAOB} labelO={`${angleAOB}°`} labelP="?" />, accurateDiagram: true,
+      answer: `Angle APB = 360° − 90° − 90° − ${angleAOB}° = ${angleAPB}°`,
+    };
+  },
+};
+SUBTOPIC_BANK["circle-theorem-isosceles-radii"] = {
+  topic: "Circle Theorems", title: "Isosceles triangle formed by two radii", marks: 2,
+  build(rng) {
+    const askCentre = pick(rng, [true, false]);
+    if (askCentre) {
+      const base = seededInt(rng, 30, 75);
+      const centre = 180 - 2 * base;
+      return {
+        prompt: `O is the centre of a circle, and A and B are points on the circumference. OA and OB are radii, so triangle OAB is isosceles. Angle OAB = angle OBA = ${base}°. Find the size of angle AOB.`,
+        render: <RadiiTriangleSVG centre={centre} labelO="?" labelA={`${base}°`} labelB={`${base}°`} />, accurateDiagram: true,
+        answer: `180° − 2 × ${base}° = ${centre}° (base angles of the isosceles triangle are equal)`,
+      };
+    }
+    const centre = seededInt(rng, 15, 60) * 2;
+    const base = (180 - centre) / 2;
+    return {
+      prompt: `O is the centre of a circle, and A and B are points on the circumference. OA and OB are radii, so triangle OAB is isosceles. Angle AOB = ${centre}°. Find the size of angle OAB.`,
+      render: <RadiiTriangleSVG centre={centre} labelO={`${centre}°`} labelA="?" />, accurateDiagram: true,
+      answer: `(180° − ${centre}°) ÷ 2 = ${base}° (base angles of the isosceles triangle are equal)`,
+    };
+  },
+};
+
+/* ---- Bearings ---- */
+SUBTOPIC_BANK["bearings-back-bearing"] = {
+  topic: "Bearings", title: "Find a back bearing", marks: 2,
+  build(rng) {
+    const bearing = seededInt(rng, 1, 35) * 10;
+    const back = bearing < 180 ? bearing + 180 : bearing - 180;
+    const p3 = (v) => String(v).padStart(3, "0");
+    return {
+      prompt: `The bearing of B from A is ${p3(bearing)}°. Find the bearing of A from B.`,
+      render: <BackBearingSVG bearing={bearing} />, accurateDiagram: true,
+      answer: `${bearing} ${bearing < 180 ? "+" : "−"} 180 = ${p3(back)}°`,
+      answerRender: <BackBearingSVG bearing={bearing} labelB={`${p3(back)}°`} />,
+    };
+  },
+};
+
+/* ---- Number-line answers for the remaining inequality questions ---- */
+SUBTOPIC_BANK["inequality-quadratic-solve"] = {
+  topic: "Inequalities", title: "Solve a quadratic inequality by factorising", marks: 3,
+  build(rng) {
+    const r1 = seededInt(rng, -7, -1);
+    const r2 = seededInt(rng, 1, 7);
+    const b = -(r1 + r2), c = r1 * r2;
+    const wantOutside = pick(rng, [true, false]);
+    const symbol = wantOutside ? ">" : "<";
+    return {
+      prompt: `Solve the inequality x² ${pmX(b, "x")} ${pm(c)} ${symbol} 0`,
+      answer: wantOutside
+        ? `(x − ${r2})(x + ${-r1}) ${symbol} 0, roots at x = ${r1} and x = ${r2}; x < ${r1} or x > ${r2}`
+        : `(x − ${r2})(x + ${-r1}) ${symbol} 0, roots at x = ${r1} and x = ${r2}; ${r1} < x < ${r2}`,
+      answerRender: <InequalityLineSVG lo={-9} hi={9} segs={wantOutside ? [{ a: null, b: r1, bClosed: false }, { a: r2, aClosed: false, b: null }] : [{ a: r1, aClosed: false, b: r2, bClosed: false }]} />,
+    };
+  },
+};
+SUBTOPIC_BANK["solve-inequality-fraction"] = {
+  topic: "Inequalities", title: "Solve an inequality involving a fraction", marks: 2,
+  build(rng) {
+    const p = seededInt(rng, 2, 6);
+    const m = seededInt(rng, -6, 6);
+    const b = seededInt(rng, -9, 9);
+    const symbol = pick(rng, ["<", ">"]);
+    const rhs = m + b;
+    const xThreshold = p * m;
+    return {
+      prompt: <>Solve <Frac n="x" d={p} /> {b !== 0 && pm(b)} {symbol} {rhs}</>,
+      answer: `x ${symbol} ${xThreshold}`,
+      answerRender: y8SolutionLine(xThreshold, symbol),
+    };
   },
 };
 
@@ -12925,6 +13917,9 @@ const SPEED_CHECKS = [
 ];
 
 ReactDOM.createRoot(document.getElementById("root")).render(<QuizEngine />);
+
+
+
 
 
 
