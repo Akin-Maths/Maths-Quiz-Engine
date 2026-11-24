@@ -244,9 +244,9 @@ function GeneralTriangleSVG({ sideAB, angleA, angleB, labelA, labelB, labelC, si
       {labelC && <AngleMark V={C} P={A} Q={B} label={labelC} arcR={22} bold={labelC === "?"} />}
       {labelExt && <AngleMark V={B} P={D} Q={C} label={labelExt} arcR={30} bold={labelExt === "?"} />}
       {/* Side labels: c = AB (bottom), b = AC (left), a = BC (right) */}
-      {sideCLabel && <text x={AB_mid[0]} y={AB_mid[1] + 16} fontSize="13" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#000">{sideCLabel}</text>}
-      {sideBLabel && <text x={AC_mid[0] - 14} y={AC_mid[1]} fontSize="13" fontFamily="Arial, sans-serif" textAnchor="end" fill="#000">{sideBLabel}</text>}
-      {sideALabel && <text x={BC_mid[0] + 12} y={BC_mid[1]} fontSize="13" fontFamily="Arial, sans-serif" fill="#000">{sideALabel}</text>}
+      {sideCLabel && <text x={AB_mid[0]} y={AB_mid[1] + 16} fontSize="13" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#000">{svgMath(sideCLabel)}</text>}
+      {sideBLabel && <text x={AC_mid[0] - 14} y={AC_mid[1]} fontSize="13" fontFamily="Arial, sans-serif" textAnchor="end" fill="#000">{svgMath(sideBLabel)}</text>}
+      {sideALabel && <text x={BC_mid[0] + 12} y={BC_mid[1]} fontSize="13" fontFamily="Arial, sans-serif" fill="#000">{svgMath(sideALabel)}</text>}
     </svg>
   );
 }
@@ -376,7 +376,7 @@ function CircleTheoremSVG({ theorem, ...props }) {
    regular polygons, and a general axis+polyline reader for conversion
    and distance-time graphs. Same division of labour as the components
    above: callers resolve all geometry/values, these just render. ---------- */
-function CoordinateGridSVG({ points, xMin = -6, xMax = 6, yMin = -6, yMax = 6 }) {
+function CoordinateGridSVG({ points, xMin = -6, xMax = 6, yMin = -6, yMax = 6, lines = [], segments = [], polygon = null }) {
   const boxW = 280, boxH = 280, pad = 26;
   const sx = (boxW - 2 * pad) / (xMax - xMin);
   const sy = (boxH - 2 * pad) / (yMax - yMin);
@@ -402,6 +402,9 @@ function CoordinateGridSVG({ points, xMin = -6, xMax = 6, yMin = -6, yMax = 6 })
         <text key={`ty${y}`} x={px(0) - 5} y={py(y) + 3.5} fontSize="9.5" fontFamily="Arial, sans-serif" textAnchor="end" fill="#444">{lab(y)}</text>
       ))}
       <text x={px(0) - 5} y={py(0) + 12} fontSize="9.5" fontFamily="Arial, sans-serif" textAnchor="end" fill="#444">0</text>
+      {polygon && <polygon points={polygon.map((q) => `${px(q.x)},${py(q.y)}`).join(" ")} fill="#cfe0f588" stroke="#1f3d66" strokeWidth="1.6" />}
+      {segments.map((sg, i) => <line key={`sg${i}`} x1={px(sg.x1)} y1={py(sg.y1)} x2={px(sg.x2)} y2={py(sg.y2)} stroke="#1f3d66" strokeWidth="1.7" />)}
+      {lines.map((ln, i) => { const c = y8ClipLine(ln.x1, ln.y1, ln.x2, ln.y2, xMin, xMax, yMin, yMax); return c ? <line key={`ln${i}`} x1={px(c[0])} y1={py(c[1])} x2={px(c[2])} y2={py(c[3])} stroke="#b23b2e" strokeWidth="2" /> : null; })}
       {points.map((p, i) => (
         <g key={i}>
           <circle cx={px(p.x)} cy={py(p.y)} r={3.4} fill="#000" />
@@ -412,16 +415,16 @@ function CoordinateGridSVG({ points, xMin = -6, xMax = 6, yMin = -6, yMax = 6 })
   );
 }
 
-function BarChartSVG({ categories, values, yLabel = "Frequency" }) {
+function BarChartSVG({ categories, values, yLabel = "Frequency", yStart = 0 }) {
   const boxW = 300, boxH = 230, padL = 46, padR = 14, padT = 14, padB = 40;
   const maxV = Math.max(...values);
   const step = maxV <= 10 ? 1 : maxV <= 20 ? 2 : maxV <= 50 ? 5 : 10;
   const axisMax = (Math.floor(maxV / step) + 1) * step;
   const gap = (boxW - padL - padR) / values.length;
   const barW = gap * 0.6;
-  const scaleY = (v) => (boxH - padT - padB) * (v / axisMax);
+  const scaleY = (v) => (boxH - padT - padB) * ((v - yStart) / (axisMax - yStart));
   const ticks = [];
-  for (let t = 0; t <= axisMax; t += step) ticks.push(t);
+  for (let t = yStart; t <= axisMax; t += step) ticks.push(t);
   return (
     <svg viewBox={`0 0 ${boxW} ${boxH}`} width={360} style={{ maxWidth: "100%", height: "auto", display: "block", margin: "0 auto" }}>
       {ticks.map((t) => (
@@ -692,15 +695,19 @@ function KiteAnglesSVG({ angleA, angleBD }) {
   );
 }
 
-function RegularPolygonSVG({ sides }) {
-  const cx = 60, cy = 60, r = 50;
+function RegularPolygonSVG({ sides, sideLabel }) {
+  const cx = 80, cy = 74, r = 56;
   const offset = sides % 2 === 0 ? 90 + 180 / sides : 90;
   const pts = [];
   for (let i = 0; i < sides; i++) pts.push(polarPt(cx, cy, r, offset + i * (360 / sides)));
   const ptsStr = pts.map((p) => p.join(",")).join(" ");
+  let low = 0, lowY = -1e9;
+  pts.forEach((p, i) => { const q = pts[(i + 1) % sides]; const y = (p[1] + q[1]) / 2; if (y > lowY) { lowY = y; low = i; } });
+  const a = pts[low], b = pts[(low + 1) % sides];
   return (
-    <svg viewBox="0 0 120 120" width="100%" style={{ maxWidth: 180, display: "block" }}>
-      <polygon points={ptsStr} fill="none" stroke="#000" strokeWidth="1.6" />
+    <svg viewBox="0 0 160 160" width={190} style={{ maxWidth: "100%", height: "auto", display: "block", margin: "0 auto" }}>
+      <polygon points={ptsStr} fill="none" stroke="#000" strokeWidth="1.7" strokeLinejoin="round" />
+      {sideLabel && <text x={(a[0] + b[0]) / 2} y={(a[1] + b[1]) / 2 + 16} fontSize="12.5" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#000">{sideLabel}</text>}
     </svg>
   );
 }
@@ -776,7 +783,7 @@ function CylinderSVG({ r, h, showR, showH }) {
       <line x1={cx + rx} y1={topY} x2={cx + rx} y2={botY} stroke="#000" strokeWidth="1.6" />
       <path d={`M${cx - rx},${botY} A${rx},${ry} 0 0 0 ${cx + rx},${botY}`} fill="none" stroke="#000" strokeWidth="1.6" />
       <path d={`M${cx - rx},${botY} A${rx},${ry} 0 0 1 ${cx + rx},${botY}`} fill="none" stroke="#000" strokeDasharray="3,3" strokeWidth="1.1" />
-      <line x1={cx} y1={topY} x2={cx + rx} y2={topY} stroke="#000" strokeWidth="1.1" />
+      {showR && <line x1={cx} y1={topY} x2={cx + rx} y2={topY} stroke="#000" strokeWidth="1.1" />}
       <text x={cx + rx / 2} y={topY - 6} fontSize="12.5" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#000">{showR}</text>
       <text x={cx + rx + 10} y={(topY + botY) / 2} fontSize="13" fontFamily="Arial, sans-serif" fill="#000">{showH}</text>
     </svg>
@@ -865,7 +872,7 @@ function ClockSVG({ hour, minute }) {
    per vertex. Only the object shape is drawn; questions ask for the
    coordinates of a transformed vertex rather than requiring a second,
    possibly-overlapping image shape to be rendered. ---------- */
-function ShapeGridSVG({ shapes, xMin = -6, xMax = 6, yMin = -6, yMax = 6 }) {
+function ShapeGridSVG({ shapes, xMin = -6, xMax = 6, yMin = -6, yMax = 6, lines = [] }) {
   const boxW = 260, boxH = 260, pad = 22;
   const sx = (boxW - 2 * pad) / (xMax - xMin);
   const sy = (boxH - 2 * pad) / (yMax - yMin);
@@ -874,12 +881,15 @@ function ShapeGridSVG({ shapes, xMin = -6, xMax = 6, yMin = -6, yMax = 6 }) {
   const gridX = []; for (let x = Math.ceil(xMin); x <= Math.floor(xMax); x++) gridX.push(x);
   const gridY = []; for (let y = Math.ceil(yMin); y <= Math.floor(yMax); y++) gridY.push(y);
   return (
-    <svg viewBox={`0 0 ${boxW} ${boxH}`} width="100%" style={{ maxWidth: 280, display: "block" }}>
+    <svg viewBox={`0 0 ${boxW} ${boxH}`} width={320} style={{ maxWidth: "100%", height: "auto", display: "block", margin: "0 auto" }}>
       {gridX.map((x) => <line key={`gx${x}`} x1={px(x)} y1={pad} x2={px(x)} y2={boxH - pad} stroke="#ddd" strokeWidth="1" />)}
       {gridY.map((y) => <line key={`gy${y}`} x1={pad} y1={py(y)} x2={boxW - pad} y2={py(y)} stroke="#ddd" strokeWidth="1" />)}
       <line x1={pad} y1={py(0)} x2={boxW - pad} y2={py(0)} stroke="#000" strokeWidth="1.4" />
       <line x1={px(0)} y1={pad} x2={px(0)} y2={boxH - pad} stroke="#000" strokeWidth="1.4" />
       <text x={px(0) + 4} y={py(0) - 4} fontSize="11" fontFamily="Arial, sans-serif" fill="#000">O</text>
+      {gridX.filter((x) => x !== 0).map((x) => <text key={`tx${x}`} x={px(x)} y={py(0) + 11} fontSize="8.5" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#555">{x < 0 ? "\u2212" + Math.abs(x) : x}</text>)}
+      {gridY.filter((y) => y !== 0).map((y) => <text key={`ty${y}`} x={px(0) - 4} y={py(y) + 3} fontSize="8.5" fontFamily="Arial, sans-serif" textAnchor="end" fill="#555">{y < 0 ? "\u2212" + Math.abs(y) : y}</text>)}
+      {lines.map((ln, i) => { const c = y8ClipLine(ln.x1, ln.y1, ln.x2, ln.y2, xMin, xMax, yMin, yMax); return c ? <line key={`ln${i}`} x1={px(c[0])} y1={py(c[1])} x2={px(c[2])} y2={py(c[3])} stroke="#b23b2e" strokeWidth="1.8" strokeDasharray={ln.dashed ? "6 4" : undefined} /> : null; })}
       {shapes.map((s, i) => (
         <g key={i}>
           <polygon points={s.points.map((p) => `${px(p.x)},${py(p.y)}`).join(" ")} fill={s.fill || "none"} stroke={s.stroke || "#000"} strokeWidth="1.8" />
@@ -980,7 +990,7 @@ function mathify(node) {
 
 // Arc and label for one angle: P-V-Q with the angle at V. The label sits on
 // the bisector, far enough out to clear both lines, with a white halo.
-function AngleMark({ V, P, Q, label, arcR = 20, bold = false, fontSize = 12.5, inset = false }) {
+function AngleMark({ V, P, Q, label, arcR = 20, bold = false, fontSize = 12.5, inset = false, outside = false }) {
   const norm = (v) => { const l = Math.hypot(v[0], v[1]) || 1; return [v[0] / l, v[1] / l]; };
   const dP = Math.hypot(P[0] - V[0], P[1] - V[1]), dQ = Math.hypot(Q[0] - V[0], Q[1] - V[1]);
   const u1 = norm([P[0] - V[0], P[1] - V[1]]), u2 = norm([Q[0] - V[0], Q[1] - V[1]]);
@@ -1004,10 +1014,14 @@ function AngleMark({ V, P, Q, label, arcR = 20, bold = false, fontSize = 12.5, i
   let lr = Math.max(arcR + 17, need);
   const cap = 0.75 * Math.min(dP, dQ);
   if (lr > cap) lr = Math.max(arcR + 10, cap);
+  // `outside` puts the label beyond the vertex (away from the angle), for long labels.
+  const outDist = 6 + halfW * 0.8 * Math.abs(bis[0]) + 7 * Math.abs(bis[1]);
+  const lx = outside ? V[0] - bis[0] * outDist : V[0] + bis[0] * lr;
+  const ly = outside ? V[1] - bis[1] * outDist : V[1] + bis[1] * lr;
   return (
     <g>
       <path d={`M${a1[0]},${a1[1]} A${arcR},${arcR} 0 0 ${cross > 0 ? 1 : 0} ${a2[0]},${a2[1]}`} fill="none" stroke="#000" strokeWidth="1.1" />
-      <text x={V[0] + bis[0] * lr} y={V[1] + bis[1] * lr + 4} fontSize={fontSize} fontFamily="Arial, sans-serif" fontWeight={bold ? 700 : 400} textAnchor="middle" fill="#000" stroke="#fff" strokeWidth="3" paintOrder="stroke">{svgMath(text)}</text>
+      <text x={lx} y={ly + 4} fontSize={fontSize} fontFamily="Arial, sans-serif" fontWeight={bold ? 700 : 400} textAnchor="middle" fill="#000" stroke="#fff" strokeWidth="3" paintOrder="stroke">{svgMath(text)}</text>
     </g>
   );
 }
@@ -5350,6 +5364,49 @@ const Y7_WEEKS = {
   ],
 };
 
+/* Year 8 scheme of work — follows the White Rose Year 8 overview (12 teaching
+   weeks per term) and the Year 8 booklets. The timeline has week numbers, not
+   dates, so keys are labelled by term and week; topics over several weeks are
+   labelled (W1), (W2), (W3). Extension steps sit at the end of their week. */
+const Y8_WEEKS = {
+  "Autumn · Week 1 — Ratio (W1)": ["ratio-simplify", "ratio-bar-model", "ratio-share-amount", "ratio-total-parts", "ratio-quantity-one-part-given"],
+  "Autumn · Week 2 — Ratio (W2)": ["ratio-quantity-difference-given", "ratio-one-to-n", "ratio-to-fraction", "fraction-to-ratio", "ratio-combine-two"],
+  "Autumn · Week 3 — Proportion and scale (W1)": ["direct-proportion", "conversion-graph-read", "currency-convert", "multiplicative-recipe-scaling", "multiplicative-best-value"],
+  "Autumn · Week 4 — Proportion and scale (W2)": ["similar-shapes-find-length", "similar-shapes-identify", "scale-map-distance", "metric-conversion"],
+  "Autumn · Week 5 — Algebraic manipulation (W1)": ["alg-classify-type", "form-expression-perimeter", "collect-like-terms-multi", "multiply-algebraic-terms", "divide-algebraic-terms-basic"],
+  "Autumn · Week 6 — Algebraic manipulation (W2)": ["alg-directed-simplify", "substitution-formula-negatives", "eb-single-pos", "eb-single-neg", "fac-common", "eb-double-pos"],
+  "Autumn · Week 7 — Coordinates and graphs (W1)": ["coordinates-identify-point", "coord-fourth-vertex", "line-equation-axis-parallel", "line-table-of-values"],
+  "Autumn · Week 8 — Coordinates and graphs (W2)": ["line-table-of-values", "line-gradient-intercept-read", "line-equation-from-graph", "line-equation-axis-parallel"],
+  "Autumn · Week 9 — Coordinates and graphs (W3)": ["line-gradient-intercept-read", "line-equation-from-graph", "coordinates-midpoint-calc"],
+  "Autumn · Week 10 — Multiply and divide fractions (W1)": ["frac-multiply-integer", "frac-multiply-two", "frac-divide-by-integer", "frac-reciprocal"],
+  "Autumn · Week 11 — Multiply and divide fractions (W2)": ["frac-divide-fraction-by-fraction", "frac-multiply-mixed", "frac-reciprocal", "frac-improper-mixed-convert", "algebraic-fractions-muldiv"],
+  "Autumn · Week 12 — Symmetry and reflection": ["symmetry-lines-rotation", "shape-properties-symmetry", "transform-reflect-shape", "describe-reflection"],
+  "Spring · Week 1 — Area, volume and density (W1)": ["solid-name-identify", "shape-naming-polygon-by-sides", "shape-properties-quadrilateral-name", "area-parallelogram", "area-triangle-base-height", "area-trapezium"],
+  "Spring · Week 2 — Area, volume and density (W2)": ["three-d-faces-edges-vertices", "volume-cuboid", "capacity-mass-convert", "density-calc", "density-find-mass-volume"],
+  "Spring · Week 3 — Equations and inequalities (W1)": ["solve-one-step-equation", "solve-two-step-equation", "solve-linear-brackets", "solve-equation-fractions", "solve-equation-both-sides-brackets"],
+  "Spring · Week 4 — Equations and inequalities (W2)": ["inequality-list-integers", "inequality-from-number-line", "inequality-double-sided", "ineq-represent-number-line", "inequality-linear-twostep", "inequality-both-sides"],
+  "Spring · Week 5 — Percentages (W1)": ["fdp-percent-to-decimal", "percent-of-amount", "percent-multiplier", "percent-increase-decrease"],
+  "Spring · Week 6 — Percentages (W2)": ["percent-multiplier", "percent-one-of-another", "percent-change-find", "percent-compound-increase"],
+  "Spring · Week 7 — Percentages (W3)": ["percent-change-find", "percent-reverse", "percent-reverse-after-increase", "percent-simple-interest"],
+  "Spring · Week 8 — Indices (W1)": ["index-notation-evaluate", "algebraic-notation-index-form", "indices-simplify-algebra", "powers-laws-multiply", "indices-divide-same-base"],
+  "Spring · Week 9 — Indices (W2)": ["indices-simplify-algebra", "indices-power-of-a-power", "indices-negative", "indices-fractional", "roots-evaluate"],
+  "Spring · Week 10 — Standard form": ["sf-large-to-sf", "sf-small-to-sf", "sf-large-to-ordinary", "sf-small-to-ordinary", "sf-compare-order"],
+  "Spring · Week 11 — Interpret and represent data (W1)": ["averages-range-listed", "averages-four-measures", "outlier-dotplot", "bar-chart-read-frequency"],
+  "Spring · Week 12 — Interpret and represent data (W2)": ["ungrouped-frequency-table-mean", "compare-distributions", "averages-missing-value-given-mean", "mean-from-grouped-table", "grouped-table-modal-median-class"],
+  "Summer · Week 1 — Angles in parallel lines and polygons (W1)": ["angles-on-a-line", "angles-about-a-point", "angles-vertically-opposite", "angles-triangle-sum", "angles-alternate", "angles-corresponding"],
+  "Summer · Week 2 — Angles in parallel lines and polygons (W2)": ["angles-co-interior", "angles-parallel-lines-two-step", "angles-parallel-algebra", "angles-isosceles-triangle", "angles-parallelogram", "angles-trapezium"],
+  "Summer · Week 3 — Angles in parallel lines and polygons (W3)": ["angles-quadrilateral-sum", "angles-interior-polygon-sum", "angles-exterior-regular-polygon", "angles-interior-regular-polygon", "angles-polygon-sides-from-angle", "angles-polygon-algebra"],
+  "Summer · Week 4 — Tables and probability (W1)": ["probability-scale-words", "probability-scale-compare", "theoretical-probability-single", "theoretical-probability-not-event", "mutually-exclusive-missing-probability"],
+  "Summer · Week 5 — Tables and probability (W2)": ["relative-frequency-from-data", "expected-value-biased", "sample-space-spinners", "combinations-list-two-groups"],
+  "Summer · Week 6 — Tables and probability (W3)": ["two-way-table-complete", "two-way-table-probability", "frequency-tree-complete", "sample-space-spinners"],
+  "Summer · Week 7 — Circles (W1)": ["circle-facts-parts", "circle-facts-circumference-area"],
+  "Summer · Week 8 — Circles (W2)": ["circle-arc-sector", "circle-compound", "circle-facts-circumference-area"],
+  "Summer · Week 9 — Graphs and charts (W1)": ["bar-chart-read-frequency", "pie-chart-angle-from-frequency", "pie-chart-angle-to-frequency", "misleading-bar-chart"],
+  "Summer · Week 10 — Graphs and charts (W2)": ["scatter-correlation-type", "line-of-best-fit-estimate", "misleading-bar-chart", "pie-chart-angle-from-frequency"],
+  "Summer · Week 11 — Sequences": ["seq-pattern-nth-term", "generate-terms-from-nth-term", "find-nth-term-linear", "seq-is-term-of-sequence", "seq-term-to-term-rule"],
+  "Summer · Week 12 — Sequences consolidation": ["find-nth-term-linear", "seq-pattern-nth-term", "seq-is-term-of-sequence", "arithmetic-sequence-nth-term-value", "seq-missing-terms-linear"],
+};
+
 const SCHEMES = {
   "Year 11 · Set 2 (2026/27)": SET2_WEEKS,
   "Year 11 · Set 1 (2026/27)": SET1_WEEKS,
@@ -5359,6 +5416,7 @@ const SCHEMES = {
   "Year 10 · Set 3 (2026/27)": Y10_SET3_WEEKS,
   "Year 10 · Set 4 (2026/27)": Y10_SET4_WEEKS,
   "Year 7 (2026/27)": Y7_WEEKS,
+  "Year 8 (2026/27)": Y8_WEEKS,
 };
 
 // Every week should give a full 6-topic quiz. A week with fewer than 6 topics
@@ -7285,7 +7343,7 @@ function NumberLineSVG({ L, U, k, m, fmt }) {
 
 // A convex polygon drawn to match the interior angles given (the last two
 // side lengths are solved so it closes), with an arc and label in each corner.
-function PolygonAnglesSVG({ angles, unknownIndex }) {
+function PolygonAnglesSVG({ angles, unknownIndex, labels }) {
   const n = angles.length;
   const rad = (d) => (d * Math.PI) / 180;
   const ext = angles.map((a) => 180 - a);
@@ -7317,15 +7375,16 @@ function PolygonAnglesSVG({ angles, unknownIndex }) {
   pts = pts.map(([x, y]) => [x, -y]);
   const xs = pts.map((q) => q[0]), ys = pts.map((q) => q[1]);
   const minX = Math.min(...xs), maxX = Math.max(...xs), minY = Math.min(...ys), maxY = Math.max(...ys);
-  const boxW = 360, boxH = 290, pad = 40;
+  const longLabels = !!labels && labels.some((l) => String(l).length > 6);
+  const boxW = longLabels ? 420 : 360, boxH = longLabels ? 330 : 290, pad = longLabels ? 62 : 40;
   const sc = Math.min((boxW - 2 * pad) / (maxX - minX || 1), (boxH - 2 * pad) / (maxY - minY || 1));
   const offX = (boxW - (maxX - minX) * sc) / 2, offY = (boxH - (maxY - minY) * sc) / 2;
   const V = pts.map(([x, y]) => [offX + (x - minX) * sc, offY + (y - minY) * sc]);
   return (
-    <svg viewBox={`0 0 ${boxW} ${boxH}`} width={400} style={{ maxWidth: "100%", height: "auto", display: "block", margin: "0 auto" }}>
+    <svg viewBox={`0 0 ${boxW} ${boxH}`} width={longLabels ? 440 : 400} style={{ maxWidth: "100%", height: "auto", display: "block", margin: "0 auto" }}>
       <polygon points={V.map((q) => q.join(",")).join(" ")} fill="none" stroke="#000" strokeWidth="1.6" strokeLinejoin="round" />
       {V.map((q, i) => (
-        <AngleMark key={i} V={q} P={V[(i + n - 1) % n]} Q={V[(i + 1) % n]} label={i === unknownIndex ? "?" : `${angles[i]}\u00B0`} arcR={17} bold={i === unknownIndex} fontSize={i === unknownIndex ? 15 : 12.5} />
+        <AngleMark key={i} V={q} P={V[(i + n - 1) % n]} Q={V[(i + 1) % n]} label={labels ? labels[i] : i === unknownIndex ? "?" : `${angles[i]}\u00B0`} arcR={17} outside={longLabels} bold={i === unknownIndex} fontSize={i === unknownIndex ? 15 : 12.5} />
       ))}
     </svg>
   );
@@ -8267,6 +8326,1384 @@ SUBTOPIC_BANK["triangle-classify"] = {
   },
 };
 
+/* =====================================================================
+   Year 8 build-out — diagram components. Every geometry or number-line
+   question gets a drawing; these are the shared renderers.
+   ===================================================================== */
+const Y8_RED = "#b23b2e";
+const y8lab = (v) => (v < 0 ? "−" + Math.abs(v) : String(v));
+
+// Number line for inequalities. segs: [{ a, b, aClosed, bClosed }] where a/b
+// of null means the line runs off that end with an arrow. dots: integers to
+// mark with a filled dot (for "list the integers" answers).
+function InequalityLineSVG({ lo, hi, segs = [], dots = [] }) {
+  const W = 500, H = 86, padX = 34, y = 36;
+  const span = hi - lo;
+  const x = (v) => padX + ((v - lo) / span) * (W - 2 * padX);
+  const step = span > 14 ? 2 : 1;
+  const ticks = [];
+  for (let v = lo; v <= hi; v++) ticks.push(v);
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} width={500} style={{ maxWidth: "100%", height: "auto", display: "block", margin: "0 auto" }}>
+      <line x1={x(lo) - 18} y1={y} x2={x(hi) + 18} y2={y} stroke="#000" strokeWidth="1.5" />
+      <polygon points={`${x(hi) + 22},${y} ${x(hi) + 12},${y - 4} ${x(hi) + 12},${y + 4}`} fill="#000" />
+      <polygon points={`${x(lo) - 22},${y} ${x(lo) - 12},${y - 4} ${x(lo) - 12},${y + 4}`} fill="#000" />
+      {ticks.map((v) => (
+        <g key={v}>
+          <line x1={x(v)} y1={y - 6} x2={x(v)} y2={y + 6} stroke="#000" strokeWidth="1.3" />
+          {(v - lo) % step === 0 && <text x={x(v)} y={y + 24} fontSize="12.5" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#000">{y8lab(v)}</text>}
+        </g>
+      ))}
+      {segs.map((sg, i) => {
+        const x1 = sg.a === null ? x(lo) - 12 : x(sg.a);
+        const x2 = sg.b === null ? x(hi) + 12 : x(sg.b);
+        return (
+          <g key={`s${i}`}>
+            <line x1={x1} y1={y} x2={x2} y2={y} stroke={Y8_RED} strokeWidth="4" />
+            {sg.a === null && <polygon points={`${x1 - 8},${y} ${x1 + 2},${y - 6} ${x1 + 2},${y + 6}`} fill={Y8_RED} />}
+            {sg.b === null && <polygon points={`${x2 + 8},${y} ${x2 - 2},${y - 6} ${x2 - 2},${y + 6}`} fill={Y8_RED} />}
+            {sg.a !== null && <circle cx={x1} cy={y} r="6" fill={sg.aClosed ? Y8_RED : "#fff"} stroke={Y8_RED} strokeWidth="2.2" />}
+            {sg.b !== null && <circle cx={x2} cy={y} r="6" fill={sg.bClosed ? Y8_RED : "#fff"} stroke={Y8_RED} strokeWidth="2.2" />}
+          </g>
+        );
+      })}
+      {dots.map((v) => <circle key={`d${v}`} cx={x(v)} cy={y} r="5.5" fill={Y8_RED} />)}
+    </svg>
+  );
+}
+
+// Probability scale from 0 to 1 with optional arrows/marks above the line.
+function ProbabilityScaleSVG({ marks = [] }) {
+  const W = 500, H = 112, padX = 40, y = 62;
+  const x = (p) => padX + p * (W - 2 * padX);
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} width={500} style={{ maxWidth: "100%", height: "auto", display: "block", margin: "0 auto" }}>
+      <line x1={x(0)} y1={y} x2={x(1)} y2={y} stroke="#000" strokeWidth="1.6" />
+      {Array.from({ length: 11 }, (_, i) => (
+        <line key={i} x1={x(i / 10)} y1={y - (i % 5 === 0 ? 9 : 5)} x2={x(i / 10)} y2={y + (i % 5 === 0 ? 9 : 5)} stroke="#000" strokeWidth={i % 5 === 0 ? 1.8 : 1.2} />
+      ))}
+      {[[0, "0"], [0.5, "0.5"], [1, "1"]].map(([p, t]) => <text key={t} x={x(p)} y={y + 26} fontSize="13" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#000">{t}</text>)}
+      {[[0, "Impossible"], [0.5, "Even chance"], [1, "Certain"]].map(([p, t]) => <text key={t} x={x(p)} y={y + 44} fontSize="12" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#333">{t}</text>)}
+      {marks.map((m, i) => (
+        <g key={i}>
+          <line x1={x(m.p)} y1={y - 38} x2={x(m.p)} y2={y - 12} stroke={Y8_RED} strokeWidth="2.6" />
+          <polygon points={`${x(m.p)},${y - 5} ${x(m.p) - 6},${y - 16} ${x(m.p) + 6},${y - 16}`} fill={Y8_RED} />
+          {m.label && <text x={x(m.p)} y={y - 44} fontSize="15" fontWeight="700" fontFamily="Arial, sans-serif" textAnchor="middle" fill={Y8_RED}>{m.label}</text>}
+        </g>
+      ))}
+    </svg>
+  );
+}
+
+// Sample-space / two-way grid. cell(r, c) returns the text in each cell.
+function SampleSpaceSVG({ corner = "", rows, cols, cell, totals }) {
+  const cw = 54, ch = 32, W = (cols.length + 1 + (totals ? 1 : 0)) * cw + 8, H = (rows.length + 1 + (totals ? 1 : 0)) * ch + 8;
+  const allCols = totals ? cols.concat(["Total"]) : cols;
+  const allRows = totals ? rows.concat(["Total"]) : rows;
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} width={Math.min(W * 1.15, 520)} style={{ maxWidth: "100%", height: "auto", display: "block", margin: "0 auto" }}>
+      {Array.from({ length: allRows.length + 2 }, (_, i) => <line key={`h${i}`} x1={4} y1={4 + i * ch} x2={4 + (allCols.length + 1) * cw} y2={4 + i * ch} stroke="#000" strokeWidth="1.2" />)}
+      {Array.from({ length: allCols.length + 2 }, (_, i) => <line key={`v${i}`} x1={4 + i * cw} y1={4} x2={4 + i * cw} y2={4 + (allRows.length + 1) * ch} stroke="#000" strokeWidth="1.2" />)}
+      <rect x={4} y={4} width={cw} height={ch} fill="#eee" stroke="#000" strokeWidth="1.2" />
+      <text x={4 + cw / 2} y={4 + ch / 2 + 5} fontSize="12" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#000">{corner}</text>
+      {allCols.map((c, j) => <text key={`c${j}`} x={4 + (j + 1) * cw + cw / 2} y={4 + ch / 2 + 5} fontSize="13.5" fontWeight="700" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#000">{c}</text>)}
+      {allRows.map((r, i) => <text key={`r${i}`} x={4 + cw / 2} y={4 + (i + 1) * ch + ch / 2 + 5} fontSize="13.5" fontWeight="700" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#000">{r}</text>)}
+      {allRows.map((r, i) => allCols.map((c, j) => (
+        <text key={`x${i}-${j}`} x={4 + (j + 1) * cw + cw / 2} y={4 + (i + 1) * ch + ch / 2 + 5} fontSize="13.5" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#000">{cell(i, j)}</text>
+      )))}
+    </svg>
+  );
+}
+
+// Circle diagrams. mode "parts": highlight one part and label it A.
+// mode "measure": radius or diameter labelled. mode "sector": shaded sector.
+function CircleDiagramSVG({ mode, part, label = "r", value, angle, radiusLabel, showCentre = true }) {
+  const W = 260, H = 220, cx = 130, cy = 110, R = 80;
+  const pt = (deg, r = R) => [cx + r * Math.cos((deg * Math.PI) / 180), cy - r * Math.sin((deg * Math.PI) / 180)];
+  const txt = (x, y, t, extra) => <text x={x} y={y} fontSize="14" fontFamily="Arial, sans-serif" fontWeight="700" fill={Y8_RED} textAnchor="middle" {...extra}>{t}</text>;
+  const items = [];
+  if (mode === "parts") {
+    if (part === "radius") { const [x, y] = pt(35); items.push(<line key="a" x1={cx} y1={cy} x2={x} y2={y} stroke={Y8_RED} strokeWidth="3" />); const [lx, ly] = pt(35, R * 0.5); items.push(txt(lx - 8, ly - 8, "A")); }
+    if (part === "diameter") { const [x1, y1] = pt(160), [x2, y2] = pt(340); items.push(<line key="a" x1={x1} y1={y1} x2={x2} y2={y2} stroke={Y8_RED} strokeWidth="3" />); items.push(txt(cx + 4, cy - 10, "A")); }
+    if (part === "chord") { const [x1, y1] = pt(205), [x2, y2] = pt(330); items.push(<line key="a" x1={x1} y1={y1} x2={x2} y2={y2} stroke={Y8_RED} strokeWidth="3" />); items.push(txt(cx, y1 + 18, "A")); }
+    if (part === "tangent") { const [tx, ty] = pt(60); const dx = Math.sin((60 * Math.PI) / 180), dy = Math.cos((60 * Math.PI) / 180); items.push(<line key="a" x1={tx - dx * 70} y1={ty - dy * 70} x2={tx + dx * 70} y2={ty + dy * 70} stroke={Y8_RED} strokeWidth="3" />); items.push(txt(tx + dx * 62 + 8, ty + dy * 62 + 14, "A")); }
+    if (part === "arc") { const [x1, y1] = pt(15), [x2, y2] = pt(105); items.push(<path key="a" d={`M${x1},${y1} A${R},${R} 0 0 0 ${x2},${y2}`} fill="none" stroke={Y8_RED} strokeWidth="5" />); const [lx, ly] = pt(60, R + 16); items.push(txt(lx, ly + 4, "A")); }
+    if (part === "sector") { const [x1, y1] = pt(10), [x2, y2] = pt(100); items.push(<path key="a" d={`M${cx},${cy} L${x1},${y1} A${R},${R} 0 0 0 ${x2},${y2} Z`} fill="#f2b9b0" stroke={Y8_RED} strokeWidth="2.4" />); const [lx, ly] = pt(55, R * 0.55); items.push(txt(lx, ly + 5, "A")); }
+    if (part === "segment") { const [x1, y1] = pt(25), [x2, y2] = pt(155); items.push(<path key="a" d={`M${x1},${y1} A${R},${R} 0 0 0 ${x2},${y2} Z`} fill="#f2b9b0" stroke={Y8_RED} strokeWidth="2.4" />); const [lx, ly] = pt(90, R * 0.82); items.push(txt(lx, ly + 5, "A")); }
+    if (part === "circumference") { items.push(<circle key="a" cx={cx} cy={cy} r={R} fill="none" stroke={Y8_RED} strokeWidth="4.5" />); items.push(txt(cx + R * 0.75 + 18, cy - R * 0.75 - 6, "A")); }
+  }
+  if (mode === "measure") {
+    if (label === "r") { const [x, y] = pt(30); items.push(<line key="a" x1={cx} y1={cy} x2={x} y2={y} stroke="#000" strokeWidth="1.6" />); const [lx, ly] = pt(30, R * 0.5); items.push(<text key="t" x={lx} y={ly - 8} fontSize="14" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#000" stroke="#fff" strokeWidth="3" paintOrder="stroke">{value}</text>); }
+    else { const [x1, y1] = pt(150), [x2, y2] = pt(330); items.push(<line key="a" x1={x1} y1={y1} x2={x2} y2={y2} stroke="#000" strokeWidth="1.6" />); items.push(<text key="t" x={cx} y={cy - 9} fontSize="14" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#000" stroke="#fff" strokeWidth="3" paintOrder="stroke">{value}</text>); }
+  }
+  if (mode === "sector") {
+    const half = angle / 2;
+    const a1 = 90 - half, a2 = 90 + half;
+    const [x1, y1] = pt(a1), [x2, y2] = pt(a2);
+    const large = angle > 180 ? 1 : 0;
+    items.push(<path key="s" d={`M${cx},${cy} L${x1},${y1} A${R},${R} 0 ${large} 0 ${x2},${y2} Z`} fill="#f2d4cf" stroke="#000" strokeWidth="1.8" />);
+    const arcR = 22;
+    const [ax1, ay1] = pt(a1, arcR), [ax2, ay2] = pt(a2, arcR);
+    items.push(<path key="arc" d={`M${ax1},${ay1} A${arcR},${arcR} 0 ${large} 0 ${ax2},${ay2}`} fill="none" stroke="#000" strokeWidth="1.1" />);
+    const [lx, ly] = pt(90, angle < 100 ? 44 : 38);
+    items.push(<text key="ang" x={lx} y={ly + 4} fontSize="13" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#000">{angle}{"°"}</text>);
+    if (radiusLabel) { const [mx, my] = pt(a1, R * 0.5); const nx = Math.cos(((a1 - 90) * Math.PI) / 180), ny = -Math.sin(((a1 - 90) * Math.PI) / 180); items.push(<text key="rl" x={mx + nx * 22} y={my + ny * 14 + 4} fontSize="13" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#000" stroke="#fff" strokeWidth="3" paintOrder="stroke">{radiusLabel}</text>); }
+  }
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} width={300} style={{ maxWidth: "100%", height: "auto", display: "block", margin: "0 auto" }}>
+      {mode !== "sector" && <circle cx={cx} cy={cy} r={R} fill="none" stroke="#000" strokeWidth="1.8" />}
+      {mode === "sector" && <circle cx={cx} cy={cy} r={R} fill="none" stroke="#000" strokeWidth="1.2" strokeDasharray="4 4" />}
+      {items}
+      {showCentre && <circle cx={cx} cy={cy} r="2.6" fill="#000" />}
+    </svg>
+  );
+}
+
+// Rectangle with a semicircle on one end (compound shape).
+function SemicircleRectSVG({ w, h, wLabel, hLabel }) {
+  const W = 300, H = 190, rectW = 120, rectH = 70, x0 = 70, y0 = 78;
+  const rad = rectW / 2;
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} width={320} style={{ maxWidth: "100%", height: "auto", display: "block", margin: "0 auto" }}>
+      <path d={`M${x0},${y0} L${x0},${y0 + rectH} L${x0 + rectW},${y0 + rectH} L${x0 + rectW},${y0} A${rad},${rad} 0 0 0 ${x0},${y0} Z`} fill="none" stroke="#000" strokeWidth="1.7" />
+      <line x1={x0} y1={y0} x2={x0 + rectW} y2={y0} stroke="#000" strokeWidth="1.1" strokeDasharray="4 3" />
+      <text x={x0 + rectW / 2} y={y0 + rectH + 20} fontSize="14" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#000">{wLabel}</text>
+      <text x={x0 - 10} y={y0 + rectH / 2 + 5} fontSize="14" fontFamily="Arial, sans-serif" textAnchor="end" fill="#000">{hLabel}</text>
+    </svg>
+  );
+}
+
+// Named shapes with optional mirror lines (dashed) for symmetry questions.
+function SymmetryShapeSVG({ kind, sides, showLines }) {
+  const C = 50;
+  const regular = (n) => Array.from({ length: n }, (_, i) => { const a = ((90 + (360 / n) * i) * Math.PI) / 180; return [C + 40 * Math.cos(a), C - 40 * Math.sin(a)]; });
+  const shapes = {
+    square: [[20, 20], [80, 20], [80, 80], [20, 80]],
+    rectangle: [[8, 28], [92, 28], [92, 72], [8, 72]],
+    rhombus: [[50, 8], [90, 50], [50, 92], [10, 50]],
+    parallelogram: [[24, 30], [94, 30], [76, 70], [6, 70]],
+    "isosceles triangle": [[50, 12], [86, 88], [14, 88]],
+    "equilateral triangle": [[50, 12], [89, 80], [11, 80]],
+    kite: [[50, 6], [84, 38], [50, 94], [16, 38]],
+    "isosceles trapezium": [[30, 30], [70, 30], [94, 72], [6, 72]],
+  };
+  const pts = kind === "regular" ? regular(sides) : shapes[kind];
+  let lines = [];
+  if (kind === "square") lines = [[50, 8, 50, 92], [8, 50, 92, 50], [14, 14, 86, 86], [86, 14, 14, 86]];
+  else if (kind === "rectangle") lines = [[50, 18, 50, 82], [2, 50, 98, 50]];
+  else if (kind === "rhombus") lines = [[50, 0, 50, 100], [0, 50, 100, 50]];
+  else if (kind === "isosceles triangle") lines = [[50, 4, 50, 96]];
+  else if (kind === "kite") lines = [[50, 0, 50, 100]];
+  else if (kind === "isosceles trapezium") lines = [[50, 22, 50, 80]];
+  else if (kind === "equilateral triangle") { const g = [(pts[0][0] + pts[1][0] + pts[2][0]) / 3, (pts[0][1] + pts[1][1] + pts[2][1]) / 3]; lines = pts.map((p) => [p[0] + (p[0] - g[0]) * 0.12, p[1] + (p[1] - g[1]) * 0.12, g[0] - (p[0] - g[0]) * 0.62, g[1] - (p[1] - g[1]) * 0.62]); }
+  else if (kind === "regular") { for (let k = 0; k < sides; k++) { const a = ((90 + (180 / sides) * k) * Math.PI) / 180; lines.push([C + 46 * Math.cos(a), C - 46 * Math.sin(a), C - 46 * Math.cos(a), C + 46 * Math.sin(a)]); } }
+  return (
+    <svg viewBox="0 0 100 100" width={190} style={{ maxWidth: "100%", height: "auto", display: "block", margin: "0 auto" }}>
+      <polygon points={pts.map((q) => q.join(",")).join(" ")} fill="none" stroke="#000" strokeWidth="1.8" strokeLinejoin="round" />
+      {showLines && lines.map((l, i) => <line key={i} x1={l[0]} y1={l[1]} x2={l[2]} y2={l[3]} stroke={Y8_RED} strokeWidth="1.3" strokeDasharray="4 3" />)}
+    </svg>
+  );
+}
+
+// Regular polygon with one interior or exterior angle marked.
+function RegularPolygonAnglesSVG({ sides, mode, label = "?" }) {
+  const W = 300, H = 240, cx = 150, cy = 120, R = 82;
+  const off = sides % 2 === 0 ? 90 + 180 / sides : 90;
+  const pts = Array.from({ length: sides }, (_, i) => { const a = ((off + (360 / sides) * i) * Math.PI) / 180; return [cx + R * Math.cos(a), cy - R * Math.sin(a)]; });
+  // choose a vertex on the right-hand side to mark
+  let vi = 0, best = -1e9;
+  pts.forEach((p, i) => { const score = p[0] - Math.abs(p[1] - cy) * 0.3; if (score > best) { best = score; vi = i; } });
+  const V = pts[vi], prev = pts[(vi + sides - 1) % sides], next = pts[(vi + 1) % sides];
+  const ext = [V[0] + (V[0] - prev[0]) * 0.95, V[1] + (V[1] - prev[1]) * 0.95];
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} width={320} style={{ maxWidth: "100%", height: "auto", display: "block", margin: "0 auto" }}>
+      <polygon points={pts.map((p) => p.join(",")).join(" ")} fill="none" stroke="#000" strokeWidth="1.7" strokeLinejoin="round" />
+      {mode === "exterior" && <line x1={V[0]} y1={V[1]} x2={ext[0]} y2={ext[1]} stroke="#000" strokeWidth="1.7" />}
+      {mode === "exterior"
+        ? <AngleMark V={V} P={ext} Q={next} label={label} arcR={32} bold={label === "?"} fontSize={label === "?" ? 15 : 13} />
+        : <AngleMark V={V} P={prev} Q={next} label={label} arcR={22} bold={label === "?"} fontSize={label === "?" ? 15 : 13} />}
+    </svg>
+  );
+}
+// One corner of a regular polygon with its exterior angle marked (number of sides unknown).
+function PolygonCornerSVG({ ext }) {
+  const W = 320, H = 190, V = [150, 120];
+  const P = [V[0] - 110, V[1]], E = [V[0] + 90, V[1]];
+  const rad = (ext * Math.PI) / 180;
+  const Q = [V[0] + 100 * Math.cos(rad), V[1] - 100 * Math.sin(rad)];
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} width={340} style={{ maxWidth: "100%", height: "auto", display: "block", margin: "0 auto" }}>
+      <polyline points={`${P[0]},${P[1]} ${V[0]},${V[1]} ${Q[0]},${Q[1]}`} fill="none" stroke="#000" strokeWidth="1.7" strokeLinejoin="round" />
+      <line x1={V[0]} y1={V[1]} x2={E[0]} y2={E[1]} stroke="#000" strokeWidth="1.7" />
+      <line x1={P[0]} y1={P[1]} x2={P[0] - 22} y2={P[1] - 7} stroke="#000" strokeWidth="1.3" strokeDasharray="3 3" />
+      <line x1={Q[0]} y1={Q[1]} x2={Q[0] + 7} y2={Q[1] - 20} stroke="#000" strokeWidth="1.3" strokeDasharray="3 3" />
+      <AngleMark V={V} P={E} Q={Q} label={`${ext}°`} arcR={28} fontSize={13} />
+      <text x={W - 8} y={H - 8} fontSize="10.5" fontFamily="Arial, sans-serif" textAnchor="end" fill="#555">part of a regular polygon</text>
+    </svg>
+  );
+}
+
+// Dot plot on a number line (for outliers).
+function DotPlotSVG({ values, lo, hi }) {
+  const W = 500, H = 130, padX = 30, base = 92;
+  const x = (v) => padX + ((v - lo) / (hi - lo)) * (W - 2 * padX);
+  const counts = {};
+  const dots = values.map((v) => { counts[v] = (counts[v] || 0) + 1; return { v, k: counts[v] }; });
+  const step = (hi - lo) > 20 ? 5 : (hi - lo) > 12 ? 2 : 1;
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} width={500} style={{ maxWidth: "100%", height: "auto", display: "block", margin: "0 auto" }}>
+      <line x1={x(lo) - 10} y1={base} x2={x(hi) + 10} y2={base} stroke="#000" strokeWidth="1.5" />
+      {Array.from({ length: hi - lo + 1 }, (_, i) => lo + i).map((v) => (
+        <g key={v}>
+          <line x1={x(v)} y1={base - 5} x2={x(v)} y2={base + 5} stroke="#000" strokeWidth="1.2" />
+          {(v - lo) % step === 0 && <text x={x(v)} y={base + 22} fontSize="12.5" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#000">{v}</text>}
+        </g>
+      ))}
+      {dots.map((d, i) => <circle key={i} cx={x(d.v)} cy={base - 9 - (d.k - 1) * 14} r="5.5" fill="#1f3d66" />)}
+    </svg>
+  );
+}
+
+// Bar model: one bar split into equal-width parts, labelled with the ratio.
+function BarModelSVG({ parts, labels, totalLabel }) {
+  const W = 420, H = 100, x0 = 20, bw = 380, y0 = 38, bh = 36;
+  const total = parts.reduce((s, v) => s + v, 0);
+  let acc = 0;
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} width={420} style={{ maxWidth: "100%", height: "auto", display: "block", margin: "0 auto" }}>
+      {totalLabel && <text x={W / 2} y={18} fontSize="14" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#000">{totalLabel}</text>}
+      {parts.map((p, i) => {
+        const x = x0 + (acc / total) * bw, w = (p / total) * bw;
+        acc += p;
+        return (
+          <g key={i}>
+            {Array.from({ length: p }, (_, k) => <rect key={k} x={x + (k / p) * w} y={y0} width={w / p} height={bh} fill={i % 2 ? "#f4e3c1" : "#cfe0f5"} stroke="#000" strokeWidth="1.2" />)}
+            <text x={x + w / 2} y={y0 + bh + 20} fontSize="14" fontFamily="Arial, sans-serif" fontWeight="700" textAnchor="middle" fill="#000">{labels[i]}</text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+// Simple map: two labelled points joined by a line with its measured length.
+function MapDistanceSVG({ aLabel, bLabel, lengthLabel }) {
+  const W = 360, H = 190;
+  const A = [70, 130], B = [290, 56];
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} width={360} style={{ maxWidth: "100%", height: "auto", display: "block", margin: "0 auto" }}>
+      <rect x="4" y="4" width={W - 8} height={H - 8} fill="#f3f7ee" stroke="#777" strokeWidth="1.2" />
+      {[1, 2, 3, 4, 5, 6, 7].map((i) => <line key={`v${i}`} x1={4 + i * 44} y1="4" x2={4 + i * 44} y2={H - 4} stroke="#dfe7d5" strokeWidth="1" />)}
+      {[1, 2, 3].map((i) => <line key={`h${i}`} x1="4" y1={4 + i * 45} x2={W - 4} y2={4 + i * 45} stroke="#dfe7d5" strokeWidth="1" />)}
+      <line x1={A[0]} y1={A[1]} x2={B[0]} y2={B[1]} stroke="#000" strokeWidth="1.8" />
+      <circle cx={A[0]} cy={A[1]} r="4.5" fill="#000" /><circle cx={B[0]} cy={B[1]} r="4.5" fill="#000" />
+      <text x={A[0] - 6} y={A[1] + 20} fontSize="15" fontWeight="700" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#000">{aLabel}</text>
+      <text x={B[0] + 4} y={B[1] - 10} fontSize="15" fontWeight="700" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#000">{bLabel}</text>
+      <text x={(A[0] + B[0]) / 2 - 8} y={(A[1] + B[1]) / 2 - 12} fontSize="14" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#000" stroke="#f3f7ee" strokeWidth="3" paintOrder="stroke">{lengthLabel}</text>
+    </svg>
+  );
+}
+
+// Solids: cube/cuboid/cylinder/prism reuse the existing drawings; cone,
+// sphere and square pyramid are drawn here.
+function SolidSVG({ kind, labels = {} }) {
+  const stroke = { fill: "none", stroke: "#000", strokeWidth: 1.7, strokeLinejoin: "round" };
+  const dash = { fill: "none", stroke: "#000", strokeWidth: 1.1, strokeDasharray: "3 3" };
+  if (kind === "cube") return <CuboidSVG l={4} w={4} h={4} showL={labels.l || ""} showW={labels.w || ""} showH={labels.h || ""} />;
+  if (kind === "cuboid") return <CuboidSVG l={7} w={4} h={5} showL={labels.l || ""} showW={labels.w || ""} showH={labels.h || ""} />;
+  if (kind === "cylinder") return <CylinderSVG r={3} h={7} showR={labels.r || ""} showH={labels.h || ""} />;
+  if (kind === "triangular prism") return <TriangularPrismSVG base={5} height={4} length={8} showBase={labels.base || ""} showHeight={labels.height || ""} showLength={labels.length || ""} />;
+  if (kind === "cone") {
+    return (
+      <svg viewBox="0 0 200 200" width={190} style={{ maxWidth: "100%", height: "auto", display: "block", margin: "0 auto" }}>
+        <path d="M100,24 L36,150 A64,20 0 0 0 164,150 Z" {...stroke} />
+        <path d="M36,150 A64,20 0 0 1 164,150" {...dash} />
+        <line x1="100" y1="24" x2="100" y2="150" {...dash} />
+        {labels.h && <text x="106" y="92" fontSize="13" fontFamily="Arial, sans-serif" fill="#000">{labels.h}</text>}
+        {labels.r && <text x="132" y="146" fontSize="13" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#000">{labels.r}</text>}
+      </svg>
+    );
+  }
+  if (kind === "sphere") {
+    return (
+      <svg viewBox="0 0 200 200" width={180} style={{ maxWidth: "100%", height: "auto", display: "block", margin: "0 auto" }}>
+        <circle cx="100" cy="100" r="68" {...stroke} />
+        <path d="M32,100 A68,18 0 0 0 168,100" {...stroke} strokeWidth="1.2" />
+        <path d="M32,100 A68,18 0 0 1 168,100" {...dash} />
+        {labels.r && <><line x1="100" y1="100" x2="168" y2="100" stroke="#000" strokeWidth="1.2" /><text x="136" y="94" fontSize="13" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#000">{labels.r}</text></>}
+      </svg>
+    );
+  }
+  // square-based pyramid
+  return (
+    <svg viewBox="0 0 220 200" width={210} style={{ maxWidth: "100%", height: "auto", display: "block", margin: "0 auto" }}>
+      <polygon points="40,140 140,140 186,112 86,112" {...dash} fill="none" />
+      <line x1="40" y1="140" x2="86" y2="112" {...dash} /><line x1="86" y1="112" x2="186" y2="112" {...dash} />
+      <polygon points="40,140 140,140 112,26" {...stroke} />
+      <polygon points="140,140 186,112 112,26" {...stroke} />
+      <line x1="40" y1="140" x2="112" y2="26" {...stroke} />
+      <line x1="86" y1="112" x2="112" y2="26" {...dash} />
+      {labels.base && <text x="90" y="160" fontSize="13" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#000">{labels.base}</text>}
+      {labels.height && <text x="120" y="86" fontSize="13" fontFamily="Arial, sans-serif" fill="#000">{labels.height}</text>}
+    </svg>
+  );
+}
+
+// Clip an infinite line (through two points) to a box; returns [x1,y1,x2,y2] or null.
+function y8ClipLine(x1, y1, x2, y2, xMin, xMax, yMin, yMax) {
+  const dx = x2 - x1, dy = y2 - y1;
+  let t0 = -1e4, t1 = 1e4;
+  const test = (p, q) => {
+    if (p === 0) return q >= 0;
+    const r = q / p;
+    if (p < 0) { if (r > t1) return false; if (r > t0) t0 = r; }
+    else { if (r < t0) return false; if (r < t1) t1 = r; }
+    return true;
+  };
+  if (test(-dx, x1 - xMin) && test(dx, xMax - x1) && test(-dy, y1 - yMin) && test(dy, yMax - y1)) return [x1 + t0 * dx, y1 + t0 * dy, x1 + t1 * dx, y1 + t1 * dy];
+  return null;
+}
+
+// One angle drawn from a horizontal ray, for naming acute / right / obtuse / straight / reflex.
+function AngleTypeSVG({ angle, label }) {
+  const W = 300, H = 190, V = [110, 120], R = 90;
+  const rad = (d) => (d * Math.PI) / 180;
+  const pt = (d, r) => [V[0] + r * Math.cos(rad(d)), V[1] - r * Math.sin(rad(d))];
+  const E = pt(0, R), T = pt(angle, R);
+  const arcR = 28;
+  const a1 = pt(0, arcR), a2 = pt(angle, arcR);
+  const large = angle > 180 ? 1 : 0;
+  const lp = pt(angle / 2, angle > 180 ? 46 : 50);
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} width={320} style={{ maxWidth: "100%", height: "auto", display: "block", margin: "0 auto" }}>
+      <line x1={V[0]} y1={V[1]} x2={E[0]} y2={E[1]} stroke="#000" strokeWidth="1.7" />
+      <line x1={V[0]} y1={V[1]} x2={T[0]} y2={T[1]} stroke="#000" strokeWidth="1.7" />
+      {angle === 90
+        ? <polyline points={`${V[0] + 16},${V[1]} ${V[0] + 16},${V[1] - 16} ${V[0]},${V[1] - 16}`} fill="none" stroke="#000" strokeWidth="1.2" />
+        : <path d={`M${a1[0]},${a1[1]} A${arcR},${arcR} 0 ${large} 0 ${a2[0]},${a2[1]}`} fill="none" stroke="#000" strokeWidth="1.2" />}
+      {angle !== 90 && <text x={lp[0]} y={lp[1] + 4} fontSize="13" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#000" stroke="#fff" strokeWidth="3" paintOrder="stroke">{label}</text>}
+      {angle === 90 && <text x={V[0] + 32} y={V[1] - 22} fontSize="13" fontFamily="Arial, sans-serif" fill="#000">{label}</text>}
+      <circle cx={V[0]} cy={V[1]} r="2.4" fill="#000" />
+    </svg>
+  );
+}
+
+// A quadrilateral with each side labelled (for perimeter questions).
+function QuadSidesSVG({ sides }) {
+  const W = 320, H = 190;
+  const P = [[60, 150], [250, 150], [284, 70], [96, 38]];
+  const mid = (a, b) => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+  const off = [[0, 18], [18, 6], [0, -10], [-16, 4]];
+  const anchors = ["middle", "start", "middle", "end"];
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} width={340} style={{ maxWidth: "100%", height: "auto", display: "block", margin: "0 auto" }}>
+      <polygon points={P.map((q) => q.join(",")).join(" ")} fill="none" stroke="#000" strokeWidth="1.7" strokeLinejoin="round" />
+      {sides.map((s, i) => {
+        const m = mid(P[i], P[(i + 1) % 4]);
+        return <text key={i} x={m[0] + off[i][0]} y={m[1] + off[i][1]} fontSize="14" fontFamily="Arial, sans-serif" textAnchor={anchors[i]} fill="#000">{s}</text>;
+      })}
+    </svg>
+  );
+}
+
+// Helper: line-graph on the coordinate grid for y = mx + c with lattice points marked.
+function y8LineOnGrid(m, c, extra = []) {
+  const pts = [];
+  for (let x = -5; x <= 5; x++) { const y = m * x + c; if (Math.abs(y) <= 6) pts.push({ x, y, label: "" }); }
+  return <CoordinateGridSVG points={pts.concat(extra)} lines={[{ x1: 0, y1: c, x2: 1, y2: m + c }]} />;
+}
+// Solution of x ? t drawn on a number line centred on t.
+function y8SolutionLine(t, symbol) {
+  const lo = Math.round(t) - 6, hi = Math.round(t) + 6;
+  const closed = symbol === "≤" || symbol === "≥";
+  const seg = symbol === ">" || symbol === "≥" ? { a: t, aClosed: closed, b: null } : { a: null, b: t, bClosed: closed };
+  return <InequalityLineSVG lo={lo} hi={hi} segs={[seg]} />;
+}
+
+/* =====================================================================
+   Year 8 build-out — new question types, and drawn versions of existing
+   geometry / number-line questions.
+   ===================================================================== */
+const y8pm = (v) => (v < 0 ? `− ${Math.abs(v)}` : `+ ${v}`);
+const y8term = (a, v = "x") => (a === 1 ? v : a === -1 ? "−" + v : a < 0 ? "−" + Math.abs(a) + v : a + v);
+const y8lin = (a, b, v = "x") => `${y8term(a, v)}${b === 0 ? "" : " " + y8pm(b)}`;
+const Y8_NAMES = [["Asha", "Ben"], ["Priya", "Tom"], ["Zara", "Luke"], ["Maya", "Jack"], ["Ella", "Sam"]];
+
+/* --- Ratio and proportion --- */
+SUBTOPIC_BANK["ratio-bar-model"] = {
+  topic: "Ratio", title: "Share an amount using a bar model", marks: 2,
+  build(rng) {
+    const [a, b] = pick(rng, [[1, 2], [2, 3], [3, 4], [2, 5], [1, 4], [3, 5], [1, 3], [4, 5]]);
+    const unit = seededInt(rng, 2, 12) * pick(rng, [1, 5]);
+    const total = (a + b) * unit;
+    const [n1, n2] = pick(rng, Y8_NAMES);
+    return {
+      prompt: `${n1} and ${n2} share £${total} in the ratio ${a} : ${b}. The bar model shows the ratio. Work out how much each person gets.`,
+      render: <BarModelSVG parts={[a, b]} labels={[n1, n2]} totalLabel={`£${total}`} />,
+      accurateDiagram: true,
+      answer: `${a + b} equal parts = £${total}, so 1 part = £${unit}. ${n1}: ${a} × £${unit} = £${a * unit}; ${n2}: ${b} × £${unit} = £${b * unit}`,
+    };
+  },
+};
+SUBTOPIC_BANK["ratio-one-to-n"] = {
+  topic: "Ratio", title: "Write a ratio in the form 1 : n", marks: 2,
+  build(rng) {
+    const a = pick(rng, [2, 4, 5, 8, 10]);
+    const b = seededInt(rng, 3, 40);
+    if (b % a === 0) return this.build(rng);
+    const n = Math.round((b / a) * 1000) / 1000;
+    return { prompt: `Write the ratio ${a} : ${b} in the form 1 : n.`, answer: `${a} : ${b} = 1 : ${y7num(n)} (divide both parts by ${a})` };
+  },
+};
+SUBTOPIC_BANK["currency-convert"] = {
+  topic: "Proportion", title: "Convert between currencies", marks: 2,
+  build(rng) {
+    const [cur, sym, rate] = pick(rng, [["euros", "€", 1.15], ["US dollars", "$", 1.25], ["euros", "€", 1.2], ["Australian dollars", "A$", 1.9], ["Swiss francs", "CHF ", 1.1]]);
+    if (rng() < 0.5) {
+      const gbp = seededInt(rng, 2, 30) * 10;
+      return { prompt: `The exchange rate is £1 = ${sym}${rate}. Convert £${gbp} into ${cur}.`, answer: `${gbp} × ${rate} = ${sym}${y7num(Math.round(gbp * rate * 100) / 100)}` };
+    }
+    const k = seededInt(rng, 3, 40) * 5;
+    const amount = Math.round(k * rate * 100) / 100;
+    return { prompt: `The exchange rate is £1 = ${sym}${rate}. Convert ${sym}${y7num(amount)} into pounds (£).`, answer: `${y7num(amount)} ÷ ${rate} = £${k}` };
+  },
+};
+SUBTOPIC_BANK["scale-map-distance"] = {
+  topic: "Scale", title: "Use a map scale", marks: 2,
+  build(rng) {
+    const scale = pick(rng, [20000, 25000, 50000, 100000]);
+    const cm = pick(rng, [2, 2.5, 3, 4, 4.5, 5, 6, 7.5, 8]);
+    const km = (cm * scale) / 100000;
+    if (rng() < 0.6) {
+      return {
+        prompt: `The map has a scale of 1 : ${y7comma(scale)}. The distance between towns A and B on the map is ${y7num(cm)} cm. Work out the real distance between the towns, in km.`,
+        render: <MapDistanceSVG aLabel="A" bLabel="B" lengthLabel={`${y7num(cm)} cm`} />,
+        accurateDiagram: true,
+        answer: `${y7num(cm)} × ${y7comma(scale)} = ${y7comma(cm * scale)} cm = ${y7num(km)} km`,
+      };
+    }
+    return {
+      prompt: `The map has a scale of 1 : ${y7comma(scale)}. The real distance between towns A and B is ${y7num(km)} km. How far apart are the towns on the map, in cm?`,
+      render: <MapDistanceSVG aLabel="A" bLabel="B" lengthLabel="? cm" />,
+      accurateDiagram: true,
+      answer: `${y7num(km)} km = ${y7comma(Math.round(km * 100000))} cm; ${y7comma(Math.round(km * 100000))} ÷ ${y7comma(scale)} = ${y7num(cm)} cm`,
+    };
+  },
+};
+
+/* --- Algebraic manipulation --- */
+SUBTOPIC_BANK["alg-classify-type"] = {
+  topic: "Algebraic Expressions", title: "Expression, equation, formula or identity?", marks: 1,
+  build(rng) {
+    const a = seededInt(rng, 2, 9), b = seededInt(rng, 1, 9), c = seededInt(rng, 10, 40);
+    const kind = pick(rng, ["expression", "equation", "formula", "identity"]);
+    let stmt, why;
+    if (kind === "expression") { stmt = pick(rng, [`${a}x + ${b}`, `${a}(x − ${b})`, `${a}y² − ${b}y`]); why = "it has no equals sign and nothing to solve"; }
+    else if (kind === "equation") { stmt = `${a}x + ${b} = ${c}`; why = "it can be solved to find a particular value of x"; }
+    else if (kind === "formula") { stmt = pick(rng, ["A = l × w", "P = 2l + 2w", "v = u + at", "C = 2πr", `F = ${a}m`]); why = "it links different quantities (variables) using an equals sign"; }
+    else { stmt = `${a}(x + ${b}) ≡ ${a}x + ${a * b}`; why = "both sides are always equal, whatever the value of x"; }
+    return { prompt: `Is ${stmt} an expression, an equation, a formula or an identity?`, answer: `${kind.charAt(0).toUpperCase() + kind.slice(1)} (${why})` };
+  },
+};
+SUBTOPIC_BANK["form-expression-perimeter"] = {
+  topic: "Algebraic Expressions", title: "Write an expression for the perimeter of a shape", marks: 2,
+  build(rng) {
+    if (rng() < 0.55) {
+      const a = seededInt(rng, 1, 5), b = seededInt(rng, 1, 9), c = seededInt(rng, 1, 4), d = seededInt(rng, 1, 8);
+      const A = 2 * (a + c), B = 2 * (b + d);
+      return {
+        prompt: `The diagram shows a rectangle. Write an expression for the perimeter of the rectangle. Give your answer in its simplest form.`,
+        render: <RectangleSVG w={1} h={1} wLabel={`(${y8lin(a, b)}) cm`} hLabel={`(${y8lin(c, d)}) cm`} />,
+        accurateDiagram: true,
+        answer: `2(${y8lin(a, b)}) + 2(${y8lin(c, d)}) = ${y8term(A)} + ${B} (cm)`.replace("+ -", "−"),
+      };
+    }
+    const a = seededInt(rng, 2, 5), b = seededInt(rng, 1, 6), c = seededInt(rng, 1, 4);
+    return {
+      prompt: `The diagram shows an isosceles triangle. Write an expression for its perimeter. Give your answer in its simplest form.`,
+      render: <GeneralTriangleSVG sideAB={140} angleA={68} angleB={68} sideALabel={`${y8lin(a, b)}`} sideBLabel={`${y8lin(a, b)}`} sideCLabel={`${y8lin(c, 0)}`} />,
+      accurateDiagram: true,
+      answer: `2(${y8lin(a, b)}) + ${y8term(c)} = ${y8term(2 * a + c)} + ${2 * b}`,
+    };
+  },
+};
+SUBTOPIC_BANK["alg-directed-simplify"] = {
+  topic: "Algebraic Expressions", title: "Simplify with directed numbers", marks: 2,
+  build(rng) {
+    const v = pick(rng, ["a", "x", "y", "p"]);
+    const kind = pick(rng, [1, 2, 3, 4]);
+    const a = seededInt(rng, 2, 9), b = seededInt(rng, 2, 9);
+    if (kind === 1) return { prompt: `Simplify −${a}${v} + ${b}${v}`, answer: y8term(b - a, v) === "0" ? "0" : `${y8term(b - a, v)}` };
+    if (kind === 2) return { prompt: `Simplify ${a}${v} − ${a + b}${v}`, answer: y8term(-b, v) };
+    if (kind === 3) return { prompt: `Simplify −${a}${v} − (−${b}${v})`, answer: `${y8term(b - a, v)} (subtracting a negative is the same as adding)` };
+    return { prompt: `Simplify −${a}${v} × ${b}`, answer: y8term(-a * b, v) };
+  },
+};
+
+/* --- Coordinates and graphs --- */
+SUBTOPIC_BANK["coord-fourth-vertex"] = {
+  topic: "Coordinates", title: "Find the fourth vertex of a rectangle or parallelogram", marks: 2,
+  build(rng) {
+    const rect = rng() < 0.6;
+    const x1 = seededInt(rng, -5, -2), x2 = seededInt(rng, 2, 5), y1 = seededInt(rng, -5, -2), y2 = seededInt(rng, 2, 5);
+    if (rect) {
+      return {
+        prompt: `The diagram shows three vertices of a rectangle ABCD. Write down the coordinates of vertex D.`,
+        render: <CoordinateGridSVG points={[{ x: x1, y: y1, label: "A" }, { x: x2, y: y1, label: "B" }, { x: x2, y: y2, label: "C" }]} segments={[{ x1, y1, x2, y2: y1 }, { x1: x2, y1, x2, y2 }]} />,
+        accurateDiagram: true,
+        answer: `D = (${x1}, ${y2}) (it has the same x-coordinate as A and the same y-coordinate as C)`,
+        answerRender: <CoordinateGridSVG points={[{ x: x1, y: y1, label: "A" }, { x: x2, y: y1, label: "B" }, { x: x2, y: y2, label: "C" }, { x: x1, y: y2, label: "D" }]} polygon={[{ x: x1, y: y1 }, { x: x2, y: y1 }, { x: x2, y: y2 }, { x: x1, y: y2 }]} />,
+      };
+    }
+    const sh = seededInt(rng, 1, 3);
+    const A = [x1, y1], B = [x2 - 1, y1], C = [x2 - 1 + sh, y2], D = [x1 + sh, y2];
+    return {
+      prompt: `The diagram shows three vertices of a parallelogram ABCD. Write down the coordinates of vertex D.`,
+      render: <CoordinateGridSVG points={[{ x: A[0], y: A[1], label: "A" }, { x: B[0], y: B[1], label: "B" }, { x: C[0], y: C[1], label: "C" }]} segments={[{ x1: A[0], y1: A[1], x2: B[0], y2: B[1] }, { x1: B[0], y1: B[1], x2: C[0], y2: C[1] }]} />,
+      accurateDiagram: true,
+      answer: `D = (${D[0]}, ${D[1]}) (AD is parallel and equal to BC, so D is ${sh} to the right of A and ${y2 - y1} up)`,
+      answerRender: <CoordinateGridSVG points={[{ x: A[0], y: A[1], label: "A" }, { x: B[0], y: B[1], label: "B" }, { x: C[0], y: C[1], label: "C" }, { x: D[0], y: D[1], label: "D" }]} polygon={[{ x: A[0], y: A[1] }, { x: B[0], y: B[1] }, { x: C[0], y: C[1] }, { x: D[0], y: D[1] }]} />,
+    };
+  },
+};
+SUBTOPIC_BANK["line-equation-axis-parallel"] = {
+  topic: "Coordinates", title: "Write the equation of a line parallel to an axis", marks: 1,
+  build(rng) {
+    let k = seededInt(rng, -5, 5);
+    if (k === 0) k = 3;
+    const horizontal = rng() < 0.5;
+    const line = horizontal ? { x1: -6, y1: k, x2: 6, y2: k } : { x1: k, y1: -6, x2: k, y2: 6 };
+    const pts = [-2, 0, 2].map((t) => (horizontal ? { x: t * 2, y: k, label: "" } : { x: k, y: t * 2, label: "" }));
+    return {
+      prompt: `Write down the equation of the line shown on the grid.`,
+      render: <CoordinateGridSVG points={pts} lines={[line]} />,
+      accurateDiagram: true,
+      answer: horizontal ? `y = ${k} (every point on the line has y-coordinate ${k})` : `x = ${k} (every point on the line has x-coordinate ${k})`,
+    };
+  },
+};
+function y8LineParams(rng) {
+  let m, c;
+  do { m = pick(rng, [-3, -2, -1, 1, 2, 3]); c = seededInt(rng, -3, 3); } while (Math.abs(m * 2 + c) > 6 || Math.abs(-2 * m + c) > 6);
+  return { m, c };
+}
+SUBTOPIC_BANK["line-gradient-intercept-read"] = {
+  topic: "Coordinates", title: "Read the gradient and y-intercept from a graph", marks: 2,
+  build(rng) {
+    const { m, c } = y8LineParams(rng);
+    return {
+      prompt: `Write down the gradient and the y-intercept of the line shown on the grid.`,
+      render: y8LineOnGrid(m, c),
+      accurateDiagram: true,
+      answer: `Gradient = ${y7sgn(m)} (${m > 0 ? "up" : "down"} ${Math.abs(m)} for every 1 across); y-intercept = ${y7sgn(c)}`,
+    };
+  },
+};
+SUBTOPIC_BANK["line-equation-from-graph"] = {
+  topic: "Coordinates", title: "Write the equation of a straight line from its graph", marks: 2,
+  build(rng) {
+    const { m, c } = y8LineParams(rng);
+    return {
+      prompt: `Write down the equation of the line shown on the grid, in the form y = mx + c.`,
+      render: y8LineOnGrid(m, c),
+      accurateDiagram: true,
+      answer: `y = ${m === 1 ? "" : m === -1 ? "−" : y7sgn(m)}x${c === 0 ? "" : " " + y8pm(c)}  (gradient ${y7sgn(m)}, y-intercept ${y7sgn(c)})`,
+    };
+  },
+};
+SUBTOPIC_BANK["line-table-of-values"] = {
+  topic: "Coordinates", title: "Complete a table of values for a straight line", marks: 2,
+  build(rng) {
+    const m = pick(rng, [-3, -2, -1, 1, 2, 3]), c = seededInt(rng, -4, 4);
+    const xs = [-2, -1, 0, 1, 2];
+    const shown = pick(rng, [[0, 2], [1, 3], [0, 4]]);
+    return {
+      prompt: `Complete the table of values for y = ${y8lin(m, c)}.`,
+      render: <SampleSpaceSVG corner="x" rows={["y"]} cols={xs.map(y8lab)} cell={(i, j) => (shown.includes(j) ? y8lab(m * xs[j] + c) : "")} />,
+      accurateDiagram: true,
+      answer: `y = ${xs.map((x) => y8lab(m * x + c)).join(", ")} (for x = ${xs.map(y8lab).join(", ")})`,
+    };
+  },
+};
+
+/* --- Multiplying and dividing fractions --- */
+SUBTOPIC_BANK["frac-multiply-integer"] = {
+  topic: "Fractions", title: "Multiply a fraction by an integer", marks: 2,
+  build(rng) {
+    let a, b;
+    do { b = seededInt(rng, 3, 9); a = seededInt(rng, 1, b - 1); } while (gcd(a, b) !== 1);
+    const k = seededInt(rng, 2, 8);
+    const num = a * k, g = gcd(num, b), sn = num / g, sd = b / g;
+    const answer = sd === 1 ? <>{sn}</> : sn > sd ? <><Frac n={sn} d={sd} /> = <Mixed w={Math.floor(sn / sd)} n={sn % sd} d={sd} /></> : <Frac n={sn} d={sd} />;
+    return { prompt: <>Work out <Frac n={a} d={b} /> × {k}. Give your answer in its simplest form.</>, answer: <>{answer}</> };
+  },
+};
+SUBTOPIC_BANK["frac-multiply-two"] = {
+  topic: "Fractions", title: "Multiply two fractions", marks: 2,
+  build(rng) {
+    let a, b, c, d;
+    do { b = seededInt(rng, 2, 9); a = seededInt(rng, 1, b - 1); d = seededInt(rng, 2, 9); c = seededInt(rng, 1, d - 1); } while (gcd(a, b) !== 1 || gcd(c, d) !== 1);
+    const n = a * c, den = b * d, g = gcd(n, den);
+    return { prompt: <>Work out <Frac n={a} d={b} /> × <Frac n={c} d={d} />. Give your answer in its simplest form.</>, answer: <><Frac n={n} d={den} />{g > 1 && <> = <Frac n={n / g} d={den / g} /></>}</> };
+  },
+};
+SUBTOPIC_BANK["frac-reciprocal"] = {
+  topic: "Fractions", title: "Find a reciprocal", marks: 1,
+  build(rng) {
+    if (rng() < 0.6) {
+      let a, b;
+      do { b = seededInt(rng, 2, 11); a = seededInt(rng, 1, 11); } while (a === b || gcd(a, b) !== 1);
+      return { prompt: <>Write down the reciprocal of <Frac n={a} d={b} />.</>, answer: <><Frac n={b} d={a} />{b % a === 0 && <> = {b / a}</>}</> };
+    }
+    const n = seededInt(rng, 2, 12);
+    return { prompt: `Write down the reciprocal of ${n}.`, answer: <><Frac n={1} d={n} /> (a number multiplied by its reciprocal gives 1)</> };
+  },
+};
+
+/* --- Symmetry and reflection --- */
+const Y8_SYM = [
+  { kind: "rectangle", name: "rectangle", lines: 2, rot: 2 }, { kind: "square", name: "square", lines: 4, rot: 4 },
+  { kind: "rhombus", name: "rhombus", lines: 2, rot: 2 }, { kind: "parallelogram", name: "parallelogram", lines: 0, rot: 2 },
+  { kind: "isosceles triangle", name: "isosceles triangle", lines: 1, rot: 1 }, { kind: "equilateral triangle", name: "equilateral triangle", lines: 3, rot: 3 },
+  { kind: "kite", name: "kite", lines: 1, rot: 1 }, { kind: "isosceles trapezium", name: "isosceles trapezium", lines: 1, rot: 1 },
+  { kind: "regular", sides: 5, name: "regular pentagon", lines: 5, rot: 5 }, { kind: "regular", sides: 6, name: "regular hexagon", lines: 6, rot: 6 },
+];
+SUBTOPIC_BANK["symmetry-lines-rotation"] = {
+  topic: "2D Shapes", title: "Lines of symmetry and order of rotational symmetry", marks: 2,
+  build(rng) {
+    const s = pick(rng, Y8_SYM);
+    return {
+      prompt: `The diagram shows a shape. Write down (a) the number of lines of symmetry and (b) the order of rotational symmetry.`,
+      render: <SymmetryShapeSVG kind={s.kind} sides={s.sides} />,
+      accurateDiagram: true,
+      answer: `(a) ${s.lines} line${s.lines === 1 ? "" : "s"} of symmetry; (b) order of rotational symmetry ${s.rot}${s.rot === 1 ? " (it has none)" : ""}`,
+      answerRender: s.lines > 0 ? <SymmetryShapeSVG kind={s.kind} sides={s.sides} showLines /> : undefined,
+    };
+  },
+};
+SUBTOPIC_BANK["describe-reflection"] = {
+  topic: "Transformations", title: "Describe a reflection", marks: 2,
+  build(rng) {
+    const kind = pick(rng, ["x", "y", "diag"]);
+    const k = seededInt(rng, 1, 2);
+    let mirror, mapPt, rule, pickBase, okFn;
+    if (kind === "x") { mirror = { x1: k, y1: -6, x2: k, y2: 6 }; mapPt = ([x, y]) => [2 * k - x, y]; rule = `x = ${k}`; pickBase = () => [seededInt(rng, -5, -1), seededInt(rng, 1, 4)]; okFn = (pts) => pts.every(([x]) => x < k - 0.5); }
+    else if (kind === "y") { mirror = { x1: -6, y1: k, x2: 6, y2: k }; mapPt = ([x, y]) => [x, 2 * k - y]; rule = `y = ${k}`; pickBase = () => [seededInt(rng, 1, 4), seededInt(rng, -5, -1)]; okFn = (pts) => pts.every(([, y]) => y < k - 0.5); }
+    else { mirror = { x1: -6, y1: -6, x2: 6, y2: 6 }; mapPt = ([x, y]) => [y, x]; rule = "y = x"; pickBase = () => [seededInt(rng, -5, -2), seededInt(rng, 2, 5)]; okFn = (pts) => pts.every(([x, y]) => y > x + 0.5); }
+    let pts = null;
+    for (let tries = 0; tries < 200 && !pts; tries++) {
+      const o = pickBase();
+      const cand = [o, [o[0] + seededInt(rng, 2, 3), o[1]], [o[0], o[1] + seededInt(rng, 2, 3)]];
+      const all = cand.concat(cand.map(mapPt));
+      if (all.every(([x, y]) => Math.abs(x) <= 6 && Math.abs(y) <= 6) && okFn(cand)) pts = cand;
+    }
+    if (!pts) pts = kind === "diag" ? [[-4, 3], [-3, 3], [-4, 4]] : kind === "x" ? [[-4, 2], [-3, 2], [-4, 3]] : [[2, -4], [3, -4], [2, -3]];
+    const img = pts.map(mapPt);
+    const mk = (arr, lab, fill, stroke) => ({ points: arr.map(([x, y], i) => ({ x, y, label: i === 0 ? lab : "" })), fill, stroke });
+    return {
+      prompt: `Shape A is reflected to give shape B. Describe fully the single transformation that maps A onto B.`,
+      render: <ShapeGridSVG shapes={[mk(pts, "A", "#cfe0f5", "#1f3d66"), mk(img, "B", "#f2d4cf", Y8_RED)]} />,
+      accurateDiagram: true,
+      answer: `A reflection in the line ${rule} (each point and its image are the same distance from the mirror line)`,
+      answerRender: <ShapeGridSVG shapes={[mk(pts, "A", "#cfe0f5", "#1f3d66"), mk(img, "B", "#f2d4cf", Y8_RED)]} lines={[{ ...mirror, dashed: true }]} />,
+    };
+  },
+};
+
+/* --- Area, volume and density --- */
+const Y8_SOLIDS = [
+  { kind: "cube", name: "cube" }, { kind: "cuboid", name: "cuboid" }, { kind: "cylinder", name: "cylinder" },
+  { kind: "cone", name: "cone" }, { kind: "sphere", name: "sphere" }, { kind: "square pyramid", name: "square-based pyramid" }, { kind: "triangular prism", name: "triangular prism" },
+];
+SUBTOPIC_BANK["solid-name-identify"] = {
+  topic: "Properties of 3D Shapes", title: "Name a 3D shape from its diagram", marks: 1,
+  build(rng) {
+    const s = pick(rng, Y8_SOLIDS);
+    return { prompt: `Write down the mathematical name of this 3D shape.`, render: <SolidSVG kind={s.kind} />, accurateDiagram: true, answer: s.name };
+  },
+};
+SUBTOPIC_BANK["three-d-faces-edges-vertices"] = {
+  topic: "Properties of 3D Shapes", title: "State the faces, edges and vertices of a 3D shape", marks: 3,
+  build(rng) {
+    const s = pick(rng, [
+      { name: "cube", kind: "cube", f: 6, e: 12, v: 8 }, { name: "cuboid", kind: "cuboid", f: 6, e: 12, v: 8 },
+      { name: "triangular prism", kind: "triangular prism", f: 5, e: 9, v: 6 }, { name: "square-based pyramid", kind: "square pyramid", f: 5, e: 8, v: 5 },
+    ]);
+    const ask = pick(rng, ["all", "faces", "edges", "vertices"]);
+    const render = <SolidSVG kind={s.kind} />;
+    if (ask === "all") return { prompt: `The diagram shows a ${s.name}. State the number of faces, edges and vertices.`, render, accurateDiagram: true, answer: `Faces = ${s.f}, edges = ${s.e}, vertices = ${s.v}` };
+    const val = ask === "faces" ? s.f : ask === "edges" ? s.e : s.v;
+    return { prompt: `The diagram shows a ${s.name}. State the number of ${ask}.`, render, accurateDiagram: true, answer: `${val}` };
+  },
+};
+SUBTOPIC_BANK["density-calc"] = {
+  topic: "Compound Measures", title: "Calculate a density", marks: 3,
+  build(rng) {
+    const l = seededInt(rng, 3, 10), w = seededInt(rng, 2, 8), h = seededInt(rng, 2, 8);
+    const V = l * w * h;
+    const d = pick(rng, [2, 3, 4, 5, 6, 8, 9, 2.5]);
+    const dd = d === 2.5 && V % 2 !== 0 ? 3 : d;
+    const mass = dd * V;
+    return {
+      prompt: `The diagram shows a solid cuboid with a mass of ${y7comma(mass)} g. Work out the density of the material, in g/cm³.`,
+      render: <SolidSVG kind="cuboid" labels={{ l: `${l} cm`, w: `${w} cm`, h: `${h} cm` }} />,
+      accurateDiagram: true,
+      answer: `Volume = ${l} × ${w} × ${h} = ${V} cm³; density = mass ÷ volume = ${y7comma(mass)} ÷ ${V} = ${y7num(dd)} g/cm³`,
+    };
+  },
+};
+SUBTOPIC_BANK["density-find-mass-volume"] = {
+  topic: "Compound Measures", title: "Use density to find a mass or a volume", marks: 3,
+  build(rng) {
+    const l = seededInt(rng, 3, 10), w = seededInt(rng, 2, 8), h = seededInt(rng, 2, 8);
+    const V = l * w * h;
+    const d = pick(rng, [2, 3, 4, 5, 6, 8, 9]);
+    if (rng() < 0.5) {
+      return {
+        prompt: `The diagram shows a cuboid made of a material with density ${d} g/cm³. Work out the mass of the cuboid.`,
+        render: <SolidSVG kind="cuboid" labels={{ l: `${l} cm`, w: `${w} cm`, h: `${h} cm` }} />,
+        accurateDiagram: true,
+        answer: `Volume = ${l} × ${w} × ${h} = ${V} cm³; mass = density × volume = ${d} × ${V} = ${y7comma(d * V)} g`,
+      };
+    }
+    return {
+      prompt: `The diagram shows a solid block with a mass of ${y7comma(d * V)} g. The material has density ${d} g/cm³. Work out the volume of the block.`,
+      render: <SolidSVG kind="cuboid" />,
+      accurateDiagram: true,
+      answer: `volume = mass ÷ density = ${y7comma(d * V)} ÷ ${d} = ${V} cm³`,
+    };
+  },
+};
+SUBTOPIC_BANK["capacity-mass-convert"] = {
+  topic: "Measures & Units", title: "Convert units of mass and capacity", marks: 1,
+  build(rng) {
+    const kind = pick(rng, ["kg2g", "g2kg", "l2ml", "ml2l", "t2kg", "kg2t"]);
+    const v = pick(rng, [2, 3, 4, 5, 1.5, 2.5, 0.5, 0.25, 3.5]);
+    if (kind === "kg2g") return { prompt: `Convert ${v} kg to grams.`, answer: `${y7num(v * 1000)} g` };
+    if (kind === "g2kg") return { prompt: `Convert ${y7num(v * 1000)} g to kilograms.`, answer: `${v} kg` };
+    if (kind === "l2ml") return { prompt: `Convert ${v} litres to millilitres.`, answer: `${y7num(v * 1000)} ml` };
+    if (kind === "ml2l") return { prompt: `Convert ${y7num(v * 1000)} ml to litres.`, answer: `${v} litres` };
+    if (kind === "t2kg") return { prompt: `Convert ${v} tonnes to kilograms.`, answer: `${y7num(v * 1000)} kg` };
+    return { prompt: `Convert ${y7num(v * 1000)} kg to tonnes.`, answer: `${v} tonnes` };
+  },
+};
+
+/* --- Equations and inequalities (number lines are always drawn) --- */
+SUBTOPIC_BANK["solve-linear-brackets"] = {
+  topic: "Solving Linear Equations", title: "Solve an equation with brackets", marks: 3,
+  build(rng) {
+    const x0 = seededInt(rng, -5, 9), a = seededInt(rng, 2, 6), b = seededInt(rng, -6, 8);
+    if (b === 0) return this.build(rng);
+    const c = a * (x0 + b);
+    return { prompt: `Solve ${a}(x ${y8pm(b)}) = ${c}`, answer: `x ${y8pm(b)} = ${c} ÷ ${a} = ${c / a}, so x = ${y7sgn(x0)}` };
+  },
+};
+function y8IneqSpec(rng) {
+  const kind = pick(rng, ["gt", "ge", "lt", "le", "between"]);
+  const t = seededInt(rng, -4, 4);
+  if (kind === "between") {
+    const lo = seededInt(rng, -5, 0), hi = lo + seededInt(rng, 2, 6);
+    const loC = rng() < 0.5, hiC = rng() < 0.5;
+    return { text: `${y7sgn(lo)} ${loC ? "≤" : "<"} x ${hiC ? "≤" : "<"} ${y7sgn(hi)}`, segs: [{ a: lo, aClosed: loC, b: hi, bClosed: hiC }] };
+  }
+  const sym = { gt: ">", ge: "≥", lt: "<", le: "≤" }[kind];
+  const seg = kind === "gt" || kind === "ge" ? { a: t, aClosed: kind === "ge", b: null } : { a: null, b: t, bClosed: kind === "le" };
+  return { text: `x ${sym} ${y7sgn(t)}`, segs: [seg] };
+}
+SUBTOPIC_BANK["ineq-represent-number-line"] = {
+  topic: "Inequalities", title: "Show an inequality on a number line", marks: 2,
+  build(rng) {
+    const sp = y8IneqSpec(rng);
+    return {
+      prompt: `Show the inequality ${sp.text} on the number line. Use an open circle for < or > and a closed circle for ≤ or ≥.`,
+      render: <InequalityLineSVG lo={-7} hi={7} />,
+      accurateDiagram: true,
+      answer: `Draw the line and circles as shown in the answer diagram.`,
+      answerRender: <InequalityLineSVG lo={-7} hi={7} segs={sp.segs} />,
+    };
+  },
+};
+SUBTOPIC_BANK["inequality-from-number-line"] = {
+  topic: "Inequalities", title: "Write down the inequality shown on a number line", marks: 1,
+  build(rng) {
+    const t = seededInt(rng, -5, 5);
+    const closed = pick(rng, [true, false]);
+    const greater = pick(rng, [true, false]);
+    const sym = greater ? (closed ? "≥" : ">") : (closed ? "≤" : "<");
+    const seg = greater ? { a: t, aClosed: closed, b: null } : { a: null, b: t, bClosed: closed };
+    return {
+      prompt: `The number line shows an inequality for x. Write down the inequality.`,
+      render: <InequalityLineSVG lo={-7} hi={7} segs={[seg]} />,
+      accurateDiagram: true,
+      answer: `x ${sym} ${y7sgn(t)}`,
+    };
+  },
+};
+SUBTOPIC_BANK["inequality-double-sided"] = {
+  topic: "Inequalities", title: "Write a double-sided inequality shown on a number line", marks: 2,
+  build(rng) {
+    const lo = seededInt(rng, -6, -1);
+    const hi = lo + seededInt(rng, 2, 8);
+    const loC = pick(rng, [true, false]), hiC = pick(rng, [true, false]);
+    return {
+      prompt: `The number line shows an inequality for x. Write down the inequality.`,
+      render: <InequalityLineSVG lo={-8} hi={Math.max(hi + 1, 6)} segs={[{ a: lo, aClosed: loC, b: hi, bClosed: hiC }]} />,
+      accurateDiagram: true,
+      answer: `${y7sgn(lo)} ${loC ? "≤" : "<"} x ${hiC ? "≤" : "<"} ${y7sgn(hi)}`,
+    };
+  },
+};
+SUBTOPIC_BANK["inequality-list-integers"] = {
+  topic: "Inequalities", title: "List integer values satisfying an inequality", marks: 1,
+  build(rng) {
+    const lo = seededInt(rng, -8, -1);
+    const hi = seededInt(rng, 1, 8);
+    const values = [];
+    for (let n = lo + 1; n <= hi; n++) values.push(n);
+    return {
+      prompt: `n is an integer such that ${y7sgn(lo)} < n ≤ ${hi}. The number line shows the range of values. List all the possible values of n.`,
+      render: <InequalityLineSVG lo={-9} hi={9} segs={[{ a: lo, aClosed: false, b: hi, bClosed: true }]} />,
+      accurateDiagram: true,
+      answer: `n = ${values.map(y7sgn).join(", ")}`,
+      answerRender: <InequalityLineSVG lo={-9} hi={9} segs={[{ a: lo, aClosed: false, b: hi, bClosed: true }]} dots={values} />,
+    };
+  },
+};
+SUBTOPIC_BANK["inequality-linear-twostep"] = {
+  topic: "Inequalities", title: "Solve a two-step linear inequality", marks: 2,
+  build(rng) {
+    const negCoef = pick(rng, [true, false]);
+    const a = seededInt(rng, 2, 6) * (negCoef ? -1 : 1);
+    const x0 = seededInt(rng, -8, 8);
+    const b = seededInt(rng, -9, 9);
+    const c = a * x0 + b;
+    const symbol = pick(rng, ["<", ">"]);
+    const flipped = negCoef ? (symbol === "<" ? ">" : "<") : symbol;
+    return {
+      prompt: `Solve the inequality ${y8term(a)} ${y8pm(b)} ${symbol} ${y7sgn(c)}, then show the solution on a number line.`,
+      answer: `${y8term(a)} ${symbol} ${y7sgn(c - b)}; x ${flipped} ${y7sgn(x0)}${negCoef ? " (the inequality sign flips when dividing by a negative)" : ""}`,
+      answerRender: y8SolutionLine(x0, flipped),
+    };
+  },
+};
+SUBTOPIC_BANK["inequality-both-sides"] = {
+  topic: "Inequalities", title: "Solve an inequality with the unknown on both sides", marks: 3,
+  build(rng) {
+    const p = seededInt(rng, 3, 7);
+    const q = seededInt(rng, 1, p - 1);
+    const x0 = seededInt(rng, -6, 6);
+    const b = seededInt(rng, -9, 9);
+    const d = b + (p - q) * x0;
+    const symbol = pick(rng, ["<", ">"]);
+    return {
+      prompt: `Solve the inequality ${p}x ${y8pm(b)} ${symbol} ${q}x ${y8pm(d)}, then show the solution on a number line.`,
+      answer: `${p - q}x ${symbol} ${y7sgn(d - b)}; x ${symbol} ${y7sgn(x0)}`,
+      answerRender: y8SolutionLine(x0, symbol),
+    };
+  },
+};
+
+/* --- Percentages --- */
+SUBTOPIC_BANK["percent-multiplier"] = {
+  topic: "Percentages", title: "Use a multiplier for a percentage change", marks: 2,
+  build(rng) {
+    const p = pick(rng, [5, 10, 12, 15, 20, 25, 30, 35, 40]);
+    const up = rng() < 0.5;
+    const mult = Math.round((1 + (up ? p : -p) / 100) * 1000) / 1000;
+    if (rng() < 0.5) return { prompt: `Write down the multiplier for a ${p}% ${up ? "increase" : "decrease"}.`, answer: `${y7num(mult)} (${up ? "100% + " : "100% − "}${p}% = ${100 + (up ? p : -p)}% = ${y7num(mult)})` };
+    const amt = seededInt(rng, 2, 40) * 10;
+    return { prompt: `Use a multiplier to ${up ? "increase" : "decrease"} £${amt} by ${p}%.`, answer: `${amt} × ${y7num(mult)} = £${y7num(Math.round(amt * mult * 100) / 100)}` };
+  },
+};
+SUBTOPIC_BANK["percent-change-find"] = {
+  topic: "Percentages", title: "Work out a percentage change", marks: 3,
+  build(rng) {
+    const old = seededInt(rng, 2, 20) * 20;
+    const p = pick(rng, [5, 10, 15, 20, 25, 30, 40, 50]);
+    const up = rng() < 0.5;
+    const nw = old + (up ? 1 : -1) * (old * p) / 100;
+    const item = pick(rng, ["price", "population", "number of members"]);
+    return {
+      prompt: `The ${item} changes from ${item === "price" ? "£" : ""}${old} to ${item === "price" ? "£" : ""}${nw}. Work out the percentage ${up ? "increase" : "decrease"}.`,
+      answer: `change = ${Math.abs(nw - old)}; ${Math.abs(nw - old)} ÷ ${old} × 100 = ${p}% ${up ? "increase" : "decrease"}`,
+    };
+  },
+};
+
+/* --- Indices and standard form --- */
+SUBTOPIC_BANK["index-notation-evaluate"] = {
+  topic: "Indices", title: "Evaluate a number written in index form", marks: 1,
+  build(rng) {
+    const b = seededInt(rng, 2, 9), e = b > 5 ? seededInt(rng, 2, 3) : seededInt(rng, 2, 5);
+    return { prompt: <>Work out <Pow b={b} e={e} />.</>, answer: `${b ** e} (${Array(e).fill(b).join(" × ")})` };
+  },
+};
+SUBTOPIC_BANK["indices-simplify-algebra"] = {
+  topic: "Indices", title: "Simplify expressions with indices", marks: 2,
+  build(rng) {
+    const v = pick(rng, ["x", "y", "a", "m"]);
+    const kind = pick(rng, ["mult", "div", "power", "coef"]);
+    const p = seededInt(rng, 2, 8), q = seededInt(rng, 2, 5);
+    if (kind === "mult") return { prompt: <>Simplify <Pow b={v} e={p} /> × <Pow b={v} e={q} /></>, answer: <><Pow b={v} e={p + q} /> (add the powers)</> };
+    if (kind === "div") return { prompt: <>Simplify <Pow b={v} e={p + q} /> ÷ <Pow b={v} e={q} /></>, answer: <><Pow b={v} e={p} /> (subtract the powers)</> };
+    if (kind === "power") return { prompt: <>Simplify (<Pow b={v} e={p} />)<sup>{q}</sup></>, answer: <><Pow b={v} e={p * q} /> (multiply the powers)</> };
+    const c1 = seededInt(rng, 2, 5), c2 = seededInt(rng, 2, 5);
+    return { prompt: <>Simplify {c1}<Pow b={v} e={p} /> × {c2}<Pow b={v} e={q} /></>, answer: <>{c1 * c2}<Pow b={v} e={p + q} /></> };
+  },
+};
+SUBTOPIC_BANK["sf-large-to-ordinary"] = {
+  topic: "Standard Form", title: "Write a number in standard form as an ordinary number", marks: 1,
+  build(rng) {
+    const a = seededInt(rng, 11, 99) / 10;
+    const e = seededInt(rng, 3, 7);
+    return { prompt: <>Write {y7num(a)} × <Pow b={10} e={e} /> as an ordinary number.</>, answer: y7comma(Math.round(a * 10 ** e)) };
+  },
+};
+
+/* --- Interpreting data --- */
+SUBTOPIC_BANK["outlier-dotplot"] = {
+  topic: "Averages & Range", title: "Spot an outlier on a dot plot", marks: 2,
+  build(rng) {
+    const base = seededInt(rng, 8, 14);
+    const vals = [];
+    while (vals.length < 7) vals.push(base + seededInt(rng, 0, 5));
+    const high = rng() < 0.5;
+    const out = high ? base + seededInt(rng, 13, 16) : Math.max(1, base - seededInt(rng, 7, 9));
+    const all = vals.concat([out]);
+    const mean = (arr) => arr.reduce((s, v) => s + v, 0) / arr.length;
+    const m1 = Math.round(mean(all) * 10) / 10, m2 = Math.round(mean(vals) * 10) / 10;
+    const lo = Math.max(0, Math.min(...all) - 1), hi = Math.max(...all) + 1;
+    return {
+      prompt: `The dot plot shows 8 values. (a) Write down the outlier. (b) The outlier is removed. Does the mean increase or decrease?`,
+      render: <DotPlotSVG values={all} lo={lo} hi={hi} />,
+      accurateDiagram: true,
+      answer: `(a) ${out}; (b) the mean goes from ${y7num(m1)} to ${y7num(m2)}, so it ${m2 > m1 ? "increases" : "decreases"}`,
+    };
+  },
+};
+SUBTOPIC_BANK["compare-distributions"] = {
+  topic: "Averages & Range", title: "Compare two distributions", marks: 2,
+  build(rng) {
+    const mA = seededInt(rng, 40, 70), mB = mA + seededInt(rng, 3, 10) * (rng() < 0.5 ? 1 : -1);
+    const rA = seededInt(rng, 8, 20), rB = rA + seededInt(rng, 6, 15);
+    const swap = rng() < 0.5;
+    const [m1, r1, m2, r2] = swap ? [mB, rB, mA, rA] : [mA, rA, mB, rB];
+    return {
+      prompt: `Class P has a mean test score of ${m1} and a range of ${r1}. Class Q has a mean test score of ${m2} and a range of ${r2}. Compare the two classes' scores, making one comment about the average and one about the spread.`,
+      answer: `Average: Class ${m1 > m2 ? "P" : "Q"} did better on average (higher mean). Spread: Class ${r1 < r2 ? "P" : "Q"}'s scores were more consistent (smaller range).`,
+    };
+  },
+};
+
+/* --- Angles: polygons and parallel lines, all drawn --- */
+SUBTOPIC_BANK["angles-quadrilateral-sum"] = {
+  topic: "Angles in Shapes", title: "Angles in a quadrilateral", marks: 2,
+  build(rng) {
+    let a, b, c, d;
+    do { a = seededInt(rng, 60, 120); b = seededInt(rng, 60, 120); c = seededInt(rng, 60, 120); d = 360 - a - b - c; } while (d < 50 || d > 140);
+    const angles = [a, b, c, d];
+    const unknownIndex = seededInt(rng, 0, 3);
+    const known = angles.filter((_, i) => i !== unknownIndex);
+    return {
+      prompt: `The diagram shows a quadrilateral. Find the size of the angle marked "?".`,
+      render: <PolygonAnglesSVG angles={angles} unknownIndex={unknownIndex} />,
+      accurateDiagram: true,
+      answer: `360° − ${known.join("° − ")}° = ${angles[unknownIndex]}° (angles in a quadrilateral sum to 360°)`,
+    };
+  },
+};
+SUBTOPIC_BANK["angles-interior-polygon-sum"] = {
+  topic: "Angles in Shapes", title: "Sum of interior angles of a polygon", marks: 2,
+  build(rng) {
+    const n = seededInt(rng, 5, 10);
+    const names = { 5: "pentagon", 6: "hexagon", 7: "heptagon", 8: "octagon", 9: "nonagon", 10: "decagon" };
+    const sum = (n - 2) * 180;
+    return {
+      prompt: `The diagram shows a ${names[n]}. Work out the sum of its interior angles.`,
+      render: <RegularPolygonSVG sides={n} />,
+      accurateDiagram: true,
+      answer: `(${n} − 2) × 180° = ${sum}° (a ${names[n]} splits into ${n - 2} triangles)`,
+    };
+  },
+};
+SUBTOPIC_BANK["angles-exterior-regular-polygon"] = {
+  topic: "Angles in Shapes", title: "Exterior angle of a regular polygon", marks: 1,
+  build(rng) {
+    const n = pick(rng, [3, 4, 5, 6, 8, 9, 10, 12]);
+    return {
+      prompt: `The diagram shows a regular polygon with ${n} sides. Work out the size of the exterior angle marked "?".`,
+      render: <RegularPolygonAnglesSVG sides={n} mode="exterior" />,
+      accurateDiagram: true,
+      answer: `360° ÷ ${n} = ${360 / n}°`,
+    };
+  },
+};
+SUBTOPIC_BANK["angles-interior-regular-polygon"] = {
+  topic: "Angles in Shapes", title: "Interior angle of a regular polygon", marks: 2,
+  build(rng) {
+    const n = pick(rng, [5, 6, 8, 9, 10, 12]);
+    const sum = (n - 2) * 180;
+    return {
+      prompt: `The diagram shows a regular polygon with ${n} sides. Work out the size of the interior angle marked "?".`,
+      render: <RegularPolygonAnglesSVG sides={n} mode="interior" />,
+      accurateDiagram: true,
+      answer: `Exterior angle = 360° ÷ ${n} = ${360 / n}°, so interior angle = 180° − ${360 / n}° = ${180 - 360 / n}° (or ${sum}° ÷ ${n})`,
+    };
+  },
+};
+SUBTOPIC_BANK["angles-polygon-sides-from-angle"] = {
+  topic: "Angles in Shapes", title: "Find the number of sides from an angle", marks: 2,
+  build(rng) {
+    const n = pick(rng, [5, 6, 8, 9, 10, 12, 15, 18, 20]);
+    const ext = 360 / n;
+    return {
+      prompt: `The diagram shows part of a regular polygon. The exterior angle is ${ext}°. Work out the number of sides of the polygon.`,
+      render: <PolygonCornerSVG ext={ext} />,
+      accurateDiagram: true,
+      answer: `360° ÷ ${ext}° = ${n} sides`,
+    };
+  },
+};
+SUBTOPIC_BANK["angles-parallel-algebra"] = {
+  topic: "Angles in Parallel Lines", title: "Form and solve an equation with angles in parallel lines", marks: 3,
+  build(rng) {
+    const type = pick(rng, ["alternate", "corresponding", "co-interior"]);
+    const pairs = type === "alternate" ? [[["P", "SE"], ["Q", "NW"]], [["P", "SW"], ["Q", "NE"]]]
+      : type === "corresponding" ? ["NE", "NW", "SE", "SW"].map((q) => [["P", q], ["Q", q]])
+      : [[["P", "SE"], ["Q", "NE"]], [["P", "SW"], ["Q", "NW"]]];
+    let [pa, pb] = pick(rng, pairs);
+    if (rng() < 0.5) [pa, pb] = [pb, pa];
+    let x0, a, c, b, d, v, tries = 0;
+    do {
+      x0 = seededInt(rng, 8, 25); a = seededInt(rng, 2, 5); c = seededInt(rng, 1, 4); b = seededInt(rng, 5, 40);
+      v = a * x0 + b;
+      d = type === "co-interior" ? 180 - v - c * x0 : v - c * x0;
+      tries++;
+    } while (tries < 400 && (Math.abs(d) > 40 || v < 35 || v > 145 || (type !== "co-interior" && c === a) || d === 0 || (type === "co-interior" && 180 - v < 35)));
+    const e1 = `(${y8lin(a, b)})°`, e2 = `(${y8lin(c, d)})°`;
+    const eq = type === "co-interior" ? `${y8lin(a, b)} + ${y8lin(c, d)} = 180; ${a + c}x ${y8pm(b + d)} = 180; ${a + c}x = ${180 - b - d}; x = ${x0}`
+      : `${y8lin(a, b)} = ${y8lin(c, d)}; ${a - c}x = ${d - b}; x = ${x0}`;
+    return {
+      prompt: `Two parallel lines are crossed by a transversal. The two angles marked are ${type} angles. Form and solve an equation to find x.`,
+      render: <ParallelLinesSVG phi={y7PhiFor(pa[1], v)} marks={[{ line: pa[0], quad: pa[1], label: e1 }, { line: pb[0], quad: pb[1], label: e2 }]} />,
+      accurateDiagram: true,
+      answer: type === "co-interior" ? `Co-interior angles sum to 180°: ${eq}` : `${type[0].toUpperCase() + type.slice(1)} angles are equal: ${eq}`,
+    };
+  },
+};
+SUBTOPIC_BANK["angles-polygon-algebra"] = {
+  topic: "Angles in Shapes", title: "Form and solve an equation with angles in a polygon", marks: 3,
+  build(rng) {
+    const n = pick(rng, [4, 5]);
+    const sum = (n - 2) * 180;
+    for (let tries = 0; tries < 600; tries++) {
+      const x0 = seededInt(rng, 10, 24);
+      const ex = [];
+      let total = 0, ok = true;
+      for (let i = 0; i < n - 1 && ok; i++) {
+        let found = false;
+        for (let k = 0; k < 30 && !found; k++) {
+          const a = seededInt(rng, 1, 3), v = seededInt(rng, 65, 135), bb = v - a * x0;
+          if (Math.abs(bb) <= 35 && bb !== 0) { ex.push({ a, b: bb, v }); total += v; found = true; }
+        }
+        if (!found) ok = false;
+      }
+      if (!ok) continue;
+      const last = sum - total;
+      if (last < 45 || last > 160) continue;
+      const pos = seededInt(rng, 0, n - 1);
+      const angles = ex.map((e) => e.v); angles.splice(pos, 0, last);
+      const labels = ex.map((e) => `(${y8lin(e.a, e.b)})\u00B0`); labels.splice(pos, 0, `${last}\u00B0`);
+      const A = ex.reduce((s2, e) => s2 + e.a, 0), B = ex.reduce((s2, e) => s2 + e.b, 0);
+      return {
+        prompt: `The diagram shows a ${n === 4 ? "quadrilateral" : "pentagon"}. Form and solve an equation to find x.`,
+        render: <PolygonAnglesSVG angles={angles} labels={labels} unknownIndex={-1} />,
+        accurateDiagram: true,
+        answer: `${A}x ${y8pm(B)} + ${last} = ${sum}; ${A}x = ${sum - last - B}; x = ${x0}`,
+      };
+    }
+    const angles = [80, 100, 70, 110];
+    return { prompt: `The diagram shows a quadrilateral. Find the size of the angle marked "?".`, render: <PolygonAnglesSVG angles={angles} unknownIndex={3} />, accurateDiagram: true, answer: "360° − 80° − 100° − 70° = 110°" };
+  },
+};
+
+/* --- Probability: scales, sample spaces and tables --- */
+SUBTOPIC_BANK["probability-scale-words"] = {
+  topic: "Probability Scale", title: "Describe a probability using words", marks: 1,
+  build(rng) {
+    const items = [
+      { p: 0, word: "impossible" }, { p: 0.05, word: "very unlikely" }, { p: 0.25, word: "unlikely" },
+      { p: 0.5, word: "evens (equally likely)" }, { p: 0.75, word: "likely" }, { p: 0.95, word: "very likely" }, { p: 1, word: "certain" },
+    ];
+    const item = pick(rng, items);
+    return {
+      prompt: `The arrow on the probability scale shows the probability of an event. Describe this probability using one word or phrase (for example impossible, unlikely, evens, likely, certain).`,
+      render: <ProbabilityScaleSVG marks={[{ p: item.p, label: "" }]} />,
+      accurateDiagram: true,
+      answer: `${item.word} (probability ${item.p})`,
+    };
+  },
+};
+SUBTOPIC_BANK["probability-scale-compare"] = {
+  topic: "Probability Scale", title: "Compare the likelihood of events using probabilities", marks: 2,
+  build(rng) {
+    const pA = seededInt(rng, 1, 9) / 10;
+    let pB = seededInt(rng, 1, 9) / 10;
+    while (pB === pA) pB = seededInt(rng, 1, 9) / 10;
+    const more = pA > pB ? "A" : "B";
+    return {
+      prompt: `The probabilities of two events, A and B, are marked on the probability scale. Which event is more likely to happen? Write down both probabilities.`,
+      render: <ProbabilityScaleSVG marks={[{ p: pA, label: "A" }, { p: pB, label: "B" }]} />,
+      accurateDiagram: true,
+      answer: `Event ${more} (A = ${pA}, B = ${pB}; ${Math.max(pA, pB)} > ${Math.min(pA, pB)})`,
+    };
+  },
+};
+SUBTOPIC_BANK["sample-space-spinners"] = {
+  topic: "Probability", title: "Use a sample space for two spinners", marks: 3,
+  build(rng) {
+    const s1 = [1, 2, 3], s2 = [1, 2, 3, 4];
+    const op = pick(rng, ["+", "×"]);
+    const val = (a, b) => (op === "+" ? a + b : a * b);
+    const all = [];
+    s1.forEach((a) => s2.forEach((b) => all.push(val(a, b))));
+    const askKind = pick(rng, ["equal", "greater", "even"]);
+    const uniq = [...new Set(all)];
+    const target = pick(rng, uniq.filter((v) => (askKind === "equal" ? true : askKind === "greater" ? v < Math.max(...all) && v > Math.min(...all) : true)));
+    let count, text;
+    if (askKind === "equal") { count = all.filter((v) => v === target).length; text = `the total is ${target}`.replace("total", op === "+" ? "total" : "product"); }
+    else if (askKind === "greater") { count = all.filter((v) => v > target).length; text = `the ${op === "+" ? "total" : "product"} is greater than ${target}`; }
+    else { count = all.filter((v) => v % 2 === 0).length; text = `the ${op === "+" ? "total" : "product"} is even`; }
+    const g = gcd(count || 1, 12);
+    return {
+      prompt: `Spinner 1 has the numbers 1, 2, 3 and spinner 2 has the numbers 1, 2, 3, 4. Both spinners are spun and the scores are ${op === "+" ? "added" : "multiplied"}. The sample space is shown. Find the probability that ${text}.`,
+      render: <SampleSpaceSVG corner={op} rows={s1} cols={s2} cell={(i, j) => String(val(s1[i], s2[j]))} />,
+      accurateDiagram: true,
+      answer: count === 0 ? "0" : <><Frac n={count} d={12} />{g > 1 && <> = <Frac n={count / g} d={12 / g} /></>} ({count} of the 12 outcomes)</>,
+    };
+  },
+};
+SUBTOPIC_BANK["two-way-table-probability"] = {
+  topic: "Probability", title: "Find a probability from a two-way table", marks: 2,
+  build(rng) {
+    const rows = pick(rng, [["Year 8", "Year 9"], ["Boys", "Girls"]]);
+    const cols = pick(rng, [["Walk", "Bus", "Car"], ["Pizza", "Pasta", "Salad"]]);
+    const cells = rows.map(() => cols.map(() => seededInt(rng, 5, 30)));
+    const rt = cells.map((r) => r.reduce((s, v) => s + v, 0));
+    const ct = cols.map((_, j) => cells.reduce((s, r) => s + r[j], 0));
+    const total = rt[0] + rt[1];
+    const cell = (i, j) => (i < 2 && j < 3 ? String(cells[i][j]) : i === 2 && j < 3 ? String(ct[j]) : j === 3 && i < 2 ? String(rt[i]) : String(total));
+    const ri = seededInt(rng, 0, 1), ci = seededInt(rng, 0, 2);
+    const kind = pick(rng, ["col", "cell", "rowGiven"]);
+    let n, d, text;
+    if (kind === "col") { n = ct[ci]; d = total; text = `chose ${cols[ci]}`; }
+    else if (kind === "cell") { n = cells[ri][ci]; d = total; text = `is in ${rows[ri]} and chose ${cols[ci]}`; }
+    else { n = cells[ri][ci]; d = rt[ri]; text = null; }
+    const g = gcd(n, d);
+    const prompt = text
+      ? `The two-way table shows information about ${total} students. A student is chosen at random. Find the probability that the student ${text}.`
+      : `The two-way table shows information about ${total} students. A student from ${rows[ri]} is chosen at random. Find the probability that they chose ${cols[ci]}.`;
+    return {
+      prompt,
+      render: <SampleSpaceSVG corner="" rows={rows} cols={cols} cell={cell} totals />,
+      accurateDiagram: true,
+      answer: <><Frac n={n} d={d} />{g > 1 && <> = <Frac n={n / g} d={d / g} /></>}</>,
+    };
+  },
+};
+
+/* --- Circles --- */
+const Y8_CIRCLE_PARTS = [
+  { part: "radius", term: "radius", def: "a line from the centre to the circumference" },
+  { part: "diameter", term: "diameter", def: "a line across the circle through the centre" },
+  { part: "chord", term: "chord", def: "a line joining two points on the circumference (not through the centre)" },
+  { part: "tangent", term: "tangent", def: "a line that touches the circle at exactly one point" },
+  { part: "arc", term: "arc", def: "part of the circumference" },
+  { part: "sector", term: "sector", def: "the region between two radii and an arc" },
+  { part: "segment", term: "segment", def: "the region between a chord and an arc" },
+  { part: "circumference", term: "circumference", def: "the distance (perimeter) around the circle" },
+];
+SUBTOPIC_BANK["circle-facts-parts"] = {
+  topic: "Circle Facts", title: "Name the part of a circle", marks: 1,
+  build(rng) {
+    const t = pick(rng, Y8_CIRCLE_PARTS);
+    return {
+      prompt: `The diagram shows a circle with one part labelled A. Write down the mathematical name for A.`,
+      render: <CircleDiagramSVG mode="parts" part={t.part} />,
+      accurateDiagram: true,
+      answer: `${t.term} (${t.def})`,
+    };
+  },
+};
+SUBTOPIC_BANK["circle-facts-circumference-area"] = {
+  topic: "Circle Facts", title: "Circumference or area from the radius or diameter", marks: 2,
+  build(rng) {
+    const r = seededInt(rng, 3, 12);
+    const useD = rng() < 0.4;
+    const wantArea = rng() < 0.5;
+    const dim = useD ? 2 * r : r;
+    return {
+      prompt: `The diagram shows a circle with ${useD ? "diameter" : "radius"} ${dim} cm. Calculate its ${wantArea ? "area" : "circumference"}. Give your answer in terms of π.`,
+      render: <CircleDiagramSVG mode="measure" label={useD ? "d" : "r"} value={`${dim} cm`} />,
+      accurateDiagram: true,
+      answer: wantArea
+        ? `π × ${r}² = ${r * r}π cm² (≈ ${(Math.PI * r * r).toFixed(1)} cm²)`
+        : `${useD ? "π × " + dim : "2 × π × " + r} = ${2 * r}π cm (≈ ${(2 * Math.PI * r).toFixed(1)} cm)`,
+    };
+  },
+};
+SUBTOPIC_BANK["circle-arc-sector"] = {
+  topic: "Circle Facts", title: "Arc length and sector area", marks: 3,
+  build(rng) {
+    for (let tries = 0; tries < 200; tries++) {
+      const r = pick(rng, [6, 8, 9, 10, 12, 15]);
+      const angle = pick(rng, [30, 45, 60, 90, 120, 180, 270, 72, 40]);
+      const area = rng() < 0.5;
+      const k = area ? (angle * r * r) / 360 : (angle * 2 * r) / 360;
+      if ((k * 4) % 1 !== 0) continue;
+      return {
+        prompt: `The diagram shows a sector of a circle with radius ${r} cm and angle ${angle}°. Work out the ${area ? "area of the sector" : "length of the arc"}. Give your answer in terms of π.`,
+        render: <CircleDiagramSVG mode="sector" angle={angle} radiusLabel={`${r} cm`} showCentre={false} />,
+        accurateDiagram: true,
+        answer: area
+          ? `(${angle}/360) × π × ${r}² = ${y7num(k)}π cm² (≈ ${(k * Math.PI).toFixed(1)} cm²)`
+          : `(${angle}/360) × 2 × π × ${r} = ${y7num(k)}π cm (≈ ${(k * Math.PI).toFixed(1)} cm)`,
+      };
+    }
+    return { prompt: "A semicircle has radius 10 cm. Find the length of its arc in terms of π.", answer: "10π cm" };
+  },
+};
+SUBTOPIC_BANK["circle-compound"] = {
+  topic: "Circle Facts", title: "Area or perimeter of a rectangle with a semicircle", marks: 3,
+  build(rng) {
+    const w = pick(rng, [6, 8, 10, 12, 14]);
+    const h = seededInt(rng, 4, 12);
+    const area = rng() < 0.5;
+    const val = area ? w * h + (Math.PI * (w / 2) ** 2) / 2 : w + 2 * h + (Math.PI * w) / 2;
+    return {
+      prompt: `The diagram shows a rectangle with a semicircle on one end. Work out the ${area ? "area" : "perimeter"} of the shape. Give your answer to 1 decimal place.`,
+      render: <SemicircleRectSVG wLabel={`${w} cm`} hLabel={`${h} cm`} />,
+      accurateDiagram: true,
+      answer: area
+        ? `${w} × ${h} + ½ × π × ${w / 2}² = ${w * h} + ${((Math.PI * (w / 2) ** 2) / 2).toFixed(2)} = ${val.toFixed(1)} cm²`
+        : `${w} + ${h} + ${h} + ½ × π × ${w} = ${w + 2 * h} + ${((Math.PI * w) / 2).toFixed(2)} = ${val.toFixed(1)} cm`,
+    };
+  },
+};
+
+/* --- Graphs and charts --- */
+SUBTOPIC_BANK["misleading-bar-chart"] = {
+  topic: "Bar Charts", title: "Spot why a bar chart is misleading", marks: 2,
+  build(rng) {
+    const a = seededInt(rng, 34, 42), b = a + seededInt(rng, 4, 8);
+    const yStart = 30;
+    return {
+      prompt: `The bar chart shows the number of phones sold by two shops in one week. A newspaper says "Shop B sold about three times as many phones as Shop A". Explain why this chart is misleading.`,
+      render: <BarChartSVG categories={["Shop A", "Shop B"]} values={[a, b]} yLabel="Phones sold" yStart={yStart} />,
+      accurateDiagram: true,
+      answer: `The vertical axis starts at ${yStart}, not 0, so Shop B's bar looks much taller. In fact B sold only ${b} compared with ${a} (about ${Math.round((b / a - 1) * 100)}% more).`,
+    };
+  },
+};
+
+/* --- Sequences: nth term from a drawn pattern --- */
+SUBTOPIC_BANK["seq-pattern-nth-term"] = {
+  topic: "Sequences", title: "Find the nth term of a pattern sequence", marks: 3,
+  build(rng) {
+    const { kind, p, unit, count } = y7PatternSpec(rng);
+    const d = count(2) - count(1), k = count(1) - d;
+    const expr = `${d === 1 ? "" : d}n${k === 0 ? "" : " " + y8pm(k)}`;
+    return {
+      prompt: `The diagram shows the first three patterns in a sequence. Find an expression, in terms of n, for the number of ${unit} in Pattern n.`,
+      render: <PatternSVG kind={kind} p={p} indices={[1, 2, 3]} />,
+      accurateDiagram: true,
+      answer: `${[1, 2, 3].map(count).join(", ")}, ... goes up by ${d} each time, so the nth term is ${expr}`,
+    };
+  },
+};
+SUBTOPIC_BANK["seq-is-term-of-sequence"] = {
+  topic: "Sequences", title: "Is a number in the sequence?", marks: 2,
+  build(rng) {
+    const a = seededInt(rng, 2, 8), b = seededInt(rng, -3, 9);
+    const n = seededInt(rng, 8, 30);
+    const isTerm = rng() < 0.5;
+    const target = a * n + b + (isTerm ? 0 : seededInt(rng, 1, a - 1));
+    const nn = (target - b) / a;
+    return {
+      prompt: `The nth term of a sequence is ${y8lin(a, b, "n")}. Is ${target} a term of the sequence? Show your working.`,
+      answer: Number.isInteger(nn) ? `${y8lin(a, b, "n")} = ${target} gives n = ${nn}, a whole number, so yes (it is term ${nn})` : `${y8lin(a, b, "n")} = ${target} gives n = ${y7num(Math.round(nn * 100) / 100)}, which is not a whole number, so no`,
+    };
+  },
+};
+
+/* --- Year 7 geometry questions, now drawn --- */
+SUBTOPIC_BANK["angle-type-name"] = {
+  topic: "Angles", title: "Name the type of angle", marks: 1,
+  build(rng) {
+    const kind = pick(rng, ["acute", "acute", "right", "obtuse", "obtuse", "straight", "reflex", "reflex"]);
+    let a;
+    if (kind === "acute") a = seededInt(rng, 10, 89);
+    else if (kind === "right") a = 90;
+    else if (kind === "obtuse") a = seededInt(rng, 91, 179);
+    else if (kind === "straight") a = 180;
+    else a = seededInt(rng, 181, 350);
+    return {
+      prompt: `Is the angle marked on the diagram acute, a right angle, obtuse, a straight line or reflex?`,
+      render: <AngleTypeSVG angle={a} label={`${a}°`} />,
+      accurateDiagram: true,
+      answer: kind === "right" ? "A right angle (exactly 90°)" : kind === "straight" ? "A straight line (exactly 180°)" : kind,
+    };
+  },
+};
+SUBTOPIC_BANK["triangle-classify"] = {
+  topic: "Properties of Shapes", title: "Classify a triangle from its angles", marks: 2,
+  build(rng) {
+    const sets = [
+      [[50, 50, 80], "isosceles (two equal angles)", "acute-angled (all angles are less than 90°)"],
+      [[60, 60, 60], "equilateral (three equal angles)", "acute-angled (all angles are less than 90°)"],
+      [[90, 45, 45], "isosceles (two equal angles)", "right-angled (one angle is 90°)"],
+      [[90, 30, 60], "scalene (all angles different)", "right-angled (one angle is 90°)"],
+      [[30, 30, 120], "isosceles (two equal angles)", "obtuse-angled (one angle is more than 90°)"],
+      [[20, 40, 120], "scalene (all angles different)", "obtuse-angled (one angle is more than 90°)"],
+      [[50, 60, 70], "scalene (all angles different)", "acute-angled (all angles are less than 90°)"],
+    ];
+    const [angles, byAngle, byType] = pick(rng, sets);
+    const shown = y7shuffle(rng, angles);
+    return {
+      prompt: `The diagram shows a triangle. Give two names that describe this triangle.`,
+      render: <GeneralTriangleSVG sideAB={140} angleA={shown[0]} angleB={shown[1]} labelA={`${shown[0]}°`} labelB={`${shown[1]}°`} labelC={`${shown[2]}°`} />,
+      accurateDiagram: true,
+      answer: `${byAngle[0].toUpperCase() + byAngle.slice(1)} and ${byType}`,
+    };
+  },
+};
+SUBTOPIC_BANK["perimeter-polygon-calc"] = {
+  topic: "Perimeter & Area", title: "Work out a perimeter", marks: 2,
+  build(rng) {
+    const kind = pick(rng, ["regular", "rectangle", "irregular"]);
+    if (kind === "regular") {
+      const n = pick(rng, [5, 6, 8]);
+      const name = { 5: "pentagon", 6: "hexagon", 8: "octagon" }[n];
+      const s = seededInt(rng, 3, 12);
+      return { prompt: `The diagram shows a regular ${name}. Each side is ${s} cm. Work out its perimeter.`, render: <RegularPolygonSVG sides={n} sideLabel={`${s} cm`} />, accurateDiagram: true, answer: `${n} × ${s} = ${n * s} cm` };
+    }
+    if (kind === "rectangle") {
+      const l = seededInt(rng, 6, 15), w = seededInt(rng, 3, l - 1);
+      return { prompt: `The diagram shows a rectangle with perimeter ${2 * (l + w)} cm. Work out the missing width.`, render: <RectangleSVG w={l} h={w} wLabel={`${l} cm`} hLabel="? cm" />, accurateDiagram: true, answer: `${2 * (l + w)} ÷ 2 = ${l + w}, so the width is ${l + w} − ${l} = ${w} cm` };
+    }
+    const sides = [seededInt(rng, 4, 12), seededInt(rng, 4, 12), seededInt(rng, 4, 12), seededInt(rng, 4, 12)];
+    return { prompt: `The diagram shows a quadrilateral. Work out its perimeter.`, render: <QuadSidesSVG sides={sides.map((v) => `${v} cm`)} />, accurateDiagram: true, answer: `${sides.join(" + ")} = ${sides.reduce((s, v) => s + v, 0)} cm` };
+  },
+};
+SUBTOPIC_BANK["shape-naming-polygon-by-sides"] = {
+  topic: "2D Shapes", title: "Name a polygon from its diagram", marks: 1,
+  build(rng) {
+    const polygons = [{ n: 3, name: "triangle" }, { n: 4, name: "quadrilateral" }, { n: 5, name: "pentagon" }, { n: 6, name: "hexagon" }, { n: 7, name: "heptagon" }, { n: 8, name: "octagon" }, { n: 9, name: "nonagon" }, { n: 10, name: "decagon" }];
+    const item = pick(rng, polygons);
+    return { prompt: `What is the mathematical name of this polygon?`, render: <RegularPolygonSVG sides={item.n} />, accurateDiagram: true, answer: `${item.name} (${item.n} sides)` };
+  },
+};
+
 /* ---------- full GCSE spec tree (Edexcel Higher + Foundation, via Dr Frost's
    skill breakdown), grouped Strand → Domain → Group in the style of Mr Barton
    Maths's Ultimate Retrieval Tool, so teachers can see every topic that
@@ -8710,6 +10147,45 @@ const SUBTOPIC_TO_SPEC = {
   "completing-square-non-monic": "Algebra → Quadratic Equations → Completing the Square",
   "solve-quadratic-square-rooting": "Algebra → Quadratic Equations → Solving Quadratics",
   "solve-quadratic-word-problem": "Algebra → Quadratic Equations → Solving Quadratics",  /* --- Year 7 build-out --- */
+  "ratio-bar-model": "Ratio & Proportion → Ratio → Using Ratio",
+  "ratio-one-to-n": "Ratio & Proportion → Ratio → Understanding Ratio",
+  "currency-convert": "Ratio & Proportion → Direct & Inverse Proportion → Direct & Inverse Proportion",
+  "scale-map-distance": "Geometry & Measures → Scale Drawings & Isometric Drawings → Scale Drawings & Isometric Drawings",
+  "alg-classify-type": "Algebra → Introduction to Algebra → Algebraic Notation",
+  "form-expression-perimeter": "Algebra → Introduction to Algebra → Algebraic Notation",
+  "alg-directed-simplify": "Algebra → Introduction to Algebra → Collecting Like Terms & Simplifying",
+  "coord-fourth-vertex": "Geometry & Measures → Coordinates → Reading & Plotting",
+  "line-equation-axis-parallel": "Algebra → Straight-Line Graphs → Gradient & Equation",
+  "line-gradient-intercept-read": "Algebra → Straight-Line Graphs → Gradient & Equation",
+  "line-equation-from-graph": "Algebra → Straight-Line Graphs → Gradient & Equation",
+  "line-table-of-values": "Algebra → Straight-Line Graphs → Gradient & Equation",
+  "frac-multiply-integer": "Number → Fractions → Multiplying Fractions",
+  "frac-multiply-two": "Number → Fractions → Multiplying Fractions",
+  "frac-reciprocal": "Number → Fractions → Dividing Fractions",
+  "symmetry-lines-rotation": "Geometry & Measures → Properties of 2D Shapes → Symmetry",
+  "describe-reflection": "Geometry & Measures → Transformations → Reflection",
+  "solid-name-identify": "Geometry & Measures → Properties of 3D Shapes → Naming & Properties",
+  "density-calc": "Ratio & Proportion → Compound Measures → Compound Measures",
+  "density-find-mass-volume": "Ratio & Proportion → Compound Measures → Compound Measures",
+  "capacity-mass-convert": "Geometry & Measures → Measures & Units → Converting Units",
+  "solve-linear-brackets": "Algebra → Linear Equations → Solving Linear Equations",
+  "ineq-represent-number-line": "Algebra → Inequalities → Representing Inequalities",
+  "percent-multiplier": "Number → Percentages → Percentage Change",
+  "percent-change-find": "Number → Percentages → Percentage Change",
+  "index-notation-evaluate": "Algebra → Indices, Roots & Surds → Laws of Indices",
+  "indices-simplify-algebra": "Algebra → Indices, Roots & Surds → Laws of Indices",
+  "sf-large-to-ordinary": "Number → Indices, Roots & Surds → Standard Form",
+  "outlier-dotplot": "Statistics & Probability → Averages & Spread → Averages from a List",
+  "compare-distributions": "Statistics & Probability → Averages & Spread → Averages from a List",
+  "angles-parallel-algebra": "Geometry & Measures → Angles → Angles in Parallel Lines",
+  "angles-polygon-algebra": "Geometry & Measures → Angles → Angles in Shapes",
+  "sample-space-spinners": "Statistics & Probability → Probability → Basic Probability",
+  "two-way-table-probability": "Statistics & Probability → Collecting & Organising Data → Two-Way Tables and Frequency Trees",
+  "circle-arc-sector": "Geometry & Measures → Perimeter & Area → Area of Circles",
+  "circle-compound": "Geometry & Measures → Perimeter & Area → Area of Circles",
+  "misleading-bar-chart": "Statistics & Probability → Representing Data → Bar Charts and Vertical Line Charts",
+  "seq-pattern-nth-term": "Algebra → Sequences → Position-to-Term (nth Term)",
+  "seq-is-term-of-sequence": "Algebra → Sequences → Position-to-Term (nth Term)",
   "seq-continue-linear": "Algebra → Sequences → Continuing & Describing Sequences",
   "seq-term-to-term-rule": "Algebra → Sequences → Continuing & Describing Sequences",
   "seq-linear-or-not": "Algebra → Sequences → Continuing & Describing Sequences",
@@ -11449,6 +12925,12 @@ const SPEED_CHECKS = [
 ];
 
 ReactDOM.createRoot(document.getElementById("root")).render(<QuizEngine />);
+
+
+
+
+
+
 
 
 

@@ -250,6 +250,23 @@ script are in `LIBRARY_SETUP.md` and `supabase_setup.sql`. Notes for changes:
 - `buildMeasuresSpeedCheck` (kind `"measures"`, tag `--tag-5`): 24 one-step conversions,
   four columns of six (time, mass, two of length).
 
+## Year 8 scheme and the "always draw it" rule
+
+- `Y8_WEEKS` (scheme key `"Year 8 (2026/27)"`) follows the White Rose Year 8 overview (36 weeks) and the Year 8
+  booklets in `Teaching/KS3/Y8/Booklets`; same `(W1)/(W2)/(W3)` labels and top-up-to-6 rule as Year 7.
+  Booklets without lesson headers (area/volume/density, equations & inequalities, percentages, indices,
+  standard form, data, angles, probability) were planned from the timeline's block text instead.
+- **Rule from the teacher: every geometry or number-line question must be drawn.** The Year 8 block (before the
+  `FULL_SPEC` comment) adds the drawing components `InequalityLineSVG`, `ProbabilityScaleSVG`, `SampleSpaceSVG`,
+  `CircleDiagramSVG`, `SemicircleRectSVG`, `SymmetryShapeSVG`, `RegularPolygonAnglesSVG`, `PolygonCornerSVG`,
+  `DotPlotSVG`, `BarModelSVG`, `MapDistanceSVG`, `SolidSVG`, `AngleTypeSVG`, `QuadSidesSVG`; and redraws earlier
+  text-only questions (inequalities, probability scale, circle facts, polygon angles, angle type, triangle
+  classify, perimeter, polygon names, faces/edges/vertices). `CoordinateGridSVG` now takes `lines`, `segments`
+  and `polygon`; `ShapeGridSVG` takes `lines`; `BarChartSVG` takes `yStart`; `PolygonAnglesSVG` takes `labels`.
+  Add `accurateDiagram: true` and a diagram to any new geometry/number-line builder.
+- Still text-only geometry in the bank (Year 10/11 topics, not in the Year 7/8 schemes): vectors, trigonometry,
+  Pythagoras, volume/surface area of pyramids/cones/spheres, circle theorems, bearings, etc.
+
 ## Changelog (this session, roughly chronological)
 
 - Added an "expand two single brackets" Algebra subtopic; fixed a
