@@ -5371,7 +5371,7 @@ const Y8_WEEKS = {
   "Summer · Week 12 — Sequences consolidation": ["find-nth-term-linear", "seq-pattern-nth-term", "seq-is-term-of-sequence", "arithmetic-sequence-nth-term-value", "seq-missing-terms-linear"],
 };
 
-/* ---- Year 9 (2026/27) schemes of work, from "Year 9 (Y9) Timelines 26-27.xlsx" (Sets 1-4; Sets 3 and 4 share one timeline).
+/* ---- Year 9 (2026/27) schemes of work, from "Year 9 (Y9) Timelines 26-27.xlsx" (Sets 1-3; the spreadsheet's Set 3 and Set 4 tabs are identical, so Set 3 covers both).
    Same shape as the Year 10 tables: one entry per teaching week, listing the subtopics that week's lessons cover; quiz, revision, assessment,
    INSET and buffer lessons carry no questions, and weeks with no teaching lessons are left out. Units that run for several weeks are
    labelled (W1), (W2)... Lessons with no matching question type yet (constructions, loci) fall back to the nearest available topics. ---- */
@@ -5488,7 +5488,6 @@ const SCHEMES = {
   "Year 9 · Set 1 (2026/27)": Y9_SET1_WEEKS,
   "Year 9 · Set 2 (2026/27)": Y9_SET2_WEEKS,
   "Year 9 · Set 3 (2026/27)": Y9_SET34_WEEKS,
-  "Year 9 · Set 4 (2026/27)": Y9_SET34_WEEKS,
 };
 
 // Every week should give a full 6-topic quiz. A week with fewer than 6 topics

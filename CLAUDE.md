@@ -272,8 +272,8 @@ script are in `LIBRARY_SETUP.md` and `supabase_setup.sql`. Notes for changes:
   `TangentsSVG`, `RadiiTriangleSVG`, `PolyhedronSVG`); `CoordinateGridSVG` takes `step` and dashed/coloured
   segments, `SolidSVG` pyramid/cone take height/slant/radius labels. Remaining text-only: pure unit/time
   conversions (not geometry).
-- Year 9 schemes ("Year 9 · Set 1–4 (2026/27)") come from `Year 9 (Y9) Timelines 26-27.xlsx` (Sets 3 and 4 share one
-  timeline). Weeks use the Y10 key format; unit-coded sets slice a per-unit question pool by lesson number. Constructions
+- Year 9 schemes ("Year 9 · Set 1–3 (2026/27)") come from `Year 9 (Y9) Timelines 26-27.xlsx` (its Set 3 and Set 4 tabs are
+  identical; there is no Year 9 Set 4, so only Set 3 is shown). Weeks use the Y10 key format; unit-coded sets slice a per-unit question pool by lesson number. Constructions
   and loci have no question types yet, so those lessons fall back to bearings/scale questions.
 
 ## Changelog (this session, roughly chronological)
