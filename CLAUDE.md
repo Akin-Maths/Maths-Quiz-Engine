@@ -194,6 +194,30 @@ compact string — see `encodeQuizCode`/`decodeQuizCode` near the top of
    explicit `lengthMode` field) must stay driven by the actual UI mode, never
    by sniffing the count.
 
+## Shared online quiz library (optional, Supabase)
+
+A "Saved quizzes" card lets all teachers share one list of saved quizzes behind
+**one shared password** (no per-teacher accounts). Each saved quiz is just
+`{ name, author (typed label), code }`; the code is the normal quiz code, so no
+pupil data is stored. It is **hidden until `LIBRARY_CONFIG`** (url, anonKey,
+shared email) in `QuizEngine.jsx` is filled in. Setup steps and the database
+script are in `LIBRARY_SETUP.md` and `supabase_setup.sql`. Notes for changes:
+
+- The client is plain `fetch` against Supabase's REST + password-grant
+  endpoints (`libAuth`, `libRest`, `libList/libSave/libUpdate/libHide`); there
+  is no supabase-js and no extra CDN script. The session (access token,
+  refresh token, expiry) lives in localStorage under `quizEngineLibrarySession`
+  and is refreshed automatically a minute before expiry.
+- Security is **Row Level Security in the database**, not this page: policies
+  allow only the shared library user (matched by email in
+  `public.is_library_user()`), and "Allow new users to sign up" must be OFF in
+  Supabase. The anon key in the page is public by design.
+- "Delete" is a soft delete (`deleted_at`); the table has no delete policy, so
+  the app cannot destroy data.
+- `window.QE_LIBRARY_CONFIG` overrides the constant. That is how it was tested
+  locally against a fake Supabase (a throwaway page that replaced
+  `window.fetch`), never against a real project.
+
 ## Changelog (this session, roughly chronological)
 
 - Added an "expand two single brackets" Algebra subtopic; fixed a

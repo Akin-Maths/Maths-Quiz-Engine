@@ -928,19 +928,26 @@ function Pow({ b, e, tall }) {
   const plain = typeof e === "number" || typeof e === "string";
   const shown = typeof e === "number" ? (e < 0 ? `\u2212${-e}` : `${e}`) : e;
   // Whole-number exponents sit at the usual superscript height. A fractional
-  // index is written inline ("3/5") rather than as a stacked fraction, so it reads
-  // like an exponent, raised a little higher so the slash clears the base.
+  // index is a stacked fraction with a horizontal bar, lifted well above the
+  // baseline so it reads as an exponent (centred around the top of the base)
+  // rather than sitting down beside it.
   return (
     <>
       {b}
-      <sup style={{ fontSize: plain ? "0.7em" : "0.78em", lineHeight: tall ? 1 : 0, verticalAlign: tall ? "top" : plain ? "super" : "0.72em", marginLeft: 1, whiteSpace: "nowrap" }}>{shown}</sup>
+      <sup style={{ fontSize: plain ? "0.7em" : "0.8em", lineHeight: tall ? 1 : 0, verticalAlign: tall ? "top" : plain ? "super" : "0.9em", marginLeft: 1, whiteSpace: "nowrap" }}>{shown}</sup>
     </>
   );
 }
-// A fractional index written inline, e.g. 3/5 (or \u22121/3), for use as the
-// exponent in <Pow>.
+// Stacked fraction (numerator, horizontal bar, denominator) for use as the
+// exponent in <Pow>; `neg` puts a minus sign level with the bar.
 function IdxFrac({ n, d, neg }) {
-  return `${neg ? "\u2212" : ""}${n}/${d}`;
+  const frac = (
+    <span style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", verticalAlign: "middle", lineHeight: 1.1, margin: "0 1px" }}>
+      <span style={{ padding: "0 2px" }}>{n}</span>
+      <span style={{ borderTop: "1.2px solid currentColor", width: "100%", textAlign: "center", padding: "0 2px" }}>{d}</span>
+    </span>
+  );
+  return neg ? <span style={{ display: "inline-flex", alignItems: "center", verticalAlign: "middle" }}><span style={{ marginRight: 3, fontWeight: 600 }}>{"\u2212"}</span>{frac}</span> : frac;
 }
 // Brackets that stretch to the height of what they hold (a stacked fraction).
 function TallParens({ children }) {
@@ -2234,7 +2241,10 @@ SUBTOPIC_BANK["indices-fractional"] = {
     if (base === 8 || base === 27 || base === 64) { root = Math.round(Math.cbrt(base)); }
     else { root = Math.round(Math.pow(base, 1 / (base === 32 ? 5 : 4))); }
     const denom = base === 32 ? 5 : (base === 16 ? 4 : 3);
-    const numer = seededInt(rng, 2, 4);
+    // The numerator is never equal to, or a multiple/factor-sharing partner
+    // of, the denominator: the index must be a proper simplest-form fraction
+    // (no 3/3, which is just 1, and no 2/4, which is 1/2).
+    const numer = pick(rng, [2, 3, 4].filter((n) => n !== denom && gcd(n, denom) === 1));
     return {
       prompt: <>Work out the value of <Pow b={base} e={<IdxFrac n={numer} d={denom} />} />.</>,
       answer: <><Pow b={<>(<Pow b={base} e={<IdxFrac n="1" d={denom} />} />)</>} e={numer} /> = <Pow b={root} e={numer} /> = {Math.pow(root, numer)}</>,
@@ -5491,7 +5501,8 @@ SUBTOPIC_BANK["indices-combined-negative-fractional"] = {
     const rootMap = { 4: 2, 9: 2, 16: 2, 8: 3, 27: 3 };
     const root = rootMap[base];
     const rooted = Math.round(Math.pow(base, 1 / root));
-    const numerPower = pick(rng, [1, 2]);
+    // numerator coprime to the root so the index (e.g. -3/2, -2/3) is in simplest form
+    const numerPower = root === 2 ? pick(rng, [1, 3]) : pick(rng, [1, 2]);
     const value = Math.pow(rooted, numerPower);
     return {
       prompt: <>Work out the value of <Pow b={base} e={<IdxFrac neg n={numerPower} d={root} />} />. Give your answer as a fraction.</>,
@@ -6064,7 +6075,9 @@ SUBTOPIC_BANK["indices-non-unit-fractional"] = {
     ];
     const item = pick(rng, bases);
     const rooted = Math.round(Math.pow(item.base, 1 / item.root));
-    const power = seededInt(rng, 2, 3);
+    // Simplest-form index only: the power shares no factor with the root and
+    // isn't equal to it (so no 2/2, 3/3 or 2/4).
+    const power = pick(rng, [2, 3, 4].filter((n) => n !== item.root && gcd(n, item.root) === 1));
     const answer = Math.pow(rooted, power);
     return {
       prompt: <>Work out the value of <Pow b={item.base} e={<IdxFrac n={power} d={item.root} />} /></>,
@@ -7738,6 +7751,101 @@ function decodeLegacyQuizCode(code) {
   }
 }
 
+/* ---------- shared online quiz library (optional) ----------
+   One shared sign-in (the department password) unlocks one shared list of
+   saved quizzes, stored in a small Supabase database, so a quiz saved on one
+   computer can be opened from any other. A saved quiz is just its name, the
+   author's typed name, and its quiz code (see formatVersion 5 above), so no
+   pupil data is ever stored. Until LIBRARY_CONFIG is filled in (see
+   LIBRARY_SETUP.md) the whole feature stays hidden and the page behaves
+   exactly as before.
+   Talks to Supabase's standard REST endpoints with plain fetch (no client
+   library, nothing extra to load): password sign-in at /auth/v1/token and the
+   `quizzes` table at /rest/v1/quizzes. Row Level Security on that table, not
+   this page, is what keeps strangers out; the anon key below is public by
+   design and useless without the shared sign-in. ---------- */
+const LIBRARY_CONFIG = { url: "", anonKey: "", email: "" };
+const LIB_SESSION_KEY = "quizEngineLibrarySession";
+function libConfig() {
+  const c = (typeof window !== "undefined" && window.QE_LIBRARY_CONFIG) || LIBRARY_CONFIG;
+  return c && c.url && c.anonKey && c.email ? { url: String(c.url).replace(/\/+$/, ""), anonKey: c.anonKey, email: c.email } : null;
+}
+function libLoadSession() {
+  try {
+    const s = JSON.parse(window.localStorage.getItem(LIB_SESSION_KEY));
+    return s && s.refresh_token ? s : null;
+  } catch (e) {
+    return null;
+  }
+}
+function libStoreSession(session) {
+  try {
+    if (session) window.localStorage.setItem(LIB_SESSION_KEY, JSON.stringify(session));
+    else window.localStorage.removeItem(LIB_SESSION_KEY);
+  } catch (e) {}
+}
+async function libAuth(grant, body) {
+  const c = libConfig();
+  const res = await fetch(`${c.url}/auth/v1/token?grant_type=${grant}`, {
+    method: "POST",
+    headers: { apikey: c.anonKey, "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.access_token) {
+    const err = new Error(res.status === 400 && grant === "password" ? "That password isn't right." : data.error_description || data.msg || data.message || "Couldn't sign in.");
+    err.status = res.status;
+    throw err;
+  }
+  const session = { access_token: data.access_token, refresh_token: data.refresh_token, expires_at: Date.now() + (Number(data.expires_in) || 3600) * 1000 };
+  libStoreSession(session);
+  return session;
+}
+const libSignIn = (password) => libAuth("password", { email: libConfig().email, password });
+const libSignOut = () => libStoreSession(null);
+async function libToken() {
+  let s = libLoadSession();
+  if (!s) throw Object.assign(new Error("Please sign in to the library."), { status: 401 });
+  if (s.expires_at - Date.now() < 60000) {
+    try {
+      s = await libAuth("refresh_token", { refresh_token: s.refresh_token });
+    } catch (e) {
+      libStoreSession(null);
+      throw Object.assign(new Error("Your library sign-in has expired. Please sign in again."), { status: 401 });
+    }
+  }
+  return s.access_token;
+}
+async function libRest(path, { method = "GET", body, prefer } = {}) {
+  const c = libConfig();
+  const token = await libToken();
+  const res = await fetch(`${c.url}/rest/v1/${path}`, {
+    method,
+    headers: { apikey: c.anonKey, Authorization: `Bearer ${token}`, "Content-Type": "application/json", ...(prefer ? { Prefer: prefer } : null) },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (res.status === 401) {
+    libStoreSession(null);
+    throw Object.assign(new Error("Your library sign-in has expired. Please sign in again."), { status: 401 });
+  }
+  if (!res.ok) {
+    const d = await res.json().catch(() => ({}));
+    throw new Error(d.message || `The library couldn't complete that (error ${res.status}).`);
+  }
+  return res.status === 204 ? null : res.json();
+}
+const LIB_COLUMNS = "id,name,author,notes,code,created_at,updated_at";
+const libList = () => libRest(`quizzes?select=${LIB_COLUMNS}&deleted_at=is.null&order=created_at.desc&limit=500`);
+const libSave = (row) => libRest("quizzes", { method: "POST", body: row, prefer: "return=representation" }).then((r) => r && r[0]);
+const libUpdate = (id, patch) =>
+  libRest(`quizzes?id=eq.${encodeURIComponent(id)}`, { method: "PATCH", body: patch, prefer: "return=representation" }).then((r) => {
+    if (!r || r.length === 0) throw new Error("That quiz no longer exists in the library.");
+    return r[0];
+  });
+// Quizzes are only ever hidden, never destroyed (the database has no delete
+// permission at all), so a mistaken delete can be undone from the dashboard.
+const libHide = (id) => libUpdate(id, { deleted_at: new Date().toISOString() });
+
 // Split a quiz's questions across printed pages so each page renders as a
 // fixed 1-column x 3-row (3-cell) table. Pages fill front-to-back — page 1
 // takes up to 3 questions, page 2 takes the next up to 3, and so on — so
@@ -8190,6 +8298,19 @@ function QuizEngine() {
   const [codeInput, setCodeInput] = useState("");
   const [codeMessage, setCodeMessage] = useState("");
   const [codeTone, setCodeTone] = useState("ok"); // "ok" | "warn" | "err"
+  // Shared online library (see "shared online quiz library" above). All of
+  // this is inert unless the library has been configured.
+  const libOn = libConfig() !== null;
+  const [libSignedIn, setLibSignedIn] = useState(() => libOn && !!libLoadSession());
+  const [libItems, setLibItems] = useState(null); // null = not loaded yet
+  const [libBusy, setLibBusy] = useState(false);
+  const [libMsg, setLibMsg] = useState({ tone: "ok", text: "" });
+  const [libPassword, setLibPassword] = useState("");
+  const [libName, setLibName] = useState("");
+  const [libAuthor, setLibAuthor] = useState(() => {
+    try { return window.localStorage.getItem("quizEngineAuthor") || ""; } catch (e) { return ""; }
+  });
+  const [libSearch, setLibSearch] = useState("");
   const [customLabel, setCustomLabel] = useState(initialDecoded ? "Custom quiz (loaded from code)" : null);
   const [copyFlash, setCopyFlash] = useState("");
   // Lock: freezes the generated quiz (numbers, subtopics, mode, length) so it
@@ -8416,6 +8537,76 @@ function QuizEngine() {
       setCodeMessage(base);
     }
   };
+  // ---- shared online library actions ----
+  const libFail = (e) => {
+    if (e && e.status === 401) { setLibSignedIn(false); setLibItems(null); }
+    setLibMsg({ tone: "err", text: (e && e.message) || "Something went wrong." });
+  };
+  const libRefresh = async () => {
+    setLibBusy(true);
+    try { setLibItems(await libList()); } catch (e) { libFail(e); } finally { setLibBusy(false); }
+  };
+  useEffect(() => {
+    if (libOn && libSignedIn && libItems === null) libRefresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [libOn, libSignedIn]);
+  const libDoSignIn = async (e) => {
+    if (e) e.preventDefault();
+    if (!libPassword) { setLibMsg({ tone: "err", text: "Enter the library password." }); return; }
+    setLibBusy(true);
+    try {
+      await libSignIn(libPassword);
+      setLibPassword("");
+      setLibItems(null);
+      setLibSignedIn(true);
+      setLibMsg({ tone: "ok", text: "" });
+    } catch (err) { libFail(err); } finally { setLibBusy(false); }
+  };
+  const libDoSignOut = () => { libSignOut(); setLibSignedIn(false); setLibItems(null); setLibMsg({ tone: "ok", text: "" }); };
+  const libDoSave = async () => {
+    const name = libName.trim();
+    if (!name) { setLibMsg({ tone: "err", text: "Give the quiz a name first." }); return; }
+    if (!currentCode) { setLibMsg({ tone: "err", text: "Tick some topics first, there is no quiz to save yet." }); return; }
+    setLibBusy(true);
+    try {
+      const author = libAuthor.trim();
+      try { window.localStorage.setItem("quizEngineAuthor", author); } catch (e) {}
+      const row = await libSave({ name, author: author || null, code: currentCode });
+      setLibItems((prev) => [row, ...(prev || [])]);
+      setLibName("");
+      setLibMsg({ tone: "ok", text: `Saved “${name}” to the library.` });
+    } catch (e) { libFail(e); } finally { setLibBusy(false); }
+  };
+  const libDoOpen = (item) => {
+    loadCode(item.code);
+    setCustomLabel(item.name);
+    setLibMsg({ tone: "ok", text: `Opened “${item.name}”.` });
+  };
+  const libDoUpdate = async (item) => {
+    if (!currentCode) return;
+    if (!window.confirm(`Replace “${item.name}” in the shared library with the quiz you have open now?`)) return;
+    setLibBusy(true);
+    try {
+      const author = libAuthor.trim();
+      const row = await libUpdate(item.id, { code: currentCode, ...(author ? { author } : null) });
+      setLibItems((prev) => (prev || []).map((x) => (x.id === row.id ? row : x)));
+      setLibMsg({ tone: "ok", text: `Updated “${item.name}”.` });
+    } catch (e) { libFail(e); } finally { setLibBusy(false); }
+  };
+  const libDoDelete = async (item) => {
+    if (!window.confirm(`Delete “${item.name}” from the shared library? Every teacher will lose access to it.`)) return;
+    setLibBusy(true);
+    try {
+      await libHide(item.id);
+      setLibItems((prev) => (prev || []).filter((x) => x.id !== item.id));
+      setLibMsg({ tone: "ok", text: `Deleted “${item.name}”.` });
+    } catch (e) { libFail(e); } finally { setLibBusy(false); }
+  };
+  const libVisible = (libItems || []).filter((x) => {
+    const q = libSearch.trim().toLowerCase();
+    return !q || `${x.name} ${x.author || ""}`.toLowerCase().includes(q);
+  });
+
   const toggleStrand = (strand) => {
     setOpenStrands((prev) => {
       const next = new Set(prev);
@@ -9402,6 +9593,89 @@ function QuizEngine() {
                 The code holds the whole quiz, order and all, so it works anywhere with no login. It ignores capital letters, spaces and dashes, so you can paste it straight from an email or message.
               </div>
             </section>
+
+            {libOn && (
+              <section className="qe-card wide">
+                <div className="qe-card-head">
+                  <h3>Saved quizzes</h3>
+                  <div className="qe-note">A shared library for all teachers. Save a quiz here and open it from any computer.</div>
+                </div>
+                {!libSignedIn ? (
+                  <form onSubmit={libDoSignIn} className="qe-row" style={{ flexWrap: "nowrap" }}>
+                    <input
+                      type="password"
+                      className="qe-field"
+                      value={libPassword}
+                      onChange={(e) => { setLibPassword(e.target.value); setLibMsg({ tone: "ok", text: "" }); }}
+                      placeholder="Library password"
+                      aria-label="Library password"
+                      autoComplete="current-password"
+                    />
+                    <button type="submit" disabled={libBusy} className={btnCls({ primary: true })}>{libBusy ? "Signing in…" : "Sign in"}</button>
+                  </form>
+                ) : (
+                  <>
+                    <div className="qe-row" style={{ flexWrap: "nowrap" }}>
+                      <input
+                        className="qe-field"
+                        value={libName}
+                        onChange={(e) => { setLibName(e.target.value); setLibMsg({ tone: "ok", text: "" }); }}
+                        onKeyDown={(e) => { if (e.key === "Enter") libDoSave(); }}
+                        placeholder="Name this quiz, e.g. 10B fractions wk 3"
+                        aria-label="Quiz name"
+                        maxLength={120}
+                      />
+                    </div>
+                    <div className="qe-row" style={{ marginTop: 8, flexWrap: "nowrap" }}>
+                      <input
+                        className="qe-field"
+                        value={libAuthor}
+                        onChange={(e) => setLibAuthor(e.target.value)}
+                        placeholder="Your name (so others know who made it)"
+                        aria-label="Your name"
+                        maxLength={60}
+                      />
+                      <button onClick={libDoSave} disabled={libBusy || !currentCode} className={btnCls({ primary: true })}>Save</button>
+                    </div>
+                    <div className="qe-row" style={{ marginTop: 12, flexWrap: "nowrap" }}>
+                      <input
+                        className="qe-field"
+                        value={libSearch}
+                        onChange={(e) => setLibSearch(e.target.value)}
+                        placeholder="Search saved quizzes…"
+                        aria-label="Search saved quizzes"
+                      />
+                      <button onClick={libRefresh} disabled={libBusy} className={btnCls({ sm: true })} title="Reload the list">Refresh</button>
+                    </div>
+                    <div className="qe-lib-list" aria-live="polite">
+                      {libItems === null ? (
+                        <div className="qe-note">Loading…</div>
+                      ) : libVisible.length === 0 ? (
+                        <div className="qe-note">{libItems.length === 0 ? "Nothing saved yet. Build a quiz, name it above and press Save." : "No saved quiz matches that search."}</div>
+                      ) : (
+                        libVisible.map((item) => (
+                          <div key={item.id} className="qe-lib-item">
+                            <div className="qe-lib-name">{item.name}</div>
+                            <div className="qe-note">{item.author ? `${item.author} · ` : ""}{new Date(item.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</div>
+                            <div className="qe-row" style={{ marginTop: 6 }}>
+                              <button onClick={() => libDoOpen(item)} className={btnCls({ sm: true, primary: true })}>Open</button>
+                              <button onClick={() => libDoUpdate(item)} disabled={libBusy || !currentCode} className={btnCls({ sm: true })} title="Replace this saved quiz with the one you have open now">Update</button>
+                              <button onClick={() => libDoDelete(item)} disabled={libBusy} className={btnCls({ sm: true, tone: "warn" })}>Delete</button>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                    <div className="qe-row" style={{ marginTop: 10 }}>
+                      <button onClick={libDoSignOut} className={btnCls({ sm: true })} title="Do this on a shared computer when you've finished">Sign out of library</button>
+                    </div>
+                  </>
+                )}
+                {libMsg.text && (
+                  <div className={libMsg.tone === "ok" ? "qe-ok-text" : "qe-danger-text"} style={{ fontSize: ".78rem", marginTop: 8 }} role="status">{libMsg.text}</div>
+                )}
+              </section>
+            )}
           </div>
         </aside>
 
@@ -9505,6 +9779,9 @@ html,body{background:var(--bg)}
 .qe-field:disabled{opacity:.55}
 .qe-field.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.78rem}
 .qe-field.qe-num{width:56px;padding:3px 6px;font-size:.8rem}
+.qe-lib-list{display:flex;flex-direction:column;gap:8px;margin-top:10px;max-height:340px;overflow:auto}
+.qe-lib-item{border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:var(--panel)}
+.qe-lib-name{font-weight:700;overflow-wrap:anywhere}
 .qe-ok-text{color:var(--ok);font-weight:700}
 .qe-danger-text{color:var(--danger);font-weight:700}
 
@@ -9684,6 +9961,13 @@ const SPEED_CHECKS = [
 ];
 
 ReactDOM.createRoot(document.getElementById("root")).render(<QuizEngine />);
+
+
+
+
+
+
+
 
 
 
