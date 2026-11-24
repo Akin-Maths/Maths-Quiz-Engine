@@ -218,6 +218,24 @@ script are in `LIBRARY_SETUP.md` and `supabase_setup.sql`. Notes for changes:
   locally against a fake Supabase (a throwaway page that replaced
   `window.fetch`), never against a real project.
 
+## Year 7 scheme and measures speed check
+
+- `Y7_WEEKS` (before `SCHEMES`, scheme key `"Year 7 (2026/27)"`) follows the White Rose
+  Year 7 overview (12 teaching weeks per term, 36 weeks) and the Year 7 booklets in
+  `Teaching/KS3/Y7/Booklets`. The timeline PDF has week numbers, not dates, so keys are
+  `"Autumn · Week 1 — Sequences"` rather than the dated `HT1 · Week 1 (07/09/26)` style.
+  Extension steps from the overview (standard form, ×0.1, percentages above 100%,
+  parallel-line angles) sit at the end of their week.
+- 46 new question ids live in one block headed "Year 7 build-out" just before the
+  `FULL_SPEC` comment (sequences, function machines, place value, estimation, four
+  operations, FDP conversions, directed number, amounts, area, speed/distance/time,
+  properties of number, angles). Helpers are prefixed `y7`. New `FULL_SPEC` groups:
+  "Continuing & Describing Sequences" and "Function Machines".
+- Booklet pages are scanned images (no text layer). To re-read them, OCR with macOS Vision
+  through `pyobjc-framework-Vision`/`Quartz` in a throwaway venv.
+- `buildMeasuresSpeedCheck` (kind `"measures"`, tag `--tag-5`): 24 one-step conversions,
+  four columns of six (time, mass, two of length).
+
 ## Changelog (this session, roughly chronological)
 
 - Added an "expand two single brackets" Algebra subtopic; fixed a

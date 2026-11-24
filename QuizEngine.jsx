@@ -5078,6 +5078,122 @@ const Y10_SET4_WEEKS = {
   ],
 };
 
+/* Year 7 scheme of work — follows the White Rose Year 7 overview (12 weeks per
+   term) and the Year 7 booklets. The timeline gives week numbers, not dates, so
+   keys are labelled by term and week. A few extension steps from the overview
+   (powers of 10 / standard form, multiplying by 0.1, percentages above 100%,
+   parallel-line angles, etc.) sit at the end of their week's list. */
+const Y7_WEEKS = {
+  "Autumn · Week 1 — Sequences": [
+    "seq-continue-linear", "seq-term-to-term-rule", "seq-predict-pattern-term", "seq-linear-or-not",
+  ],
+  "Autumn · Week 2 — Sequences": [
+    "seq-linear-or-not", "seq-geometric-next", "seq-missing-terms-linear", "seq-continue-linear", "seq-term-to-term-rule",
+  ],
+  "Autumn · Week 3 — Algebraic notation and substitution": [
+    "function-machine-output", "function-machine-input", "function-machine-expression", "algebraic-notation-write",
+  ],
+  "Autumn · Week 4 — Algebraic notation and substitution": [
+    "function-machine-find-operation", "function-machine-expression", "substitution-one-variable", "substitution-two-variables", "algebraic-notation-index-form", "multiply-algebraic-terms",
+  ],
+  "Autumn · Week 5 — Expressions and equations": [
+    "equivalent-expression-choose", "like-terms-identify", "collect-like-terms-multi", "solve-one-step-equation",
+  ],
+  "Autumn · Week 6 — Expressions and equations": [
+    "collect-like-terms-multi", "solve-one-step-equation", "solve-two-step-equation", "form-solve-perimeter-equation",
+  ],
+  "Autumn · Week 7 — Place value, ordering and rounding": [
+    "place-value-digit-value", "place-value-write-in-words", "number-line-interval-value", "order-decimals", "round-nearest-power-of-ten",
+  ],
+  "Autumn · Week 8 — Place value, ordering and rounding": [
+    "order-decimals", "number-line-interval-value", "round-nearest-power-of-ten", "round-decimal-places", "sf-large-to-sf", "sf-small-to-sf",
+  ],
+  "Autumn · Week 9 — Four operations": [
+    "decimal-add-different-dp", "decimal-subtract-different-dp", "multiply-divide-by-powers-of-10", "multiply-two-two-digit", "divide-integer-written", "addsub-word-problem",
+  ],
+  "Autumn · Week 10 — Four operations": [
+    "decimal-multiply-by-integer", "decimal-multiply-decimal-by-decimal", "decimal-divide-by-integer", "bidmas-two-operations", "bidmas-with-powers", "multiply-divide-by-0.1-0.01",
+  ],
+  "Autumn · Week 11 — Averages and range": [
+    "averages-range-listed", "averages-four-measures", "averages-missing-value-given-mean",
+  ],
+  "Autumn · Week 12 — Rounding and estimation": [
+    "round-significant-figures", "round-decimal-places", "estimation-calculation", "estimate-over-under", "round-error-interval",
+  ],
+  "Spring · Week 1 — Graphing data": [
+    "bar-chart-read-frequency", "pie-chart-angle-to-frequency", "pie-chart-angle-from-frequency", "coordinates-identify-point",
+  ],
+  "Spring · Week 2 — Graphing data": [
+    "coordinates-identify-point", "coordinates-midpoint-calc", "bar-chart-read-frequency", "scatter-correlation-type",
+  ],
+  "Spring · Week 3 — Graphing data": [
+    "scatter-correlation-type", "line-of-best-fit-estimate", "pie-chart-angle-to-frequency", "bar-chart-read-frequency",
+  ],
+  "Spring · Week 4 — Fractions, decimals and percentages": [
+    "frac-simplify", "equivalent-fraction-missing", "fdp-convert-fraction-decimal-percentage", "fdp-percent-to-decimal",
+  ],
+  "Spring · Week 5 — Fractions, decimals and percentages": [
+    "fraction-as-division", "fdp-convert-fraction-decimal-percentage", "frac-compare-different-denom", "fdp-order-mixed",
+  ],
+  "Spring · Week 6 — Fractions, decimals and percentages": [
+    "fdp-order-mixed", "frac-of-amount", "fdp-convert-fraction-decimal-percentage", "frac-improper-mixed-convert",
+  ],
+  "Spring · Week 7 — Directed number": [
+    "neg-order", "neg-add-subtract", "neg-missing-number", "neg-difference", "neg-mixed-word-problem",
+  ],
+  "Spring · Week 8 — Directed number": [
+    "neg-add-subtract", "neg-multiply", "neg-divide", "neg-bidmas", "neg-missing-number",
+  ],
+  "Spring · Week 9 — Fractions and percentages of amounts": [
+    "frac-of-amount", "fraction-find-whole", "percent-of-amount-mental", "percent-of-amount",
+  ],
+  "Spring · Week 10 — Fractions and percentages of amounts": [
+    "percent-of-amount-mental", "percent-increase-decrease", "percent-find-whole", "percent-above-100",
+  ],
+  "Spring · Week 11 — Perimeter and area": [
+    "metric-conversion", "perimeter-polygon-calc", "area-rectangle-triangle", "area-parallelogram", "area-triangle-base-height",
+  ],
+  "Spring · Week 12 — Perimeter and area": [
+    "area-trapezium", "composite-rectilinear-area-perimeter", "measures-convert-area-units", "form-solve-perimeter-equation", "area-parallelogram",
+  ],
+  "Summer · Week 1 — Speed, distance and time": [
+    "time-units-convert", "time-duration-calc", "timetable-read", "speed-calc",
+  ],
+  "Summer · Week 2 — Speed, distance and time": [
+    "speed-calc", "distance-calc", "time-calc", "compound-measures-calc",
+  ],
+  "Summer · Week 3 — Speed, distance and time": [
+    "distance-time-graph-read", "speed-calc", "distance-calc", "time-calc", "time-duration-calc",
+  ],
+  "Summer · Week 4 — Properties of number": [
+    "fmp-list-multiples", "fmp-list-factors", "number-properties-prime-or-composite", "fmp-common-factors",
+  ],
+  "Summer · Week 5 — Properties of number": [
+    "fmp-prime-factorisation", "number-properties-square-or-cube", "roots-evaluate", "triangular-numbers",
+  ],
+  "Summer · Week 6 — Properties of number": [
+    "fmp-hcf-lcm", "fmp-lcm", "fmp-common-factors", "fmp-prime-factorisation", "number-properties-classify",
+  ],
+  "Summer · Week 7 — Add and subtract fractions": [
+    "frac-simplify", "equivalent-fraction-missing", "frac-improper-mixed-convert", "frac-add-same-denom",
+  ],
+  "Summer · Week 8 — Add and subtract fractions": [
+    "frac-add-same-denom", "frac-add-different-denom", "frac-subtract-different-denom", "frac-compare-different-denom",
+  ],
+  "Summer · Week 9 — Add and subtract fractions": [
+    "frac-add-mixed-numbers", "frac-subtract-mixed-numbers-exchange", "frac-add-different-denom", "frac-subtract-different-denom", "frac-improper-mixed-convert",
+  ],
+  "Summer · Week 10 — Angles and polygons": [
+    "angle-type-name", "geometric-notation-naming", "angles-about-a-point", "angles-on-a-line", "angles-vertically-opposite",
+  ],
+  "Summer · Week 11 — Angles and polygons": [
+    "angles-triangle-sum", "angles-isosceles-triangle", "triangle-classify", "angles-quadrilateral-sum", "shape-properties-quadrilateral-name", "angles-parallelogram",
+  ],
+  "Summer · Week 12 — Angles and polygons": [
+    "angles-interior-polygon-sum", "angles-missing-in-polygon", "shape-naming-polygon-by-sides", "angles-exterior-regular-polygon", "angles-alternate", "angles-co-interior",
+  ],
+};
+
 const SCHEMES = {
   "Year 11 · Set 2 (2026/27)": SET2_WEEKS,
   "Year 11 · Set 1 (2026/27)": SET1_WEEKS,
@@ -5086,6 +5202,7 @@ const SCHEMES = {
   "Year 10 · Set 2 (2026/27)": Y10_SET2_WEEKS,
   "Year 10 · Set 3 (2026/27)": Y10_SET3_WEEKS,
   "Year 10 · Set 4 (2026/27)": Y10_SET4_WEEKS,
+  "Year 7 (2026/27)": Y7_WEEKS,
 };
 
 /* =====================================================================
@@ -6842,6 +6959,776 @@ SUBTOPIC_BANK["shape-naming-polygon-by-sides"] = {
   },
 };
 
+/* =====================================================================
+   Year 7 build-out — new question types written for the Year 7 booklets
+   (sequences, function machines, place value, four operations, FDP,
+   directed number, amounts, area, speed/distance/time, properties of
+   number, angles). Each is small and Year 7-friendly: whole-number or
+   simple-decimal answers, short working in the mark scheme.
+   ===================================================================== */
+const y7num = (v) => String(Math.round(v * 1e8) / 1e8);
+const y7sgn = (v) => (v < 0 ? "−" + y7num(Math.abs(v)) : y7num(v));
+const y7par = (v) => (v < 0 ? "(" + y7sgn(v) + ")" : y7num(v));
+const y7comma = (n) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+const y7shuffle = (rng, arr) => {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+  return a;
+};
+const Y7_ONES = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen"];
+const Y7_TENS = ["", "", "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety"];
+function y7Words(n) {
+  if (n < 20) return Y7_ONES[n];
+  if (n < 100) return Y7_TENS[Math.floor(n / 10)] + (n % 10 ? "-" + Y7_ONES[n % 10] : "");
+  if (n < 1000) return Y7_ONES[Math.floor(n / 100)] + " hundred" + (n % 100 ? " and " + y7Words(n % 100) : "");
+  const scales = [[1e6, "million"], [1e3, "thousand"]];
+  for (const [v, name] of scales) {
+    if (n >= v) {
+      const head = y7Words(Math.floor(n / v)) + " " + name;
+      const rest = n % v;
+      if (!rest) return head;
+      return head + (rest < 100 ? " and " : " ") + y7Words(rest);
+    }
+  }
+  return String(n);
+}
+const y7hm = (t) => {
+  const h = Math.floor(t + 1e-9);
+  const m = Math.round((t - h) * 60);
+  const parts = [];
+  if (h) parts.push(`${h} hour${h === 1 ? "" : "s"}`);
+  if (m) parts.push(`${m} minutes`);
+  return parts.join(" ") || "0 minutes";
+};
+const y7rule = (d) => (d > 0 ? `add ${y7num(d)}` : `subtract ${y7num(-d)}`);
+
+/* --- Sequences: term-to-term rules, linear and non-linear --- */
+SUBTOPIC_BANK["seq-continue-linear"] = {
+  topic: "Sequences", title: "Continue a linear sequence", marks: 1,
+  build(rng) {
+    const style = pick(rng, ["up", "up", "down", "decimal", "negative"]);
+    let first, d;
+    if (style === "up") { first = seededInt(rng, 1, 20); d = seededInt(rng, 2, 9); }
+    else if (style === "down") { d = -seededInt(rng, 2, 9); first = seededInt(rng, 30, 60); }
+    else if (style === "decimal") { d = pick(rng, [0.2, 0.3, 0.5, 0.25]); first = seededInt(rng, 1, 9) / 10; }
+    else { first = -seededInt(rng, 5, 20); d = seededInt(rng, 2, 6); }
+    const t = (i) => first + d * i;
+    return {
+      prompt: `Here is a sequence: ${[0, 1, 2, 3].map((i) => y7sgn(t(i))).join(", ")}, ... Write down the next two terms.`,
+      answer: `${y7sgn(t(4))}, ${y7sgn(t(5))} (the rule is ${y7rule(d)} each time)`,
+    };
+  },
+};
+SUBTOPIC_BANK["seq-term-to-term-rule"] = {
+  topic: "Sequences", title: "Describe the term-to-term rule", marks: 1,
+  build(rng) {
+    const kind = pick(rng, ["add", "add", "subtract", "multiply", "divide"]);
+    let terms, rule;
+    if (kind === "add") { const d = seededInt(rng, 2, 12), f = seededInt(rng, 1, 15); terms = [0, 1, 2, 3].map((i) => f + d * i); rule = `Add ${d} each time`; }
+    else if (kind === "subtract") { const d = seededInt(rng, 2, 9), f = seededInt(rng, 40, 70); terms = [0, 1, 2, 3].map((i) => f - d * i); rule = `Subtract ${d} each time`; }
+    else if (kind === "multiply") { const k = pick(rng, [2, 3, 4, 5, 10]), f = seededInt(rng, 1, 5); terms = [0, 1, 2, 3].map((i) => f * k ** i); rule = `Multiply by ${k} each time`; }
+    else { const k = pick(rng, [2, 3, 5]), f = seededInt(rng, 2, 6) * k ** 3; terms = [0, 1, 2, 3].map((i) => f / k ** i); rule = `Divide by ${k} each time`; }
+    return {
+      prompt: `Describe the term-to-term rule for the sequence ${terms.join(", ")}, ...`,
+      answer: rule,
+    };
+  },
+};
+SUBTOPIC_BANK["seq-linear-or-not"] = {
+  topic: "Sequences", title: "Decide whether a sequence is linear", marks: 2,
+  build(rng) {
+    const kind = pick(rng, ["linear", "linear", "geometric", "squares", "triangular"]);
+    let terms;
+    if (kind === "linear") { const d = pick(rng, [3, 4, 5, 6, 7, 8, -2, -5]); const f = d > 0 ? seededInt(rng, 1, 12) : seededInt(rng, 30, 50); terms = [0, 1, 2, 3, 4].map((i) => f + d * i); }
+    else if (kind === "geometric") { const k = pick(rng, [2, 3]); const f = seededInt(rng, 1, 4); terms = [0, 1, 2, 3, 4].map((i) => f * k ** i); }
+    else if (kind === "squares") { const s = seededInt(rng, 1, 4); terms = [0, 1, 2, 3, 4].map((i) => (s + i) ** 2); }
+    else { const s = seededInt(rng, 1, 3); terms = [0, 1, 2, 3, 4].map((i) => ((s + i) * (s + i + 1)) / 2); }
+    const diffs = terms.slice(1).map((v, i) => v - terms[i]);
+    const constant = diffs.every((x) => x === diffs[0]);
+    return {
+      prompt: `Is the sequence ${terms.join(", ")}, ... linear? Give a reason.`,
+      answer: constant
+        ? `Yes. The difference is always ${y7sgn(diffs[0])}, so it is linear.`
+        : `No. The differences are ${diffs.map(y7sgn).join(", ")}, which are not constant, so it is not linear.`,
+    };
+  },
+};
+SUBTOPIC_BANK["seq-predict-pattern-term"] = {
+  topic: "Sequences", title: "Predict a term in a pattern sequence", marks: 2,
+  build(rng) {
+    const first = seededInt(rng, 3, 8), add = seededInt(rng, 2, 5);
+    const target = pick(rng, [8, 10, 12, 15, 20]);
+    const obj = pick(rng, ["matchsticks", "tiles", "counters", "dots"]);
+    return {
+      prompt: `Pattern 1 uses ${first} ${obj}. Each new pattern uses ${add} more ${obj} than the one before. How many ${obj} are in Pattern ${target}?`,
+      answer: `${first} + ${target - 1} × ${add} = ${first + (target - 1) * add}`,
+    };
+  },
+};
+SUBTOPIC_BANK["seq-missing-terms-linear"] = {
+  topic: "Sequences", title: "Find the missing terms of a linear sequence", marks: 2,
+  build(rng) {
+    const d = pick(rng, [2, 3, 4, 5, 6, 7, -3, -4, -5]);
+    const f = d > 0 ? seededInt(rng, 1, 15) : seededInt(rng, 25, 50);
+    const t = (i) => f + d * i;
+    if (rng() < 0.5) {
+      return {
+        prompt: `Fill in the missing terms of this linear sequence: ${y7sgn(t(0))}, __, __, __, ${y7sgn(t(4))}`,
+        answer: `The difference is (${y7sgn(t(4))} − ${y7sgn(t(0))}) ÷ 4 = ${y7sgn(d)}, so the missing terms are ${y7sgn(t(1))}, ${y7sgn(t(2))}, ${y7sgn(t(3))}`,
+      };
+    }
+    return {
+      prompt: `Fill in the missing terms of this linear sequence: ${y7sgn(t(0))}, ${y7sgn(t(1))}, __, __, ${y7sgn(t(4))}`,
+      answer: `The difference is ${y7sgn(d)}, so the missing terms are ${y7sgn(t(2))}, ${y7sgn(t(3))}`,
+    };
+  },
+};
+SUBTOPIC_BANK["seq-geometric-next"] = {
+  topic: "Sequences", title: "Continue a non-linear (multiplying) sequence", marks: 1,
+  build(rng) {
+    const kind = pick(rng, ["multiply", "multiply", "halve"]);
+    if (kind === "halve") {
+      const f = seededInt(rng, 2, 5) * 32;
+      const t = [0, 1, 2, 3].map((i) => f / 2 ** i);
+      return { prompt: `Write down the next two terms of the sequence ${t.join(", ")}, ...`, answer: `${f / 16}, ${f / 32} (halve each time)` };
+    }
+    const k = pick(rng, [2, 3, 4, 5, 10]);
+    const f = seededInt(rng, 1, 5);
+    const t = [0, 1, 2].map((i) => f * k ** i);
+    return { prompt: `Write down the next two terms of the sequence ${t.join(", ")}, ...`, answer: `${f * k ** 3}, ${f * k ** 4} (multiply by ${k} each time)` };
+  },
+};
+
+/* --- Algebra: function machines --- */
+function y7Machine(rng, steps) {
+  for (let t = 0; t < 30; t++) {
+    const m = y7MachineOnce(rng, steps);
+    if (steps === 1 || m.output !== m.input) return m;
+  }
+  return y7MachineOnce(rng, 1);
+}
+function y7MachineOnce(rng, steps) {
+  const input = seededInt(rng, 2, 15);
+  const list = [];
+  let cur = input;
+  const values = [input];
+  for (let s = 0; s < steps; s++) {
+    let op = pick(rng, ["+", "−", "×", "×", "÷"]);
+    let k;
+    if (op === "÷") {
+      const ks = [2, 3, 4, 5, 6].filter((x) => cur % x === 0 && cur / x >= 1);
+      if (ks.length) k = pick(rng, ks); else op = "+";
+    }
+    if (op === "−") { if (cur > 3) k = seededInt(rng, 1, Math.min(cur - 1, 9)); else op = "+"; }
+    if (op === "+") k = seededInt(rng, 1, 12);
+    if (op === "×") k = seededInt(rng, 2, 9);
+    cur = op === "+" ? cur + k : op === "−" ? cur - k : op === "×" ? cur * k : cur / k;
+    list.push({ op, k });
+    values.push(cur);
+  }
+  return { input, list, values, output: cur };
+}
+const y7ruleText = (list) => list.map((s) => `${s.op} ${s.k}`).join(", then ");
+SUBTOPIC_BANK["function-machine-output"] = {
+  topic: "Function Machines", title: "Find the output of a function machine", marks: 1,
+  build(rng) {
+    const m = y7Machine(rng, pick(rng, [1, 2, 2]));
+    const working = m.list.map((s, i) => `${m.values[i]} ${s.op} ${s.k} = ${m.values[i + 1]}`).join(", ");
+    return {
+      prompt: `A function machine has the rule: ${y7ruleText(m.list)}. The input is ${m.input}. What is the output?`,
+      answer: `${m.output} (${working})`,
+    };
+  },
+};
+SUBTOPIC_BANK["function-machine-input"] = {
+  topic: "Function Machines", title: "Work backwards to find the input", marks: 2,
+  build(rng) {
+    const m = y7Machine(rng, pick(rng, [1, 2, 2]));
+    const inv = { "+": "−", "−": "+", "×": "÷", "÷": "×" };
+    const steps = [];
+    for (let i = m.list.length - 1; i >= 0; i--) steps.push(`${m.values[i + 1]} ${inv[m.list[i].op]} ${m.list[i].k} = ${m.values[i]}`);
+    return {
+      prompt: `A function machine has the rule: ${y7ruleText(m.list)}. The output is ${m.output}. What was the input?`,
+      answer: `${m.input} (work backwards: ${steps.join(", ")})`,
+    };
+  },
+};
+SUBTOPIC_BANK["function-machine-expression"] = {
+  topic: "Function Machines", title: "Write the output of a function machine as an expression", marks: 2,
+  build(rng) {
+    const v = pick(rng, ["n", "x", "a"]);
+    const kind = pick(rng, ["mult", "add", "multAdd", "multSub", "addMult"]);
+    const k = seededInt(rng, 2, 9), c = seededInt(rng, 1, 9);
+    let rule, expr;
+    if (kind === "mult") { rule = `× ${k}`; expr = `${k}${v}`; }
+    else if (kind === "add") { rule = `+ ${c}`; expr = `${v} + ${c}`; }
+    else if (kind === "multAdd") { rule = `× ${k}, then + ${c}`; expr = `${k}${v} + ${c}`; }
+    else if (kind === "multSub") { rule = `× ${k}, then − ${c}`; expr = `${k}${v} − ${c}`; }
+    else { rule = `+ ${c}, then × ${k}`; expr = `${k}(${v} + ${c})`; }
+    return {
+      prompt: `The input to a function machine is ${v}. The machine does: ${rule}. Write an expression for the output.`,
+      answer: expr,
+    };
+  },
+};
+SUBTOPIC_BANK["function-machine-find-operation"] = {
+  topic: "Function Machines", title: "Find the missing step in a two-step function machine", marks: 2,
+  build(rng) {
+    const x = seededInt(rng, 2, 9), a = seededInt(rng, 2, 6), b = seededInt(rng, 1, 9);
+    const plus = rng() < 0.6;
+    const mid = x * a;
+    const out = plus ? mid + b : mid - b;
+    return {
+      prompt: `A function machine multiplies the input by ${a}, then does one more step. When the input is ${x} the output is ${out}. What is the second step?`,
+      answer: `${x} × ${a} = ${mid}, and ${mid} to ${out} is ${plus ? "+" : "−"} ${b}. The second step is ${plus ? "add" : "subtract"} ${b}.`,
+    };
+  },
+};
+
+/* --- Algebra: equality, equivalence and one-step equations --- */
+SUBTOPIC_BANK["solve-one-step-equation"] = {
+  topic: "Linear Equations", title: "Solve a one-step equation", marks: 1,
+  build(rng) {
+    const v = pick(rng, ["x", "y", "n", "a"]);
+    const kind = pick(rng, ["add", "sub", "mult", "div"]);
+    const val = seededInt(rng, 2, 15), k = seededInt(rng, 2, 9);
+    if (kind === "add") return { prompt: `Solve ${v} + ${k} = ${val + k}`, answer: `${v} = ${val + k} − ${k} = ${val}` };
+    if (kind === "sub") return { prompt: `Solve ${v} − ${k} = ${val}`, answer: `${v} = ${val} + ${k} = ${val + k}` };
+    if (kind === "mult") return { prompt: `Solve ${k}${v} = ${k * val}`, answer: `${v} = ${k * val} ÷ ${k} = ${val}` };
+    return { prompt: `Solve ${v} ÷ ${k} = ${val}`, answer: `${v} = ${val} × ${k} = ${val * k}` };
+  },
+};
+SUBTOPIC_BANK["like-terms-identify"] = {
+  topic: "Algebraic Expressions", title: "Identify like terms", marks: 2,
+  build(rng) {
+    const v = pick(rng, ["x", "y", "a", "p"]);
+    const w = pick(rng, ["b", "m", "t"]);
+    const coef = () => seededInt(rng, 2, 9);
+    const base = `${coef()}${v}`;
+    const likeCount = pick(rng, [2, 3]);
+    const likes = [];
+    const used = new Set();
+    while (likes.length < likeCount) {
+      const c = coef();
+      if (used.has(c)) continue;
+      used.add(c);
+      likes.push(rng() < 0.25 ? `−${c}${v}` : `${c}${v}`);
+    }
+    const unlikePool = [`${coef()}${w}`, `${coef()}${v}²`, `${coef()}${v}${w}`, `${coef()}`, `${coef()}${w}²`];
+    const unlikes = y7shuffle(rng, unlikePool).slice(0, 5 - likeCount + 1);
+    const all = y7shuffle(rng, likes.concat(unlikes));
+    return {
+      prompt: `Which of these are like terms with ${base}?  ${all.join("   ")}`,
+      answer: `${likes.join(", ")} (they all contain exactly ${v}, with no other letters or powers)`,
+    };
+  },
+};
+SUBTOPIC_BANK["equivalent-expression-choose"] = {
+  topic: "Algebraic Expressions", title: "Choose an equivalent expression", marks: 1,
+  build(rng) {
+    let a, b;
+    do { a = seededInt(rng, 2, 6); b = seededInt(rng, 2, 9); } while (a === b || a * b === a + b || a * b === b);
+    const v = pick(rng, ["x", "n", "y"]);
+    const correct = `${a}${v} + ${a * b}`;
+    const wrong = [`${a}${v} + ${b}`, `${a + b}${v}`, `${a}${v} + ${a + b}`];
+    const opts = y7shuffle(rng, [correct].concat(wrong));
+    const letters = ["A", "B", "C", "D"];
+    return {
+      prompt: `Which expression is equivalent to ${a}(${v} + ${b})?   ${opts.map((o, i) => `${letters[i]}: ${o}`).join("   ")}`,
+      answer: `${letters[opts.indexOf(correct)]}: ${correct} (multiply both ${v} and ${b} by ${a})`,
+    };
+  },
+};
+
+/* --- Number: place value, number lines and rounding --- */
+SUBTOPIC_BANK["place-value-write-in-words"] = {
+  topic: "Place Value", title: "Write a number in words or digits", marks: 1,
+  build(rng) {
+    const len = pick(rng, [5, 6, 7]);
+    let s = String(seededInt(rng, 1, 9));
+    for (let i = 1; i < len; i++) s += rng() < 0.3 ? "0" : String(seededInt(rng, 0, 9));
+    const n = Number(s);
+    if (rng() < 0.5) return { prompt: `Write ${y7comma(n)} in words.`, answer: y7Words(n) };
+    return { prompt: `Write "${y7Words(n)}" in digits.`, answer: y7comma(n) };
+  },
+};
+SUBTOPIC_BANK["number-line-interval-value"] = {
+  topic: "Place Value", title: "Read a value from a number line", marks: 2,
+  build(rng) {
+    const s = pick(rng, [0.1, 0.2, 0.5, 2, 5, 10, 20, 25]);
+    const k = pick(rng, [4, 5, 8, 10]);
+    const L = Math.round(s * seededInt(rng, 2, 9) * 100) / 100;
+    const U = Math.round((L + k * s) * 100) / 100;
+    const m = seededInt(rng, 1, k - 1);
+    const val = Math.round((L + m * s) * 100) / 100;
+    return {
+      prompt: `A number line runs from ${y7num(L)} to ${y7num(U)} and is split into ${k} equal intervals. An arrow points exactly ${m} interval${m === 1 ? "" : "s"} from ${y7num(L)}. What number does the arrow point to?`,
+      answer: `Each interval is (${y7num(U)} − ${y7num(L)}) ÷ ${k} = ${y7num(s)}. ${y7num(L)} + ${m} × ${y7num(s)} = ${y7num(val)}`,
+    };
+  },
+};
+SUBTOPIC_BANK["round-nearest-power-of-ten"] = {
+  topic: "Rounding", title: "Round to the nearest 10, 100 or 1000", marks: 1,
+  build(rng) {
+    const p = pick(rng, [10, 100, 1000]);
+    const n = seededInt(rng, p * 3 + 1, p * 40 + 9);
+    const name = p === 10 ? "10" : p === 100 ? "100" : "1000";
+    return {
+      prompt: `Round ${y7comma(n)} to the nearest ${name}.`,
+      answer: y7comma(Math.round(n / p) * p),
+    };
+  },
+};
+SUBTOPIC_BANK["estimate-over-under"] = {
+  topic: "Estimation", title: "Estimate, then say if it is an over- or under-estimate", marks: 2,
+  build(rng) {
+    const r1 = (x) => Number(x.toPrecision(1));
+    const pool = [2.6, 3.4, 4.7, 5.2, 6.8, 7.3, 8.4, 12.7, 38, 19, 62, 47, 3.7, 6.2, 8.9];
+    for (let tries = 0; tries < 60; tries++) {
+      const a = pick(rng, pool), b = pick(rng, pool);
+      if (a === b) continue;
+      const div = rng() < 0.3;
+      const ea = r1(a), eb = r1(b);
+      if (div && (a < b || !Number.isInteger(ea / eb))) continue;
+      const est = div ? ea / eb : ea * eb;
+      const exact = div ? a / b : a * b;
+      if (Math.abs(est - exact) < 1e-9) continue;
+      const over = est > exact;
+      return {
+        prompt: `Estimate ${a} ${div ? "÷" : "×"} ${b} by rounding each number to 1 significant figure. Is your estimate an overestimate or an underestimate?`,
+        answer: `${ea} ${div ? "÷" : "×"} ${eb} = ${est}. The exact answer is ${Math.round(exact * 100) / 100}, so it is an ${over ? "overestimate" : "underestimate"}.`,
+      };
+    }
+    return { prompt: "Estimate 3.7 × 6.2 by rounding each number to 1 significant figure. Is your estimate an overestimate or an underestimate?", answer: "4 × 6 = 24. The exact answer is 22.94, so it is an overestimate." };
+  },
+};
+
+/* --- Number: four operations --- */
+SUBTOPIC_BANK["multiply-divide-by-powers-of-10"] = {
+  topic: "Decimals", title: "Multiply and divide by 10, 100 and 1000", marks: 1,
+  build(rng) {
+    const base = pick(rng, [() => seededInt(rng, 3, 999), () => seededInt(rng, 11, 999) / 10, () => seededInt(rng, 101, 999) / 100]);
+    const a = base();
+    const p = pick(rng, [10, 100, 1000]);
+    const times = rng() < 0.5;
+    const res = times ? a * p : a / p;
+    return { prompt: `Work out ${y7num(a)} ${times ? "×" : "÷"} ${p}`, answer: y7num(res) };
+  },
+};
+SUBTOPIC_BANK["multiply-divide-by-0.1-0.01"] = {
+  topic: "Decimals", title: "Multiply and divide by 0.1 and 0.01", marks: 1,
+  build(rng) {
+    const a = pick(rng, [3, 7, 12, 45, 60, 0.5, 2.4, 8.5, 36, 9]);
+    const dv = pick(rng, [0.1, 0.01]);
+    const times = rng() < 0.5;
+    const res = times ? a * dv : a / dv;
+    const p = dv === 0.1 ? 10 : 100;
+    return {
+      prompt: `Work out ${y7num(a)} ${times ? "×" : "÷"} ${dv}`,
+      answer: `${y7num(res)} (${times ? "multiplying" : "dividing"} by ${dv} is the same as ${times ? "dividing" : "multiplying"} by ${p})`,
+    };
+  },
+};
+SUBTOPIC_BANK["divide-integer-written"] = {
+  topic: "Written Methods", title: "Divide integers using a written method", marks: 2,
+  build(rng) {
+    const b = seededInt(rng, 3, 15);
+    const q = seededInt(rng, 12, 99);
+    return { prompt: `Work out ${b * q} ÷ ${b}`, answer: String(q) };
+  },
+};
+SUBTOPIC_BANK["decimal-divide-by-integer"] = {
+  topic: "Decimals", title: "Divide a decimal by an integer", marks: 2,
+  build(rng) {
+    const b = seededInt(rng, 2, 9);
+    const dp = pick(rng, [1, 2]);
+    const q = seededInt(rng, 12, 99) / 10 ** dp;
+    const dividend = Math.round(q * b * 100) / 100;
+    return { prompt: `Work out ${y7num(dividend)} ÷ ${b}`, answer: y7num(q) };
+  },
+};
+
+/* --- Statistics --- */
+SUBTOPIC_BANK["averages-four-measures"] = {
+  topic: "Averages & Range", title: "Find the mode, median, mean and range", marks: 4,
+  build(rng) {
+    let data = null;
+    for (let tries = 0; tries < 300 && !data; tries++) {
+      const m = seededInt(rng, 2, 9);
+      const set = [m, m];
+      while (set.length < 7) {
+        const v = seededInt(rng, 1, 15);
+        if (v !== m && !set.includes(v)) set.push(v);
+      }
+      if (set.reduce((s, v) => s + v, 0) % 7 === 0) data = { m, list: y7shuffle(rng, set) };
+    }
+    if (!data) data = { m: 4, list: [4, 9, 2, 4, 7, 11, 5] };
+    const sorted = data.list.slice().sort((x, y) => x - y);
+    const mean = data.list.reduce((s, v) => s + v, 0) / 7;
+    return {
+      prompt: `Here are seven numbers: ${data.list.join(", ")}. Work out the mode, median, mean and range.`,
+      answer: `Mode ${data.m}; median ${sorted[3]} (ordered: ${sorted.join(", ")}); mean ${mean}; range ${sorted[6]} − ${sorted[0]} = ${sorted[6] - sorted[0]}`,
+    };
+  },
+};
+SUBTOPIC_BANK["pie-chart-angle-from-frequency"] = {
+  topic: "Pie Charts", title: "Work out the angle for a pie chart sector", marks: 2,
+  build(rng) {
+    const total = pick(rng, [20, 24, 30, 36, 40, 45, 60, 72, 90, 120]);
+    const f = seededInt(rng, 1, Math.min(total - 1, 15));
+    const sport = pick(rng, ["football", "netball", "swimming", "tennis", "gymnastics"]);
+    const per = 360 / total;
+    return {
+      prompt: `${total} pupils are asked for their favourite sport. ${f} of them choose ${sport}. What angle should be used for ${sport} on a pie chart?`,
+      answer: `360 ÷ ${total} = ${per}° for each pupil, so ${f} × ${per} = ${f * per}°`,
+    };
+  },
+};
+
+/* --- Fractions, decimals and percentages --- */
+const Y7_FDP_POOL = [[1, 2], [1, 4], [3, 4], [1, 5], [2, 5], [3, 5], [4, 5], [1, 10], [3, 10], [7, 10], [9, 10], [1, 8], [3, 8], [5, 8], [7, 8], [1, 20], [3, 20], [7, 20], [9, 20], [17, 20], [1, 25], [3, 25], [7, 25], [1, 50], [3, 50]];
+SUBTOPIC_BANK["fdp-convert-fraction-decimal-percentage"] = {
+  topic: "Fractions, Decimals & Percentages", title: "Convert between fractions, decimals and percentages", marks: 2,
+  build(rng) {
+    const [n, d] = pick(rng, Y7_FDP_POOL);
+    const dec = n / d;
+    const pct = Math.round(dec * 1e6) / 1e4;
+    const mode = pick(rng, ["fraction", "decimal", "percentage"]);
+    if (mode === "fraction") {
+      return {
+        prompt: <>Write <Frac n={n} d={d} /> as a decimal and as a percentage.</>,
+        answer: <>{n} ÷ {d} = {y7num(dec)} = {y7num(pct)}%</>,
+      };
+    }
+    if (mode === "decimal") {
+      return {
+        prompt: <>Write {y7num(dec)} as a fraction in its simplest form and as a percentage.</>,
+        answer: <><Frac n={n} d={d} /> and {y7num(pct)}%</>,
+      };
+    }
+    return {
+      prompt: <>Write {y7num(pct)}% as a fraction in its simplest form and as a decimal.</>,
+      answer: <><Frac n={n} d={d} /> and {y7num(dec)}</>,
+    };
+  },
+};
+SUBTOPIC_BANK["equivalent-fraction-missing"] = {
+  topic: "Fractions", title: "Find a missing number in equivalent fractions", marks: 1,
+  build(rng) {
+    let n, d;
+    do { d = seededInt(rng, 3, 12); n = seededInt(rng, 1, d - 1); } while (gcd(n, d) !== 1);
+    const k = seededInt(rng, 2, 9);
+    if (rng() < 0.5) {
+      return {
+        prompt: <><Frac n={n} d={d} /> = <Frac n="?" d={d * k} /> Find the missing numerator.</>,
+        answer: <>{n} × {k} = {n * k}</>,
+      };
+    }
+    return {
+      prompt: <><Frac n={n} d={d} /> = <Frac n={n * k} d="?" /> Find the missing denominator.</>,
+      answer: <>{d} × {k} = {d * k}</>,
+    };
+  },
+};
+SUBTOPIC_BANK["fraction-as-division"] = {
+  topic: "Fractions, Decimals & Percentages", title: "Write a division as a fraction and a decimal", marks: 2,
+  build(rng) {
+    const d = pick(rng, [2, 4, 5, 8, 10, 20, 25]);
+    const n = seededInt(rng, 1, d * 2);
+    if (n % d === 0) return this.build(rng);
+    return {
+      prompt: <>Write {n} ÷ {d} as a fraction, then as a decimal.</>,
+      answer: <><Frac n={n} d={d} /> = {y7num(n / d)}</>,
+    };
+  },
+};
+
+/* --- Directed number --- */
+SUBTOPIC_BANK["neg-add-subtract"] = {
+  topic: "Negative Numbers", title: "Add and subtract directed numbers", marks: 1,
+  build(rng) {
+    const kind = pick(rng, ["addNeg", "subNeg", "negAdd", "negSub", "subPos"]);
+    const p = seededInt(rng, 1, 12), q = seededInt(rng, 1, 12);
+    if (kind === "addNeg") return { prompt: `Work out ${p} + (${y7sgn(-q)})`, answer: `${y7sgn(p - q)} (adding a negative is the same as subtracting)` };
+    if (kind === "subNeg") return { prompt: `Work out ${p} − (${y7sgn(-q)})`, answer: `${y7sgn(p + q)} (subtracting a negative is the same as adding)` };
+    if (kind === "negAdd") return { prompt: `Work out ${y7sgn(-p)} + ${q}`, answer: y7sgn(q - p) };
+    if (kind === "negSub") return { prompt: `Work out ${y7sgn(-p)} − ${q}`, answer: y7sgn(-p - q) };
+    return { prompt: `Work out ${y7sgn(-p)} − (${y7sgn(-q)})`, answer: `${y7sgn(q - p)} (subtracting a negative is the same as adding)` };
+  },
+};
+SUBTOPIC_BANK["neg-missing-number"] = {
+  topic: "Negative Numbers", title: "Find the missing directed number", marks: 1,
+  build(rng) {
+    const a = seededInt(rng, -9, 9);
+    let c;
+    do { c = seededInt(rng, -9, 9); } while (c === a);
+    const form = pick(rng, [0, 1, 2]);
+    if (form === 0) return { prompt: `Find the missing number: ${y7sgn(a)} + □ = ${y7sgn(c)}`, answer: `${y7sgn(c - a)}` };
+    if (form === 1) return { prompt: `Find the missing number: □ + ${y7par(a)} = ${y7sgn(c)}`, answer: `${y7sgn(c - a)}` };
+    return { prompt: `Find the missing number: ${y7sgn(a)} − □ = ${y7sgn(c)}`, answer: `${y7sgn(a - c)}` };
+  },
+};
+SUBTOPIC_BANK["neg-bidmas"] = {
+  topic: "Negative Numbers", title: "Use the order of operations with directed numbers", marks: 2,
+  build(rng) {
+    const t = pick(rng, [1, 2, 3]);
+    if (t === 1) {
+      const a = pick(rng, [-5, -4, -3, -2, 2, 3, 4, 5]);
+      let b, c;
+      do { b = seededInt(rng, -6, 8); c = seededInt(rng, -6, 8); } while (b === c);
+      return { prompt: `Work out ${y7sgn(a)} × (${y7sgn(b)} − ${y7par(c)})`, answer: `${y7sgn(a)} × ${y7sgn(b - c)} = ${y7sgn(a * (b - c))}` };
+    }
+    if (t === 2) {
+      const a = seededInt(rng, -9, 9);
+      const b = seededInt(rng, -6, -2), c = seededInt(rng, 2, 6);
+      return { prompt: `Work out ${y7sgn(a)} + ${y7par(b)} × ${c}`, answer: `${y7par(b)} × ${c} = ${y7sgn(b * c)}, then ${y7sgn(a)} + ${y7par(b * c)} = ${y7sgn(a + b * c)}` };
+    }
+    const c = seededInt(rng, 2, 4), q = seededInt(rng, -6, 6), b = seededInt(rng, -8, 8);
+    const a = q * c + b;
+    return { prompt: `Work out (${y7sgn(a)} − ${y7par(b)}) ÷ ${c}`, answer: `${y7sgn(a - b)} ÷ ${c} = ${y7sgn(q)}` };
+  },
+};
+
+/* --- Fractions and percentages of amounts --- */
+SUBTOPIC_BANK["fraction-find-whole"] = {
+  topic: "Fractions", title: "Find the whole from a fraction of it", marks: 2,
+  build(rng) {
+    const d = seededInt(rng, 3, 9);
+    const n = seededInt(rng, 1, Math.min(4, d - 1));
+    const k = seededInt(rng, 2, 12);
+    return {
+      prompt: <><Frac n={n} d={d} /> of a number is {n * k}. What is the number?</>,
+      answer: <>{n * k} ÷ {n} = {k}, then {k} × {d} = {d * k}</>,
+    };
+  },
+};
+SUBTOPIC_BANK["percent-of-amount-mental"] = {
+  topic: "Percentages", title: "Find a percentage of an amount without a calculator", marks: 1,
+  build(rng) {
+    const p = pick(rng, [10, 5, 20, 25, 50, 15, 30, 40, 75]);
+    const amt = seededInt(rng, 1, 20) * 20;
+    const unit = pick(rng, ["", "£", "£"]);
+    const val = (amt * p) / 100;
+    const hint = {
+      10: "divide by 10", 5: "10% is " + amt / 10 + ", so 5% is half of that", 20: "divide by 10, then double", 25: "divide by 4", 50: "halve it",
+      15: "10% + 5%", 30: "find 10%, then multiply by 3", 40: "find 10%, then multiply by 4", 75: "find 25%, then multiply by 3",
+    }[p];
+    return { prompt: `Work out ${p}% of ${unit}${amt}`, answer: `${unit}${y7num(val)} (${hint})` };
+  },
+};
+SUBTOPIC_BANK["percent-increase-decrease"] = {
+  topic: "Percentages", title: "Increase or decrease an amount by a percentage", marks: 2,
+  build(rng) {
+    const p = pick(rng, [5, 10, 15, 20, 25, 30, 40, 50]);
+    const amt = seededInt(rng, 2, 20) * 20;
+    const up = rng() < 0.5;
+    const change = (amt * p) / 100;
+    const res = up ? amt + change : amt - change;
+    const item = pick(rng, ["jacket", "bike", "games console", "pair of trainers", "coat"]);
+    return {
+      prompt: up
+        ? `A ${item} costs £${amt}. The price goes up by ${p}%. Work out the new price.`
+        : `A ${item} costs £${amt}. In a sale the price is reduced by ${p}%. Work out the sale price.`,
+      answer: `${p}% of £${amt} = £${y7num(change)}; £${amt} ${up ? "+" : "−"} £${y7num(change)} = £${y7num(res)}`,
+    };
+  },
+};
+SUBTOPIC_BANK["percent-above-100"] = {
+  topic: "Percentages", title: "Find a percentage greater than 100% of an amount", marks: 1,
+  build(rng) {
+    const p = pick(rng, [110, 120, 125, 150, 175, 200, 250]);
+    const amt = seededInt(rng, 1, 15) * 20;
+    return {
+      prompt: `Work out ${p}% of ${amt}`,
+      answer: `${y7num((amt * p) / 100)} (100% is ${amt} and ${p - 100}% is ${y7num((amt * (p - 100)) / 100)})`,
+    };
+  },
+};
+SUBTOPIC_BANK["percent-find-whole"] = {
+  topic: "Percentages", title: "Use a percentage to find the whole", marks: 2,
+  build(rng) {
+    const p = pick(rng, [5, 10, 20, 25, 30, 40, 50, 60, 75, 80]);
+    const whole = seededInt(rng, 2, 20) * 20;
+    const part = (whole * p) / 100;
+    return {
+      prompt: `${p}% of a number is ${y7num(part)}. Work out the number.`,
+      answer: `${p}% = ${y7num(part)}, so 1% = ${y7num(part / p)} and 100% = ${whole}`,
+    };
+  },
+};
+
+/* --- Perimeter and area --- */
+SUBTOPIC_BANK["perimeter-polygon-calc"] = {
+  topic: "Perimeter & Area", title: "Work out a perimeter", marks: 2,
+  build(rng) {
+    const kind = pick(rng, ["regular", "rectangle", "irregular"]);
+    if (kind === "regular") {
+      const n = pick(rng, [5, 6, 8]);
+      const name = { 5: "pentagon", 6: "hexagon", 8: "octagon" }[n];
+      const s = seededInt(rng, 3, 12);
+      return { prompt: `A regular ${name} has sides of length ${s} cm. Work out its perimeter.`, answer: `${n} × ${s} = ${n * s} cm` };
+    }
+    if (kind === "rectangle") {
+      const l = seededInt(rng, 6, 15), w = seededInt(rng, 3, l - 1);
+      return { prompt: `A rectangle has length ${l} cm and perimeter ${2 * (l + w)} cm. Work out its width.`, answer: `${2 * (l + w)} ÷ 2 = ${l + w}, so the width is ${l + w} − ${l} = ${w} cm` };
+    }
+    const sides = [seededInt(rng, 4, 12), seededInt(rng, 4, 12), seededInt(rng, 4, 12), seededInt(rng, 4, 12)];
+    return { prompt: `A quadrilateral has sides of length ${sides.join(" cm, ")} cm. Work out its perimeter.`, answer: `${sides.join(" + ")} = ${sides.reduce((s, v) => s + v, 0)} cm` };
+  },
+};
+SUBTOPIC_BANK["area-parallelogram"] = {
+  topic: "Perimeter & Area", title: "Area of a parallelogram", marks: 2,
+  build(rng) {
+    const b = seededInt(rng, 5, 15), h = seededInt(rng, 3, 12), s = h + seededInt(rng, 1, 4);
+    return {
+      prompt: `A parallelogram has a base of ${b} cm, a slanted side of ${s} cm and a perpendicular height of ${h} cm. Work out its area.`,
+      answer: `${b} × ${h} = ${b * h} cm² (use the perpendicular height, not the slanted side)`,
+    };
+  },
+};
+SUBTOPIC_BANK["area-triangle-base-height"] = {
+  topic: "Perimeter & Area", title: "Area of a triangle", marks: 2,
+  build(rng) {
+    let b, h;
+    do { b = seededInt(rng, 4, 16); h = seededInt(rng, 3, 12); } while ((b * h) % 2 !== 0);
+    const s = h + seededInt(rng, 1, 4);
+    return {
+      prompt: `A triangle has a base of ${b} cm, a slanted side of ${s} cm and a perpendicular height of ${h} cm. Work out its area.`,
+      answer: `½ × ${b} × ${h} = ${(b * h) / 2} cm²`,
+    };
+  },
+};
+SUBTOPIC_BANK["area-trapezium"] = {
+  topic: "Perimeter & Area", title: "Area of a trapezium", marks: 2,
+  build(rng) {
+    let a, b, h;
+    do { a = seededInt(rng, 3, 10); b = seededInt(rng, a + 1, 16); h = seededInt(rng, 3, 10); } while (((a + b) * h) % 2 !== 0);
+    return {
+      prompt: `A trapezium has parallel sides of ${a} cm and ${b} cm. The perpendicular distance between them is ${h} cm. Work out its area.`,
+      answer: `½ × (${a} + ${b}) × ${h} = ${((a + b) * h) / 2} cm²`,
+    };
+  },
+};
+
+/* --- Speed, distance and time --- */
+SUBTOPIC_BANK["time-units-convert"] = {
+  topic: "Time", title: "Convert between units of time", marks: 1,
+  build(rng) {
+    const kind = pick(rng, ["h2m", "m2hm", "hm2m", "s2ms", "m2h"]);
+    if (kind === "h2m") { const h = pick(rng, [1.5, 2.5, 3.5, 0.5, 2.25, 1.75, 4.5]); return { prompt: `Convert ${h} hours to minutes.`, answer: `${h * 60} minutes` }; }
+    if (kind === "m2hm") { const m = pick(rng, [75, 95, 130, 145, 200, 250, 85]); return { prompt: `Write ${m} minutes in hours and minutes.`, answer: y7hm(m / 60) }; }
+    if (kind === "hm2m") { const h = seededInt(rng, 1, 4), m = pick(rng, [10, 15, 20, 25, 40, 45]); return { prompt: `Convert ${h} hour${h === 1 ? "" : "s"} ${m} minutes to minutes.`, answer: `${h * 60 + m} minutes` }; }
+    if (kind === "s2ms") { const s = pick(rng, [90, 150, 210, 270, 330, 400]); return { prompt: `Write ${s} seconds in minutes and seconds.`, answer: `${Math.floor(s / 60)} minutes ${s % 60} seconds` }; }
+    const m = pick(rng, [15, 30, 45, 20, 40, 12]);
+    return { prompt: `Write ${m} minutes as a fraction of an hour in its simplest form.`, answer: `${m}/60 = ${m / gcd(m, 60)}/${60 / gcd(m, 60)} of an hour` };
+  },
+};
+SUBTOPIC_BANK["speed-calc"] = {
+  topic: "Speed, Distance & Time", title: "Calculate a speed", marks: 2,
+  build(rng) {
+    if (rng() < 0.7) {
+      const s = pick(rng, [12, 15, 20, 24, 30, 36, 40, 45, 48, 50, 60, 64, 72]);
+      const t = seededInt(rng, 2, 6);
+      const v = pick(rng, ["car", "coach", "train", "lorry"]);
+      return { prompt: `A ${v} travels ${s * t} km in ${t} hours. Work out its average speed in km/h.`, answer: `speed = distance ÷ time = ${s * t} ÷ ${t} = ${s} km/h` };
+    }
+    const s = seededInt(rng, 3, 12), t = seededInt(rng, 4, 12);
+    return { prompt: `A cyclist travels ${s * t} metres in ${t} seconds. Work out the speed in m/s.`, answer: `${s * t} ÷ ${t} = ${s} m/s` };
+  },
+};
+SUBTOPIC_BANK["distance-calc"] = {
+  topic: "Speed, Distance & Time", title: "Calculate a distance", marks: 2,
+  build(rng) {
+    const s = pick(rng, [20, 24, 32, 40, 48, 60, 64, 72, 80]);
+    const t = pick(rng, [0.5, 1.5, 2, 2.5, 3, 0.75, 1.25, 4]);
+    return {
+      prompt: `A train travels at an average speed of ${s} km/h for ${y7hm(t)}. How far does it travel?`,
+      answer: `distance = speed × time = ${s} × ${y7num(t)} = ${y7num(s * t)} km`,
+    };
+  },
+};
+SUBTOPIC_BANK["time-calc"] = {
+  topic: "Speed, Distance & Time", title: "Calculate a time", marks: 2,
+  build(rng) {
+    const s = pick(rng, [20, 24, 32, 40, 48, 60, 64, 72, 80]);
+    const t = pick(rng, [0.5, 1.5, 2, 2.5, 3, 0.75, 1.25, 4]);
+    return {
+      prompt: `A coach travels ${y7num(s * t)} km at an average speed of ${s} km/h. How long does the journey take? Give your answer in hours and minutes.`,
+      answer: `time = distance ÷ speed = ${y7num(s * t)} ÷ ${s} = ${y7num(t)} hours${Number.isInteger(t) ? "" : " = " + y7hm(t)}`,
+    };
+  },
+};
+
+/* --- Properties of number --- */
+SUBTOPIC_BANK["roots-evaluate"] = {
+  topic: "Number Properties", title: "Work out squares, cubes, square roots and cube roots", marks: 1,
+  build(rng) {
+    const kind = pick(rng, ["sq", "cube", "sqrt", "cbrt"]);
+    if (kind === "sq") { const n = seededInt(rng, 2, 15); return { prompt: `Work out ${n}²`, answer: String(n * n) }; }
+    if (kind === "cube") { const n = seededInt(rng, 2, 10); return { prompt: `Work out ${n}³`, answer: String(n ** 3) }; }
+    if (kind === "sqrt") { const n = seededInt(rng, 2, 15); return { prompt: `Work out √${n * n}`, answer: String(n) }; }
+    const n = seededInt(rng, 2, 10);
+    return { prompt: `Work out ∛${n ** 3}`, answer: String(n) };
+  },
+};
+SUBTOPIC_BANK["triangular-numbers"] = {
+  topic: "Number Properties", title: "Triangular numbers", marks: 1,
+  build(rng) {
+    const tri = (n) => (n * (n + 1)) / 2;
+    const kind = pick(rng, ["list", "nth", "is"]);
+    if (kind === "list") {
+      const k = seededInt(rng, 5, 8);
+      return { prompt: `Write down the first ${k} triangular numbers.`, answer: Array.from({ length: k }, (_, i) => tri(i + 1)).join(", ") };
+    }
+    if (kind === "nth") {
+      const n = seededInt(rng, 6, 12);
+      return { prompt: `What is the ${n}th triangular number?`, answer: `1 + 2 + ... + ${n} = ${tri(n)}` };
+    }
+    const isTri = rng() < 0.5;
+    const n = seededInt(rng, 5, 11);
+    const v = isTri ? tri(n) : tri(n) + pick(rng, [1, 2]);
+    return { prompt: `Is ${v} a triangular number? Give a reason.`, answer: isTri ? `Yes: ${v} is the ${n}th triangular number (1 + 2 + ... + ${n}).` : `No: the triangular numbers near ${v} are ${tri(n)} and ${tri(n + 1)}.` };
+  },
+};
+
+/* --- Angles and polygons --- */
+SUBTOPIC_BANK["angle-type-name"] = {
+  topic: "Angles", title: "Name the type of angle", marks: 1,
+  build(rng) {
+    const kind = pick(rng, ["acute", "acute", "right", "obtuse", "obtuse", "straight", "reflex", "reflex"]);
+    let a;
+    if (kind === "acute") a = seededInt(rng, 10, 89);
+    else if (kind === "right") a = 90;
+    else if (kind === "obtuse") a = seededInt(rng, 91, 179);
+    else if (kind === "straight") a = 180;
+    else a = seededInt(rng, 181, 359);
+    return {
+      prompt: `Is an angle of ${a}° acute, a right angle, obtuse, a straight line or reflex?`,
+      answer: kind === "right" ? "A right angle (exactly 90°)" : kind === "straight" ? "A straight line (exactly 180°)" : kind,
+    };
+  },
+};
+SUBTOPIC_BANK["triangle-classify"] = {
+  topic: "Properties of Shapes", title: "Classify a triangle from its angles", marks: 2,
+  build(rng) {
+    const sets = [
+      [[50, 50, 80], "isosceles (two equal angles)", "acute-angled (all angles are less than 90°)"],
+      [[60, 60, 60], "equilateral (three equal angles)", "acute-angled (all angles are less than 90°)"],
+      [[90, 45, 45], "isosceles (two equal angles)", "right-angled (one angle is 90°)"],
+      [[90, 30, 60], "scalene (all angles different)", "right-angled (one angle is 90°)"],
+      [[30, 30, 120], "isosceles (two equal angles)", "obtuse-angled (one angle is more than 90°)"],
+      [[20, 40, 120], "scalene (all angles different)", "obtuse-angled (one angle is more than 90°)"],
+      [[50, 60, 70], "scalene (all angles different)", "acute-angled (all angles are less than 90°)"],
+    ];
+    const [angles, byAngle, byType] = pick(rng, sets);
+    const shown = y7shuffle(rng, angles);
+    return {
+      prompt: `A triangle has angles of ${shown[0]}°, ${shown[1]}° and ${shown[2]}°. Give two names that describe this triangle.`,
+      answer: `${byAngle[0].toUpperCase() + byAngle.slice(1)} and ${byType}`,
+    };
+  },
+};
+
 /* ---------- full GCSE spec tree (Edexcel Higher + Foundation, via Dr Frost's
    skill breakdown), grouped Strand → Domain → Group in the style of Mr Barton
    Maths's Ultimate Retrieval Tool, so teachers can see every topic that
@@ -6857,7 +7744,7 @@ const FULL_SPEC = {
   },
   "Algebra": {
     "Algebraic Fractions": ["Adding & Subtracting Algebraic Fractions", "Multiplying & Dividing Algebraic Fractions", "Simplifying Algebraic Fractions"],
-    "Introduction to Algebra": ["Algebraic Notation", "Collecting Like Terms & Simplifying", "Substitution"],
+    "Introduction to Algebra": ["Algebraic Notation", "Collecting Like Terms & Simplifying", "Substitution", "Function Machines"],
     "Algebraic Proof": ["Algebraic Proof"],
     "Formulae": ["Rearranging Formulae"],
     "Quadratic & Other Graphs": ["Advanced Graph Skills", "Quadratic Graphs", "Other Graph Types"],
@@ -6867,7 +7754,7 @@ const FULL_SPEC = {
     "Indices, Roots & Surds": ["Laws of Indices"],
     "Straight-Line Graphs": ["Parallel & Perpendicular", "Gradient & Equation"],
     "Other Equations": ["Iteration", "Simultaneous Equations"],
-    "Sequences": ["Position-to-Term (nth Term)", "Arithmetic Series"],
+    "Sequences": ["Position-to-Term (nth Term)", "Arithmetic Series", "Continuing & Describing Sequences"],
     "Linear Equations": ["Forming Equations", "Solving Linear Equations"],
     "Quadratic Equations": ["Completing the Square", "Solving Quadratics"],
   },
@@ -7284,7 +8171,53 @@ const SUBTOPIC_TO_SPEC = {
   "solve-equation-negative-coefficient": "Algebra → Linear Equations → Solving Linear Equations",
   "completing-square-non-monic": "Algebra → Quadratic Equations → Completing the Square",
   "solve-quadratic-square-rooting": "Algebra → Quadratic Equations → Solving Quadratics",
-  "solve-quadratic-word-problem": "Algebra → Quadratic Equations → Solving Quadratics",
+  "solve-quadratic-word-problem": "Algebra → Quadratic Equations → Solving Quadratics",  /* --- Year 7 build-out --- */
+  "seq-continue-linear": "Algebra → Sequences → Continuing & Describing Sequences",
+  "seq-term-to-term-rule": "Algebra → Sequences → Continuing & Describing Sequences",
+  "seq-linear-or-not": "Algebra → Sequences → Continuing & Describing Sequences",
+  "seq-predict-pattern-term": "Algebra → Sequences → Continuing & Describing Sequences",
+  "seq-missing-terms-linear": "Algebra → Sequences → Continuing & Describing Sequences",
+  "seq-geometric-next": "Algebra → Sequences → Continuing & Describing Sequences",
+  "function-machine-output": "Algebra → Introduction to Algebra → Function Machines",
+  "function-machine-input": "Algebra → Introduction to Algebra → Function Machines",
+  "function-machine-expression": "Algebra → Introduction to Algebra → Function Machines",
+  "function-machine-find-operation": "Algebra → Introduction to Algebra → Function Machines",
+  "solve-one-step-equation": "Algebra → Linear Equations → Solving Linear Equations",
+  "like-terms-identify": "Algebra → Introduction to Algebra → Collecting Like Terms & Simplifying",
+  "equivalent-expression-choose": "Algebra → Introduction to Algebra → Collecting Like Terms & Simplifying",
+  "place-value-write-in-words": "Number → Place Value → Understanding Place Value",
+  "number-line-interval-value": "Number → Place Value → Understanding Place Value",
+  "round-nearest-power-of-ten": "Number → Rounding & Estimation → Rounding and Truncating",
+  "estimate-over-under": "Number → Rounding & Estimation → Estimation",
+  "multiply-divide-by-powers-of-10": "Number → Decimals → Operations with Decimals",
+  "multiply-divide-by-0.1-0.01": "Number → Decimals → Operations with Decimals",
+  "decimal-divide-by-integer": "Number → Decimals → Operations with Decimals",
+  "divide-integer-written": "Number → Written Methods → Written Division",
+  "averages-four-measures": "Statistics & Probability → Averages & Spread → Averages from a List",
+  "pie-chart-angle-from-frequency": "Statistics & Probability → Representing Data → Pie Charts",
+  "fdp-convert-fraction-decimal-percentage": "Number → Fraction, Decimal, Percentage Equivalence → Converting Between Forms",
+  "fraction-as-division": "Number → Fraction, Decimal, Percentage Equivalence → Converting Between Forms",
+  "equivalent-fraction-missing": "Number → Fractions → Understanding Fractions",
+  "neg-add-subtract": "Number → Negative Numbers → Operations with Negatives",
+  "neg-missing-number": "Number → Negative Numbers → Operations with Negatives",
+  "neg-bidmas": "Number → Negative Numbers → Operations with Negatives",
+  "fraction-find-whole": "Number → Fractions → Fractions of an Amount",
+  "percent-of-amount-mental": "Number → Percentages → Finding Percentages",
+  "percent-above-100": "Number → Percentages → Finding Percentages",
+  "percent-increase-decrease": "Number → Percentages → Percentage Change",
+  "percent-find-whole": "Number → Percentages → Percentage Change",
+  "perimeter-polygon-calc": "Geometry & Measures → Perimeter & Area → Area of Basic Shapes",
+  "area-parallelogram": "Geometry & Measures → Perimeter & Area → Area of Basic Shapes",
+  "area-triangle-base-height": "Geometry & Measures → Perimeter & Area → Area of Basic Shapes",
+  "area-trapezium": "Geometry & Measures → Perimeter & Area → Area of Basic Shapes",
+  "time-units-convert": "Geometry & Measures → Time → Calculating with Time",
+  "speed-calc": "Ratio & Proportion → Compound Measures → Compound Measures",
+  "distance-calc": "Ratio & Proportion → Compound Measures → Compound Measures",
+  "time-calc": "Ratio & Proportion → Compound Measures → Compound Measures",
+  "roots-evaluate": "Number → Number Properties → Number Properties",
+  "triangular-numbers": "Number → Number Properties → Number Properties",
+  "angle-type-name": "Geometry & Measures → Angles → Basic Angle Facts",
+  "triangle-classify": "Geometry & Measures → Properties of 2D Shapes → Naming & Identifying",
 };
 
 function seedFor(idsKey, version, salt) {
@@ -8052,6 +8985,44 @@ function buildNumberSkillsSpeedCheck(rng) {
   return out;
 }
 
+// Conversion of measures: 24 quick one-step conversions in four columns of six
+// (time, mass, then two columns of length). Values are easy, whole numbers or
+// halves/quarters, so a pupil can do each in a few seconds.
+function buildMeasuresSpeedCheck(rng) {
+  const take = (pool, n) => {
+    const a = pool.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a.slice(0, n);
+  };
+  const num = (v) => String(Math.round(v * 1e6) / 1e6);
+  const out = [];
+  const conv = (value, from, to, factor, mode) => {
+    // mode "x": answer = value × factor; mode "d": answer = value ÷ factor
+    const ans = mode === "x" ? value * factor : value / factor;
+    out.push({ expr: `Convert ${num(value)} ${from} to ${to}.`, size: 0.6, answer: `${num(ans)} ${to}` });
+  };
+
+  // ---- Time (6): 3 × hours→minutes, 3 × minutes→hours
+  take([1.5, 2.5, 3.5, 0.5, 2, 3, 4, 0.25, 0.75, 1.25], 3).forEach((v) => conv(v, "hours", "minutes", 60, "x"));
+  take([30, 90, 150, 210, 45, 15, 120, 180, 75], 3).forEach((v) => conv(v, "minutes", "hours", 60, "d"));
+
+  // ---- Mass (6): 3 × kg→g, 3 × g→kg
+  take([2, 3, 4, 5, 6, 1.5, 2.5, 3.5, 0.5, 0.25, 0.75], 3).forEach((v) => conv(v, "kg", "g", 1000, "x"));
+  take([3000, 5000, 2000, 4500, 2500, 1500, 6000, 750, 250, 3500], 3).forEach((v) => conv(v, "g", "kg", 1000, "d"));
+
+  // ---- Length (12): two each of mm→cm, cm→mm, cm→m, m→cm, m→km, km→m
+  take([30, 50, 70, 90, 120, 45, 65, 85, 250], 2).forEach((v) => conv(v, "mm", "cm", 10, "d"));
+  take([3, 5, 8, 12, 4.5, 6.5, 2.5, 9], 2).forEach((v) => conv(v, "cm", "mm", 10, "x"));
+  take([200, 300, 500, 400, 250, 350, 150, 600, 50], 2).forEach((v) => conv(v, "cm", "m", 100, "d"));
+  take([2, 3, 4, 5, 6, 1.5, 2.5, 3.5, 0.5], 2).forEach((v) => conv(v, "m", "cm", 100, "x"));
+  take([2000, 3000, 5000, 4000, 1500, 2500, 3500, 500, 750], 2).forEach((v) => conv(v, "m", "km", 1000, "d"));
+  take([2, 3, 4, 5, 1.5, 2.5, 3.5, 0.5, 0.25], 2).forEach((v) => conv(v, "km", "m", 1000, "x"));
+  return out;
+}
+
 // Times-table practice: the same fixed 24-question, ~3-minute mental format.
 // Every table from 2 to 12 appears at least once; 14 multiplication facts and
 // 10 matching division facts (always exact, quotient 2-12), no fact repeated.
@@ -8186,14 +9157,19 @@ export default function QuizEngine() {
   // wide screen has more width to spend than an A4 sheet does, and it keeps
   // 6 rows per column instead of 12 for a bigger, further-back-readable font.
   const [speedCheckFullScreen, setSpeedCheckFullScreen] = useState(false);
-  // Which fixed-format sheet is open: "neg", "fdp", "times" or "skills". Both share the same view, timer and
+  // Which fixed-format sheet is open: "neg", "fdp", "times", "skills" or "measures". All share the same view, timer and
   // full-screen layout — only the questions, title and blurb differ.
   const [speedCheckKind, setSpeedCheckKind] = useState("neg");
   const speedCheckQuestions = useMemo(
-    () => (speedCheckKind === "fdp" ? buildFdpSpeedCheck : speedCheckKind === "times" ? buildTimesTablesSpeedCheck : speedCheckKind === "skills" ? buildNumberSkillsSpeedCheck : buildNegativeSpeedCheck)(mulberry32((speedCheckSalt * 104729 + 7) >>> 0)),
+    () => (speedCheckKind === "fdp" ? buildFdpSpeedCheck : speedCheckKind === "times" ? buildTimesTablesSpeedCheck : speedCheckKind === "skills" ? buildNumberSkillsSpeedCheck : speedCheckKind === "measures" ? buildMeasuresSpeedCheck : buildNegativeSpeedCheck)(mulberry32((speedCheckSalt * 104729 + 7) >>> 0)),
     [speedCheckSalt, speedCheckKind]
   );
-  const speedCheckInfo = speedCheckKind === "skills"
+  const speedCheckInfo = speedCheckKind === "measures"
+    ? {
+        title: "Conversion of Measures Speed Check",
+        description: "A 24-question Conversion of Measures Speed Check: hours and minutes (6), kilograms and grams (6), and millimetres, centimetres, metres and kilometres (12). Every question is a one-step conversion and suitable for ~3 minutes.",
+      }
+    : speedCheckKind === "skills"
     ? {
         title: "Number Skills Speed Check",
         description: "A 24-question Number Skills Speed Check: six quick questions each on factors and multiples, rounding and estimation, ratio and proportion, and units and rates. All are one-step and suitable for ~5 minutes.",
@@ -9674,7 +10650,7 @@ const QE_STYLES = `
   --bg:#EDF0F4; --panel:#FFFFFF; --panel-2:#F6F8FA; --ink:#17202D; --muted:#586377; --line:#D5DBE4;
   --accent:#1E6F6D; --accent-ink:#FFFFFF; --accent-soft:#DDEFEE;
   --danger:#B23A2F; --danger-soft:#F8E4E1; --ok:#2F7D4F; --ok-soft:#E3F1E8; --warn:#A8650F; --warn-soft:#FBEBD0;
-  --tag-neg:#C2493D; --tag-fdp:#3A6DB5; --tag-3:#7A4FB5; --tag-4:#B7791F;
+  --tag-neg:#C2493D; --tag-fdp:#3A6DB5; --tag-3:#7A4FB5; --tag-4:#B7791F; --tag-5:#2E8B7A;
   --display:"Bricolage Grotesque","Segoe UI",system-ui,sans-serif;
   --body:"Atkinson Hyperlegible","Segoe UI",system-ui,-apple-system,sans-serif;
   --paper:#FFFFFF; --paper-ink:#17202D; --paper-muted:#586377; --paper-line:#9AA3AF; --paper-rule:#17202D; --paper-faint:#D5DBE4;
@@ -9686,14 +10662,14 @@ const QE_STYLES = `
   --bg:#11161E; --panel:#1A212C; --panel-2:#202834; --ink:#E7EBF1; --muted:#9AA5B6; --line:#2C3644;
   --accent:#43A9A4; --accent-ink:#0B1A1A; --accent-soft:#1D3534;
   --danger:#E0685C; --danger-soft:#3A211E; --ok:#6BC48A; --ok-soft:#1B2E23; --warn:#E0A83A; --warn-soft:#2C2818;
-  --tag-neg:#E0685C; --tag-fdp:#6D9BE0; --tag-3:#A585DB; --tag-4:#DDA24A;
+  --tag-neg:#E0685C; --tag-fdp:#6D9BE0; --tag-3:#A585DB; --tag-4:#DDA24A; --tag-5:#55B8A6;
   color-scheme:dark;
 }}
 :root[data-theme="dark"]{
   --bg:#11161E; --panel:#1A212C; --panel-2:#202834; --ink:#E7EBF1; --muted:#9AA5B6; --line:#2C3644;
   --accent:#43A9A4; --accent-ink:#0B1A1A; --accent-soft:#1D3534;
   --danger:#E0685C; --danger-soft:#3A211E; --ok:#6BC48A; --ok-soft:#1B2E23; --warn:#E0A83A; --warn-soft:#2C2818;
-  --tag-neg:#E0685C; --tag-fdp:#6D9BE0; --tag-3:#A585DB; --tag-4:#DDA24A;
+  --tag-neg:#E0685C; --tag-fdp:#6D9BE0; --tag-3:#A585DB; --tag-4:#DDA24A; --tag-5:#55B8A6;
   color-scheme:dark;
 }
 
@@ -9921,5 +10897,13 @@ const SPEED_CHECKS = [
     blurb: "24 questions · about 5 minutes",
     tag: "var(--tag-4)",
     tip: "Six easy questions each on factors & multiples, rounding & estimation, ratio & proportion and units & rates, two columns on one A4 page",
+  },
+  {
+    kind: "measures",
+    secs: 180,
+    title: "Conversion of Measures",
+    blurb: "24 questions · about 3 minutes",
+    tag: "var(--tag-5)",
+    tip: "A fixed 24-question sheet of one-step conversions: hours and minutes, kilograms and grams, and mm, cm, m and km, two columns on one A4 page",
   },
 ];
