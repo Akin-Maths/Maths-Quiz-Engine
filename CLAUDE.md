@@ -231,6 +231,12 @@ script are in `LIBRARY_SETUP.md` and `supabase_setup.sql`. Notes for changes:
   operations, FDP conversions, directed number, amounts, area, speed/distance/time,
   properties of number, angles). Helpers are prefixed `y7`. New `FULL_SPEC` groups:
   "Continuing & Describing Sequences" and "Function Machines".
+- `seq-pattern-draw-next` / `seq-pattern-count-terms` draw growing patterns with `PatternSVG` (families: row, columns, L, cross, matchstick squares). Pupils draw the next pattern in a dashed box; the mark scheme (`answerRender`) shows it. `accurateDiagram: true` on a question hides the print footnote "Diagram NOT accurately drawn".
+- Diagram components added for Year 7: `FunctionMachineSVG` (exam-paper number machine), `NumberLineSVG`,
+  `PolygonAnglesSVG` (closed polygon drawn to the given interior angles) and the shared `AngleMark`
+  (arc + label on the bisector, used by triangles, polygons and angle-fact diagrams). `mathify()` italicises
+  bare x/y/z/n in prompts and answers at render time; `Mixed` puts a mixed number's whole part level with the
+  fraction bar (and `Frac` now centres its bar). Multi-week Year 7 topics are labelled (W1), (W2), (W3).
 - Booklet pages are scanned images (no text layer). To re-read them, OCR with macOS Vision
   through `pyobjc-framework-Vision`/`Quartz` in a throwaway venv.
 - `buildMeasuresSpeedCheck` (kind `"measures"`, tag `--tag-5`): 24 one-step conversions,

@@ -162,7 +162,7 @@ function RightTriangleSVG({ base, height, orientation = "bl", baseLabel, heightL
 /* ---------- general (non-right-angled) triangle for sine/cosine/area rule questions.
    Vertices are placed based on real angles/sides so the triangle is geometrically
    correct; labels can be strings (numbers with units, "?", or an angle in °). ---------- */
-function GeneralTriangleSVG({ sideAB, angleA, angleB, labelA, labelB, labelC, sideALabel, sideBLabel, sideCLabel }) {
+function GeneralTriangleSVG({ sideAB, angleA, angleB, labelA, labelB, labelC, sideALabel, sideBLabel, sideCLabel, labelExt }) {
   // Place A at origin along AB; B along positive x. Compute C from angleA and law of sines.
   const angleC = 180 - angleA - angleB;
   const sinA = Math.sin(angleA * Math.PI / 180);
@@ -178,29 +178,35 @@ function GeneralTriangleSVG({ sideAB, angleA, angleB, labelA, labelB, labelC, si
   const minX = Math.min(...xs), maxX = Math.max(...xs);
   const minY = Math.min(...ys), maxY = Math.max(...ys);
   const w = maxX - minX, h = maxY - minY;
-  const boxW = 240, boxH = 180, pad = 34;
-  const scale = Math.min((boxW - 2 * pad) / w, (boxH - 2 * pad) / h);
+  const extra = labelExt ? 56 : 0;
+  const baseW = 260, boxH = 200, pad = 38;
+  const boxW = baseW + extra;
+  const scale = Math.min((baseW - 2 * pad) / w, (boxH - 2 * pad) / h);
   const tx = (x) => (x - minX) * scale + pad;
   const ty = (y) => (y - minY) * scale + pad;
   const A = [tx(0), ty(0)];
   const B = [tx(sideAB), ty(0)];
   const C = [tx(Cx), ty(Cy)];
+  const D = [B[0] + 46, B[1]];
   const mid = (p, q) => [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2];
   // Side labels sit just outside each edge
   const AB_mid = mid(A, B);
   const AC_mid = mid(A, C);
   const BC_mid = mid(B, C);
   return (
-    <svg viewBox={`0 0 ${boxW} ${boxH}`} width="100%" style={{ maxWidth: 300, display: "block" }}>
+    <svg viewBox={`0 0 ${boxW} ${boxH}`} width={330 + extra} style={{ maxWidth: "100%", height: "auto", display: "block", margin: "0 auto" }}>
       <polygon points={`${A[0]},${A[1]} ${B[0]},${B[1]} ${C[0]},${C[1]}`} fill="none" stroke="#000" strokeWidth="1.6" />
+      {labelExt && <line x1={B[0]} y1={B[1]} x2={D[0]} y2={D[1]} stroke="#000" strokeWidth="1.6" />}
+      {labelExt && <text x={D[0] + 6} y={D[1] + 5} fontSize="13" fontFamily="Arial, sans-serif" fontWeight="700" fill="#000">D</text>}
       {/* Vertex letters */}
-      <text x={A[0] - 12} y={A[1] + 14} fontSize="13" fontFamily="Arial, sans-serif" fontWeight="700" fill="#000">A</text>
-      <text x={B[0] + 6} y={B[1] + 14} fontSize="13" fontFamily="Arial, sans-serif" fontWeight="700" fill="#000">B</text>
-      <text x={C[0] - 4} y={C[1] - 8} fontSize="13" fontFamily="Arial, sans-serif" fontWeight="700" fill="#000">C</text>
-      {/* Angle labels near their vertices */}
-      {labelA && <text x={A[0] + 14} y={A[1] - 4} fontSize="12" fontFamily="Arial, sans-serif" fill="#000">{labelA}</text>}
-      {labelB && <text x={B[0] - 28} y={B[1] - 4} fontSize="12" fontFamily="Arial, sans-serif" fill="#000">{labelB}</text>}
-      {labelC && <text x={C[0] - 8} y={C[1] + 20} fontSize="12" fontFamily="Arial, sans-serif" fill="#000">{labelC}</text>}
+      <text x={A[0] - 14} y={A[1] + 15} fontSize="13" fontFamily="Arial, sans-serif" fontWeight="700" fill="#000">A</text>
+      <text x={B[0] + (labelExt ? -2 : 6)} y={B[1] + 16} fontSize="13" fontFamily="Arial, sans-serif" fontWeight="700" fill="#000">B</text>
+      <text x={C[0] - 4} y={C[1] - 9} fontSize="13" fontFamily="Arial, sans-serif" fontWeight="700" fill="#000">C</text>
+      {/* Angle arcs and labels, one in each corner that has a label */}
+      {labelA && <AngleMark V={A} P={B} Q={C} label={labelA} arcR={22} bold={labelA === "?"} />}
+      {labelB && <AngleMark V={B} P={A} Q={C} label={labelB} arcR={22} bold={labelB === "?"} />}
+      {labelC && <AngleMark V={C} P={A} Q={B} label={labelC} arcR={22} bold={labelC === "?"} />}
+      {labelExt && <AngleMark V={B} P={D} Q={C} label={labelExt} arcR={30} bold={labelExt === "?"} />}
       {/* Side labels: c = AB (bottom), b = AC (left), a = BC (right) */}
       {sideCLabel && <text x={AB_mid[0]} y={AB_mid[1] + 16} fontSize="13" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#000">{sideCLabel}</text>}
       {sideBLabel && <text x={AC_mid[0] - 14} y={AC_mid[1]} fontSize="13" fontFamily="Arial, sans-serif" textAnchor="end" fill="#000">{sideBLabel}</text>}
@@ -335,7 +341,7 @@ function CircleTheoremSVG({ theorem, ...props }) {
    and distance-time graphs. Same division of labour as the components
    above: callers resolve all geometry/values, these just render. ---------- */
 function CoordinateGridSVG({ points, xMin = -6, xMax = 6, yMin = -6, yMax = 6 }) {
-  const boxW = 260, boxH = 260, pad = 22;
+  const boxW = 280, boxH = 280, pad = 26;
   const sx = (boxW - 2 * pad) / (xMax - xMin);
   const sy = (boxH - 2 * pad) / (yMax - yMin);
   const px = (x) => pad + (x - xMin) * sx;
@@ -344,22 +350,26 @@ function CoordinateGridSVG({ points, xMin = -6, xMax = 6, yMin = -6, yMax = 6 })
   for (let x = Math.ceil(xMin); x <= Math.floor(xMax); x++) gridX.push(x);
   const gridY = [];
   for (let y = Math.ceil(yMin); y <= Math.floor(yMax); y++) gridY.push(y);
+  const lab = (v) => (v < 0 ? "\u2212" + Math.abs(v) : String(v));
   return (
-    <svg viewBox={`0 0 ${boxW} ${boxH}`} width="100%" style={{ maxWidth: 280, display: "block" }}>
+    <svg viewBox={`0 0 ${boxW} ${boxH}`} width={320} style={{ maxWidth: "100%", height: "auto", display: "block", margin: "0 auto" }}>
       {gridX.map((x) => <line key={`gx${x}`} x1={px(x)} y1={pad} x2={px(x)} y2={boxH - pad} stroke="#ddd" strokeWidth="1" />)}
       {gridY.map((y) => <line key={`gy${y}`} x1={pad} y1={py(y)} x2={boxW - pad} y2={py(y)} stroke="#ddd" strokeWidth="1" />)}
       <line x1={pad} y1={py(0)} x2={boxW - pad} y2={py(0)} stroke="#000" strokeWidth="1.4" />
       <line x1={px(0)} y1={pad} x2={px(0)} y2={boxH - pad} stroke="#000" strokeWidth="1.4" />
-      <text x={boxW - pad + 4} y={py(0) + 4} fontSize="11" fontFamily="Arial, sans-serif" fill="#000">x</text>
-      <text x={px(0) - 4} y={pad - 4} fontSize="11" fontFamily="Arial, sans-serif" textAnchor="end" fill="#000">y</text>
-      <text x={px(xMin)} y={py(0) + 14} fontSize="9.5" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#666">{xMin}</text>
-      <text x={px(xMax)} y={py(0) + 14} fontSize="9.5" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#666">{xMax}</text>
-      <text x={px(0) - 8} y={py(yMin) + 3} fontSize="9.5" fontFamily="Arial, sans-serif" textAnchor="end" fill="#666">{yMin}</text>
-      <text x={px(0) - 8} y={py(yMax) + 3} fontSize="9.5" fontFamily="Arial, sans-serif" textAnchor="end" fill="#666">{yMax}</text>
+      <text x={boxW - pad + 6} y={py(0) + 4} fontSize="13" fontStyle="italic" fontFamily="'Times New Roman', serif" fill="#000">x</text>
+      <text x={px(0) + 7} y={pad - 8} fontSize="13" fontStyle="italic" fontFamily="'Times New Roman', serif" fill="#000">y</text>
+      {gridX.filter((x) => x !== 0).map((x) => (
+        <text key={`tx${x}`} x={px(x)} y={py(0) + 12} fontSize="9.5" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#444">{lab(x)}</text>
+      ))}
+      {gridY.filter((y) => y !== 0).map((y) => (
+        <text key={`ty${y}`} x={px(0) - 5} y={py(y) + 3.5} fontSize="9.5" fontFamily="Arial, sans-serif" textAnchor="end" fill="#444">{lab(y)}</text>
+      ))}
+      <text x={px(0) - 5} y={py(0) + 12} fontSize="9.5" fontFamily="Arial, sans-serif" textAnchor="end" fill="#444">0</text>
       {points.map((p, i) => (
         <g key={i}>
-          <circle cx={px(p.x)} cy={py(p.y)} r={3.2} fill="#000" />
-          <text x={px(p.x) + 7} y={py(p.y) - 6} fontSize="13" fontFamily="Arial, sans-serif" fontWeight="700" fill="#000">{p.label}</text>
+          <circle cx={px(p.x)} cy={py(p.y)} r={3.4} fill="#000" />
+          <text x={px(p.x) + 7} y={py(p.y) - 6} fontSize="13" fontFamily="Arial, sans-serif" fontWeight="700" fill="#000" stroke="#fff" strokeWidth="3" paintOrder="stroke">{p.label}</text>
         </g>
       ))}
     </svg>
@@ -367,21 +377,21 @@ function CoordinateGridSVG({ points, xMin = -6, xMax = 6, yMin = -6, yMax = 6 })
 }
 
 function BarChartSVG({ categories, values, yLabel = "Frequency" }) {
-  const boxW = 280, boxH = 210, padL = 34, padR = 14, padT = 14, padB = 40;
+  const boxW = 300, boxH = 230, padL = 46, padR = 14, padT = 14, padB = 40;
   const maxV = Math.max(...values);
-  const step = Math.max(1, Math.round(maxV / 4));
-  const axisMax = step * 5;
+  const step = maxV <= 10 ? 1 : maxV <= 20 ? 2 : maxV <= 50 ? 5 : 10;
+  const axisMax = (Math.floor(maxV / step) + 1) * step;
   const gap = (boxW - padL - padR) / values.length;
   const barW = gap * 0.6;
   const scaleY = (v) => (boxH - padT - padB) * (v / axisMax);
   const ticks = [];
   for (let t = 0; t <= axisMax; t += step) ticks.push(t);
   return (
-    <svg viewBox={`0 0 ${boxW} ${boxH}`} width="100%" style={{ maxWidth: 300, display: "block" }}>
+    <svg viewBox={`0 0 ${boxW} ${boxH}`} width={360} style={{ maxWidth: "100%", height: "auto", display: "block", margin: "0 auto" }}>
       {ticks.map((t) => (
         <g key={t}>
-          <line x1={padL} y1={boxH - padB - scaleY(t)} x2={boxW - padR} y2={boxH - padB - scaleY(t)} stroke="#eee" strokeWidth="1" />
-          <text x={padL - 5} y={boxH - padB - scaleY(t) + 3} fontSize="9" fontFamily="Arial, sans-serif" textAnchor="end" fill="#666">{t}</text>
+          <line x1={padL} y1={boxH - padB - scaleY(t)} x2={boxW - padR} y2={boxH - padB - scaleY(t)} stroke="#d5d5d5" strokeWidth="1" />
+          <text x={padL - 5} y={boxH - padB - scaleY(t) + 3} fontSize="9" fontFamily="Arial, sans-serif" textAnchor="end" fill="#444">{t}</text>
         </g>
       ))}
       <line x1={padL} y1={padT} x2={padL} y2={boxH - padB} stroke="#000" strokeWidth="1.4" />
@@ -397,7 +407,7 @@ function BarChartSVG({ categories, values, yLabel = "Frequency" }) {
           </g>
         );
       })}
-      <text x={2} y={padT - 2} fontSize="9.5" fontFamily="Arial, sans-serif" textAnchor="start" fill="#555">{yLabel}</text>
+      <text x={11} y={(padT + boxH - padB) / 2} fontSize="10" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#333" transform={`rotate(-90 11 ${(padT + boxH - padB) / 2})`}>{yLabel}</text>
     </svg>
   );
 }
@@ -462,32 +472,28 @@ function FrequencyTreeSVG({ labelsStage1, labelsStage2, freqs, unknownIndex }) {
 }
 
 function AngleFactsSVG({ mode = "line", angles, unknownIndex }) {
-  const cx = 130, cy = mode === "line" ? 110 : 100, R = 80;
+  const W = 300, R = mode === "line" ? 112 : 100;
+  const cx = W / 2, cy = mode === "line" ? 128 : 116;
+  const H = mode === "line" ? 150 : 232;
   let cum = 0;
   const rays = [0];
   angles.forEach((a) => { cum += a; rays.push(cum); });
   const toXY = (deg) => polarPt(cx, cy, R, deg);
+  const arcR = mode === "line" ? 26 : 24;
   return (
-    <svg viewBox={`0 0 260 ${mode === "line" ? 160 : 210}`} width="100%" style={{ maxWidth: 280, display: "block" }}>
-      {mode === "line" && <line x1={cx - R - 20} y1={cy} x2={cx + R + 20} y2={cy} stroke="#000" strokeWidth="1.4" />}
+    <svg viewBox={`0 0 ${W} ${H}`} width={360} style={{ maxWidth: "100%", height: "auto", display: "block", margin: "0 auto" }}>
+      {mode === "line" && <line x1={cx - R - 18} y1={cy} x2={cx + R + 18} y2={cy} stroke="#000" strokeWidth="1.5" />}
       {rays.map((r, i) => {
         if (mode === "line" && (i === 0 || i === rays.length - 1)) return null;
+        if (mode === "point" && i === rays.length - 1) return null;
         const [x, y] = toXY(r);
-        return <line key={i} x1={cx} y1={cy} x2={x} y2={y} stroke="#000" strokeWidth="1.3" />;
+        return <line key={i} x1={cx} y1={cy} x2={x} y2={y} stroke="#000" strokeWidth="1.5" />;
       })}
-      {mode === "point" && rays.slice(0, -1).map((r, i) => {
-        const [x, y] = toXY(r);
-        return <line key={`p${i}`} x1={cx} y1={cy} x2={x} y2={y} stroke="#000" strokeWidth="1.3" />;
-      })}
-      <circle cx={cx} cy={cy} r={2.2} fill="#000" />
+      <circle cx={cx} cy={cy} r={2.4} fill="#000" />
       {angles.map((a, i) => {
-        const mid = (rays[i] + rays[i + 1]) / 2;
-        const [x, y] = polarPt(cx, cy, mode === "line" ? 34 : 40, mid);
-        return (
-          <text key={i} x={x} y={y} fontSize="12.5" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#000">
-            {i === unknownIndex ? "?" : `${a}°`}
-          </text>
-        );
+        const P = polarPt(cx, cy, 60, rays[i]), Q = polarPt(cx, cy, 60, rays[i + 1]);
+        const label = i === unknownIndex ? "?" : `${a}\u00B0`;
+        return <AngleMark key={i} V={[cx, cy]} P={P} Q={Q} label={label} arcR={arcR} inset bold={i === unknownIndex} fontSize={i === unknownIndex ? 15 : 13} />;
       })}
     </svg>
   );
@@ -762,17 +768,26 @@ function TriangularPrismSVG({ base, height, length, showBase, showHeight, showLe
    already-scaled points plus explicit xMax/yMax (like LineGraphSVG) so a
    line of best fit and the data always share the same axes. ---------- */
 function ScatterSVG({ points, xMax, yMax, showLine }) {
-  const boxW = 260, boxH = 220, padL = 34, padR = 14, padT = 14, padB = 30;
+  const boxW = 300, boxH = 250, padL = 40, padR = 16, padT = 14, padB = 38;
   const px = (x) => padL + (x / xMax) * (boxW - padL - padR);
   const py = (y) => boxH - padB - (y / yMax) * (boxH - padT - padB);
+  const stepFor = (m) => (m <= 10 ? 1 : m <= 24 ? 2 : m <= 50 ? 5 : 10);
+  const xs = stepFor(xMax), ys = stepFor(yMax);
+  const xt = [], yt = [];
+  for (let v = 0; v <= xMax; v += xs) xt.push(v);
+  for (let v = 0; v <= yMax; v += ys) yt.push(v);
   return (
-    <svg viewBox={`0 0 ${boxW} ${boxH}`} width="100%" style={{ maxWidth: 280, display: "block" }}>
+    <svg viewBox={`0 0 ${boxW} ${boxH}`} width={360} style={{ maxWidth: "100%", height: "auto", display: "block", margin: "0 auto" }}>
+      {xt.map((v) => <line key={`gx${v}`} x1={px(v)} y1={padT} x2={px(v)} y2={boxH - padB} stroke="#e3e3e3" strokeWidth="1" />)}
+      {yt.map((v) => <line key={`gy${v}`} x1={padL} y1={py(v)} x2={boxW - padR} y2={py(v)} stroke="#e3e3e3" strokeWidth="1" />)}
       <line x1={padL} y1={padT} x2={padL} y2={boxH - padB} stroke="#000" strokeWidth="1.4" />
       <line x1={padL} y1={boxH - padB} x2={boxW - padR} y2={boxH - padB} stroke="#000" strokeWidth="1.4" />
-      <text x={(boxW + padL - padR) / 2} y={boxH - 4} fontSize="10" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#000">x</text>
-      <text x={10} y={padT + 8} fontSize="10" fontFamily="Arial, sans-serif" fill="#000">y</text>
-      {showLine && <line x1={px(showLine.x1)} y1={py(showLine.y1)} x2={px(showLine.x2)} y2={py(showLine.y2)} stroke="#b23b2e" strokeWidth="1.4" />}
-      {points.map((p, i) => <circle key={i} cx={px(p.x)} cy={py(p.y)} r={2.8} fill="#000" />)}
+      {xt.map((v) => <text key={`tx${v}`} x={px(v)} y={boxH - padB + 12} fontSize="9" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#444">{v}</text>)}
+      {yt.map((v) => <text key={`ty${v}`} x={padL - 5} y={py(v) + 3} fontSize="9" fontFamily="Arial, sans-serif" textAnchor="end" fill="#444">{v}</text>)}
+      <text x={(boxW + padL - padR) / 2} y={boxH - 8} fontSize="12" fontStyle="italic" fontFamily="'Times New Roman', serif" textAnchor="middle" fill="#000">x</text>
+      <text x={12} y={(padT + boxH - padB) / 2} fontSize="12" fontStyle="italic" fontFamily="'Times New Roman', serif" textAnchor="middle" fill="#000" transform={`rotate(-90 12 ${(padT + boxH - padB) / 2})`}>y</text>
+      {showLine && <line x1={px(showLine.x1)} y1={py(showLine.y1)} x2={px(showLine.x2)} y2={py(showLine.y2)} stroke="#b23b2e" strokeWidth="1.5" />}
+      {points.map((p, i) => <circle key={i} cx={px(p.x)} cy={py(p.y)} r={3} fill="#000" />)}
     </svg>
   );
 }
@@ -838,21 +853,21 @@ function ShapeGridSVG({ shapes, xMin = -6, xMax = 6, yMin = -6, yMax = 6 }) {
    angle-based diagrams (AngleFactsSVG, BearingSVG), fixed non-degenerate
    angle since only the letters (not the size) matter here. ---------- */
 function NotationAngleSVG({ labels }) {
-  const cx = 100, cy = 130, R = 90, arcR = 26;
-  const angle1 = 200, angle2 = 340;
+  const cx = 110, cy = 70, R = 96, arcR = 30;
+  const angle1 = 205, angle2 = 335;
   const [x1, y1] = polarPt(cx, cy, R, angle1);
   const [x2, y2] = polarPt(cx, cy, R, angle2);
   const [ax1, ay1] = polarPt(cx, cy, arcR, angle1);
   const [ax2, ay2] = polarPt(cx, cy, arcR, angle2);
   return (
-    <svg viewBox="0 0 220 180" width="100%" style={{ maxWidth: 220, display: "block" }}>
-      <line x1={cx} y1={cy} x2={x1} y2={y1} stroke="#000" strokeWidth="1.4" />
-      <line x1={cx} y1={cy} x2={x2} y2={y2} stroke="#000" strokeWidth="1.4" />
-      <path d={`M${ax1},${ay1} A${arcR},${arcR} 0 0 0 ${ax2},${ay2}`} fill="none" stroke="#000" strokeWidth="1.1" />
-      <circle cx={cx} cy={cy} r={2} fill="#000" />
-      <text x={cx + 8} y={cy + 16} fontSize="13" fontFamily="Arial, sans-serif" fontWeight="700" fill="#000">{labels[1]}</text>
-      <text x={x1 - 14} y={y1 + 4} fontSize="13" fontFamily="Arial, sans-serif" fontWeight="700" fill="#000">{labels[0]}</text>
-      <text x={x2 + 6} y={y2 - 4} fontSize="13" fontFamily="Arial, sans-serif" fontWeight="700" fill="#000">{labels[2]}</text>
+    <svg viewBox="0 0 220 130" width={260} style={{ maxWidth: "100%", height: "auto", display: "block", margin: "0 auto" }}>
+      <line x1={cx} y1={cy} x2={x1} y2={y1} stroke="#000" strokeWidth="1.5" />
+      <line x1={cx} y1={cy} x2={x2} y2={y2} stroke="#000" strokeWidth="1.5" />
+      <path d={`M${ax1},${ay1} A${arcR},${arcR} 0 0 0 ${ax2},${ay2}`} fill="none" stroke="#000" strokeWidth="1.2" />
+      <circle cx={cx} cy={cy} r={2.2} fill="#000" />
+      <text x={cx} y={cy - 12} fontSize="15" fontFamily="Arial, sans-serif" fontWeight="700" textAnchor="middle" fill="#000">{labels[1]}</text>
+      <text x={x1 - 8} y={y1 + 6} fontSize="15" fontFamily="Arial, sans-serif" fontWeight="700" textAnchor="end" fill="#000">{labels[0]}</text>
+      <text x={x2 + 8} y={y2 + 6} fontSize="15" fontFamily="Arial, sans-serif" fontWeight="700" fill="#000">{labels[2]}</text>
     </svg>
   );
 }
@@ -874,10 +889,79 @@ function randomTriangle(rng, xMin, xMax, yMin, yMax) {
 function Frac({ n, d }) {
   return (
     <span style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", verticalAlign: "middle", margin: "0 3px", fontSize: "0.92em", lineHeight: 1.15, textAlign: "center" }}>
-      <span style={{ padding: "0 3px" }}>{n}</span>
-      <span style={{ borderTop: "1.3px solid currentColor", width: "100%" }}>&nbsp;</span>
-      <span style={{ padding: "0 3px" }}>{d}</span>
+      <span style={{ padding: "0 3px 1px" }}>{n}</span>
+      <span style={{ borderTop: "1.3px solid currentColor", width: "100%", height: 0 }} />
+      <span style={{ padding: "1px 3px 0" }}>{d}</span>
     </span>
+  );
+}
+
+// Neat mixed number: the whole part sits level with the fraction bar.
+function Mixed({ w, n, d }) {
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", verticalAlign: "middle", gap: 2, margin: "0 2px" }}>
+      <span>{w}</span>
+      <Frac n={n} d={d} />
+    </span>
+  );
+}
+
+// Italic serif x / y / z / n (and runs such as xy) wherever they appear as bare
+// letters in a prompt or answer, so the algebraic x never looks like the
+// multiplication sign. Walks strings, arrays, fragments and plain DOM
+// elements; custom components and SVG are left alone.
+function mathify(node) {
+  if (typeof node === "string") {
+    const re = /(^|[^A-Za-z])([xyzn]+)(?![A-Za-z])/g;
+    const out = [];
+    let last = 0, m, k = 0;
+    while ((m = re.exec(node)) !== null) {
+      const start = m.index + m[1].length;
+      if (start > last) out.push(node.slice(last, start));
+      out.push(<i key={k++} style={{ fontFamily: "'Times New Roman', Times, serif", fontSize: "1.08em" }}>{m[2]}</i>);
+      last = start + m[2].length;
+    }
+    if (!out.length) return node;
+    if (last < node.length) out.push(node.slice(last));
+    return out;
+  }
+  if (Array.isArray(node)) return node.map((c, i) => { const r = mathify(c); return Array.isArray(r) ? <React.Fragment key={i}>{r}</React.Fragment> : r; });
+  if (React.isValidElement(node) && (node.type === React.Fragment || (typeof node.type === "string" && node.type !== "svg"))) {
+    const ch = node.props.children;
+    if (ch === undefined || ch === null) return node;
+    return React.cloneElement(node, undefined, ...(Array.isArray(ch) ? ch : [ch]).map((c, i) => { const r = mathify(c); return Array.isArray(r) ? <React.Fragment key={i}>{r}</React.Fragment> : r; }));
+  }
+  return node;
+}
+
+// Arc and label for one angle: P-V-Q with the angle at V. The label sits on
+// the bisector, far enough out to clear both lines, with a white halo.
+function AngleMark({ V, P, Q, label, arcR = 20, bold = false, fontSize = 12.5, inset = false }) {
+  const norm = (v) => { const l = Math.hypot(v[0], v[1]) || 1; return [v[0] / l, v[1] / l]; };
+  const dP = Math.hypot(P[0] - V[0], P[1] - V[1]), dQ = Math.hypot(Q[0] - V[0], Q[1] - V[1]);
+  const u1 = norm([P[0] - V[0], P[1] - V[1]]), u2 = norm([Q[0] - V[0], Q[1] - V[1]]);
+  const cross = u1[0] * u2[1] - u1[1] * u2[0];
+  const dot = Math.max(-1, Math.min(1, u1[0] * u2[0] + u1[1] * u2[1]));
+  const ang = Math.acos(dot);
+  // `inset` pulls both ends of the arc in from the lines so neighbouring arcs
+  // (angles about a point / on a line) stay separate marks.
+  const sgn = cross > 0 ? 1 : -1;
+  const delta = inset ? Math.min(0.17, ang * 0.2) : 0;
+  const rot = (v, t) => [v[0] * Math.cos(t) - v[1] * Math.sin(t), v[0] * Math.sin(t) + v[1] * Math.cos(t)];
+  const r1 = rot(u1, sgn * delta), r2 = rot(u2, -sgn * delta);
+  const a1 = [V[0] + r1[0] * arcR, V[1] + r1[1] * arcR], a2 = [V[0] + r2[0] * arcR, V[1] + r2[1] * arcR];
+  const bis = norm([u1[0] + u2[0], u1[1] + u2[1]]);
+  const text = String(label);
+  const halfW = text.length * 3.7 + 3;
+  const need = (halfW + 5) / Math.max(Math.sin(ang / 2), 0.25);
+  let lr = Math.max(arcR + 17, need);
+  const cap = 0.75 * Math.min(dP, dQ);
+  if (lr > cap) lr = Math.max(arcR + 10, cap);
+  return (
+    <g>
+      <path d={`M${a1[0]},${a1[1]} A${arcR},${arcR} 0 0 ${cross > 0 ? 1 : 0} ${a2[0]},${a2[1]}`} fill="none" stroke="#000" strokeWidth="1.1" />
+      <text x={V[0] + bis[0] * lr} y={V[1] + bis[1] * lr + 4} fontSize={fontSize} fontFamily="Arial, sans-serif" fontWeight={bold ? 700 : 400} textAnchor="middle" fill="#000" stroke="#fff" strokeWidth="3" paintOrder="stroke">{text}</text>
+    </g>
   );
 }
 
@@ -2139,7 +2223,7 @@ SUBTOPIC_BANK["frac-multiply-mixed"] = {
     function gcdLocal(x, y) { while (y) { [x, y] = [y, x % y]; } return x; }
     const g = gcdLocal(num, den);
     return {
-      prompt: <>Work out {a} <Frac n={m} d={b} /> × {c} <Frac n={n} d={d} />. Give your answer as a mixed number in its simplest form.</>,
+      prompt: <>Work out <Mixed w={a} n={m} d={b} /> × <Mixed w={c} n={n} d={d} />. Give your answer as a mixed number in its simplest form.</>,
       answer: <>= <Frac n={impA} d={b} /> × <Frac n={impB} d={d} /> = <Frac n={num / g} d={den / g} /></>,
     };
   },
@@ -2898,15 +2982,34 @@ SUBTOPIC_BANK["place-value-digit-value"] = {
 SUBTOPIC_BANK["order-decimals"] = {
   topic: "Place Value (Including Decimals)", title: "Order decimals", marks: 1,
   build(rng) {
+    // Numbers that all look alike: same whole part, and decimal parts built
+    // from just two digits plus zero, with different lengths (e.g. 3.4, 3.45,
+    // 3.405, 3.54, 3.045), so pupils must compare place by place.
+    const whole = seededInt(rng, 0, 9);
+    let d1 = seededInt(rng, 1, 9), d2 = seededInt(rng, 1, 9);
+    while (d2 === d1) d2 = seededInt(rng, 1, 9);
+    const digits = [d1, d2, 0];
+    const pool = new Set();
+    for (let len = 1; len <= 3; len++) {
+      const rec = (prefix) => {
+        if (prefix.length === len) { if (prefix[prefix.length - 1] !== 0) pool.add(prefix.join("")); return; }
+        digits.forEach((dg) => rec(prefix.concat([dg])));
+      };
+      rec([]);
+    }
+    const all = [...pool];
     const nums = [];
-    while (nums.length < 5) {
-      const v = (seededInt(rng, 1, 999) / 100).toFixed(2);
-      if (!nums.includes(v)) nums.push(v);
+    let guard = 0;
+    while (nums.length < 5 && guard < 200) {
+      guard++;
+      const frac = pick(rng, all);
+      const v = `${whole}.${frac}`;
+      if (!nums.includes(v) && !nums.some((x) => parseFloat(x) === parseFloat(v))) nums.push(v);
     }
     const ascending = pick(rng, [true, false]);
     const sorted = [...nums].sort((a, b) => (ascending ? parseFloat(a) - parseFloat(b) : parseFloat(b) - parseFloat(a)));
     return {
-      prompt: `Write these decimals in order, ${ascending ? "smallest to largest" : "largest to smallest"}: ${nums.join(", ")}`,
+      prompt: `Write these decimals in order, ${ascending ? "smallest to largest" : "largest to smallest"}: ${nums.join(",   ")}`,
       answer: sorted.join(", "),
     };
   },
@@ -3496,6 +3599,7 @@ SUBTOPIC_BANK["bar-chart-read-frequency"] = {
     const askIndex = seededInt(rng, 0, opt.categories.length - 1);
     return {
       prompt: `The bar chart shows the favourite ${opt.label} of a group of students. How many students chose ${opt.categories[askIndex]}?`,
+      accurateDiagram: true,
       render: <BarChartSVG categories={opt.categories} values={values} />,
       answer: `${values[askIndex]}`,
     };
@@ -3683,6 +3787,7 @@ SUBTOPIC_BANK["coordinates-identify-point"] = {
     do { x = seededInt(rng, -6, 6); y = seededInt(rng, -6, 6); } while (x === 0 && y === 0);
     return {
       prompt: `Write down the coordinates of point P shown on the grid.`,
+      accurateDiagram: true,
       render: <CoordinateGridSVG points={[{ x, y, label: "P" }]} />,
       answer: `(${x}, ${y})`,
     };
@@ -4374,6 +4479,7 @@ SUBTOPIC_BANK["scatter-correlation-type"] = {
     }
     return {
       prompt: `The scatter graph shows 9 pairs of values, plotting x against y. Describe the type of correlation shown.`,
+      accurateDiagram: true,
       render: <ScatterSVG points={points} xMax={22} yMax={22} />,
       answer: type === "none" ? "No correlation" : `${type === "positive" ? "Positive" : "Negative"} correlation`,
     };
@@ -4398,6 +4504,7 @@ SUBTOPIC_BANK["line-of-best-fit-estimate"] = {
     const yMax = Math.ceil((y2 + 4) / 5) * 5;
     return {
       prompt: `The scatter graph shows a set of data with a line of best fit drawn. Use the line of best fit to estimate the value of y when x = ${readX}.`,
+      accurateDiagram: true,
       render: <ScatterSVG points={points} xMax={xMaxLine + 2} yMax={yMax} showLine={{ x1: 0, y1, x2: xMaxLine, y2 }} />,
       answer: `y ≈ ${readY}`,
     };
@@ -5084,34 +5191,34 @@ const Y10_SET4_WEEKS = {
    (powers of 10 / standard form, multiplying by 0.1, percentages above 100%,
    parallel-line angles, etc.) sit at the end of their week's list. */
 const Y7_WEEKS = {
-  "Autumn · Week 1 — Sequences": [
-    "seq-continue-linear", "seq-term-to-term-rule", "seq-predict-pattern-term", "seq-linear-or-not",
+  "Autumn · Week 1 — Sequences (W1)": [
+    "seq-pattern-draw-next", "seq-continue-linear", "seq-term-to-term-rule", "seq-predict-pattern-term", "seq-linear-or-not",
   ],
-  "Autumn · Week 2 — Sequences": [
-    "seq-linear-or-not", "seq-geometric-next", "seq-missing-terms-linear", "seq-continue-linear", "seq-term-to-term-rule",
+  "Autumn · Week 2 — Sequences (W2)": [
+    "seq-pattern-count-terms", "seq-linear-or-not", "seq-geometric-next", "seq-missing-terms-linear", "seq-continue-linear", "seq-term-to-term-rule",
   ],
-  "Autumn · Week 3 — Algebraic notation and substitution": [
+  "Autumn · Week 3 — Algebraic notation and substitution (W1)": [
     "function-machine-output", "function-machine-input", "function-machine-expression", "algebraic-notation-write",
   ],
-  "Autumn · Week 4 — Algebraic notation and substitution": [
+  "Autumn · Week 4 — Algebraic notation and substitution (W2)": [
     "function-machine-find-operation", "function-machine-expression", "substitution-one-variable", "substitution-two-variables", "algebraic-notation-index-form", "multiply-algebraic-terms",
   ],
-  "Autumn · Week 5 — Expressions and equations": [
+  "Autumn · Week 5 — Expressions and equations (W1)": [
     "equivalent-expression-choose", "like-terms-identify", "collect-like-terms-multi", "solve-one-step-equation",
   ],
-  "Autumn · Week 6 — Expressions and equations": [
+  "Autumn · Week 6 — Expressions and equations (W2)": [
     "collect-like-terms-multi", "solve-one-step-equation", "solve-two-step-equation", "form-solve-perimeter-equation",
   ],
-  "Autumn · Week 7 — Place value, ordering and rounding": [
+  "Autumn · Week 7 — Place value, ordering and rounding (W1)": [
     "place-value-digit-value", "place-value-write-in-words", "number-line-interval-value", "order-decimals", "round-nearest-power-of-ten",
   ],
-  "Autumn · Week 8 — Place value, ordering and rounding": [
+  "Autumn · Week 8 — Place value, ordering and rounding (W2)": [
     "order-decimals", "number-line-interval-value", "round-nearest-power-of-ten", "round-decimal-places", "sf-large-to-sf", "sf-small-to-sf",
   ],
-  "Autumn · Week 9 — Four operations": [
+  "Autumn · Week 9 — Four operations (W1)": [
     "decimal-add-different-dp", "decimal-subtract-different-dp", "multiply-divide-by-powers-of-10", "multiply-two-two-digit", "divide-integer-written", "addsub-word-problem",
   ],
-  "Autumn · Week 10 — Four operations": [
+  "Autumn · Week 10 — Four operations (W2)": [
     "decimal-multiply-by-integer", "decimal-multiply-decimal-by-decimal", "decimal-divide-by-integer", "bidmas-two-operations", "bidmas-with-powers", "multiply-divide-by-0.1-0.01",
   ],
   "Autumn · Week 11 — Averages and range": [
@@ -5120,76 +5227,76 @@ const Y7_WEEKS = {
   "Autumn · Week 12 — Rounding and estimation": [
     "round-significant-figures", "round-decimal-places", "estimation-calculation", "estimate-over-under", "round-error-interval",
   ],
-  "Spring · Week 1 — Graphing data": [
+  "Spring · Week 1 — Graphing data (W1)": [
     "bar-chart-read-frequency", "pie-chart-angle-to-frequency", "pie-chart-angle-from-frequency", "coordinates-identify-point",
   ],
-  "Spring · Week 2 — Graphing data": [
+  "Spring · Week 2 — Graphing data (W2)": [
     "coordinates-identify-point", "coordinates-midpoint-calc", "bar-chart-read-frequency", "scatter-correlation-type",
   ],
-  "Spring · Week 3 — Graphing data": [
+  "Spring · Week 3 — Graphing data (W3)": [
     "scatter-correlation-type", "line-of-best-fit-estimate", "pie-chart-angle-to-frequency", "bar-chart-read-frequency",
   ],
-  "Spring · Week 4 — Fractions, decimals and percentages": [
+  "Spring · Week 4 — Fractions, decimals and percentages (W1)": [
     "frac-simplify", "equivalent-fraction-missing", "fdp-convert-fraction-decimal-percentage", "fdp-percent-to-decimal",
   ],
-  "Spring · Week 5 — Fractions, decimals and percentages": [
+  "Spring · Week 5 — Fractions, decimals and percentages (W2)": [
     "fraction-as-division", "fdp-convert-fraction-decimal-percentage", "frac-compare-different-denom", "fdp-order-mixed",
   ],
-  "Spring · Week 6 — Fractions, decimals and percentages": [
+  "Spring · Week 6 — Fractions, decimals and percentages (W3)": [
     "fdp-order-mixed", "frac-of-amount", "fdp-convert-fraction-decimal-percentage", "frac-improper-mixed-convert",
   ],
-  "Spring · Week 7 — Directed number": [
+  "Spring · Week 7 — Directed number (W1)": [
     "neg-order", "neg-add-subtract", "neg-missing-number", "neg-difference", "neg-mixed-word-problem",
   ],
-  "Spring · Week 8 — Directed number": [
+  "Spring · Week 8 — Directed number (W2)": [
     "neg-add-subtract", "neg-multiply", "neg-divide", "neg-bidmas", "neg-missing-number",
   ],
-  "Spring · Week 9 — Fractions and percentages of amounts": [
+  "Spring · Week 9 — Fractions and percentages of amounts (W1)": [
     "frac-of-amount", "fraction-find-whole", "percent-of-amount-mental", "percent-of-amount",
   ],
-  "Spring · Week 10 — Fractions and percentages of amounts": [
+  "Spring · Week 10 — Fractions and percentages of amounts (W2)": [
     "percent-of-amount-mental", "percent-increase-decrease", "percent-find-whole", "percent-above-100",
   ],
-  "Spring · Week 11 — Perimeter and area": [
+  "Spring · Week 11 — Perimeter and area (W1)": [
     "metric-conversion", "perimeter-polygon-calc", "area-rectangle-triangle", "area-parallelogram", "area-triangle-base-height",
   ],
-  "Spring · Week 12 — Perimeter and area": [
+  "Spring · Week 12 — Perimeter and area (W2)": [
     "area-trapezium", "composite-rectilinear-area-perimeter", "measures-convert-area-units", "form-solve-perimeter-equation", "area-parallelogram",
   ],
-  "Summer · Week 1 — Speed, distance and time": [
+  "Summer · Week 1 — Speed, distance and time (W1)": [
     "time-units-convert", "time-duration-calc", "timetable-read", "speed-calc",
   ],
-  "Summer · Week 2 — Speed, distance and time": [
+  "Summer · Week 2 — Speed, distance and time (W2)": [
     "speed-calc", "distance-calc", "time-calc", "compound-measures-calc",
   ],
-  "Summer · Week 3 — Speed, distance and time": [
+  "Summer · Week 3 — Speed, distance and time (W3)": [
     "distance-time-graph-read", "speed-calc", "distance-calc", "time-calc", "time-duration-calc",
   ],
-  "Summer · Week 4 — Properties of number": [
+  "Summer · Week 4 — Properties of number (W1)": [
     "fmp-list-multiples", "fmp-list-factors", "number-properties-prime-or-composite", "fmp-common-factors",
   ],
-  "Summer · Week 5 — Properties of number": [
+  "Summer · Week 5 — Properties of number (W2)": [
     "fmp-prime-factorisation", "number-properties-square-or-cube", "roots-evaluate", "triangular-numbers",
   ],
-  "Summer · Week 6 — Properties of number": [
+  "Summer · Week 6 — Properties of number (W3)": [
     "fmp-hcf-lcm", "fmp-lcm", "fmp-common-factors", "fmp-prime-factorisation", "number-properties-classify",
   ],
-  "Summer · Week 7 — Add and subtract fractions": [
+  "Summer · Week 7 — Add and subtract fractions (W1)": [
     "frac-simplify", "equivalent-fraction-missing", "frac-improper-mixed-convert", "frac-add-same-denom",
   ],
-  "Summer · Week 8 — Add and subtract fractions": [
+  "Summer · Week 8 — Add and subtract fractions (W2)": [
     "frac-add-same-denom", "frac-add-different-denom", "frac-subtract-different-denom", "frac-compare-different-denom",
   ],
-  "Summer · Week 9 — Add and subtract fractions": [
+  "Summer · Week 9 — Add and subtract fractions (W3)": [
     "frac-add-mixed-numbers", "frac-subtract-mixed-numbers-exchange", "frac-add-different-denom", "frac-subtract-different-denom", "frac-improper-mixed-convert",
   ],
-  "Summer · Week 10 — Angles and polygons": [
+  "Summer · Week 10 — Angles and polygons (W1)": [
     "angle-type-name", "geometric-notation-naming", "angles-about-a-point", "angles-on-a-line", "angles-vertically-opposite",
   ],
-  "Summer · Week 11 — Angles and polygons": [
+  "Summer · Week 11 — Angles and polygons (W2)": [
     "angles-triangle-sum", "angles-isosceles-triangle", "triangle-classify", "angles-quadrilateral-sum", "shape-properties-quadrilateral-name", "angles-parallelogram",
   ],
-  "Summer · Week 12 — Angles and polygons": [
+  "Summer · Week 12 — Angles and polygons (W3)": [
     "angles-interior-polygon-sum", "angles-missing-in-polygon", "shape-naming-polygon-by-sides", "angles-exterior-regular-polygon", "angles-alternate", "angles-co-interior",
   ],
 };
@@ -5853,11 +5960,11 @@ SUBTOPIC_BANK["frac-improper-mixed-convert"] = {
     if (direction === "toMixed") {
       return {
         prompt: <>Write <Frac n={improperNum} d={d} /> as a mixed number.</>,
-        answer: <>{w} <Frac n={n} d={d} /></>,
+        answer: <Mixed w={w} n={n} d={d} />,
       };
     }
     return {
-      prompt: <>Write {w} <Frac n={n} d={d} /> as an improper fraction.</>,
+      prompt: <>Write <Mixed w={w} n={n} d={d} /> as an improper fraction.</>,
       answer: <Frac n={improperNum} d={d} />,
     };
   },
@@ -5936,8 +6043,8 @@ SUBTOPIC_BANK["frac-add-mixed-numbers"] = {
     const simpNum = remNum / g, simpDen = commonDen / g;
     const totalWhole = w1 + w2 + wholeCarry;
     return {
-      prompt: <>Work out {w1} <Frac n={n1} d={d1} /> + {w2} <Frac n={n2} d={d2} />. Give your answer as a mixed number in its simplest form.</>,
-      answer: remNum === 0 ? `${totalWhole}` : <>{totalWhole} <Frac n={simpNum} d={simpDen} /></>,
+      prompt: <>Work out <Mixed w={w1} n={n1} d={d1} /> + <Mixed w={w2} n={n2} d={d2} />. Give your answer as a mixed number in its simplest form.</>,
+      answer: remNum === 0 ? `${totalWhole}` : <Mixed w={totalWhole} n={simpNum} d={simpDen} />,
     };
   },
 };
@@ -5954,8 +6061,8 @@ SUBTOPIC_BANK["frac-subtract-mixed-numbers-exchange"] = {
     const g = gcd(num, d);
     const simpNum = num / g, simpDen = d / g;
     return {
-      prompt: <>Work out {w1} <Frac n={n1} d={d} /> - {w2} <Frac n={n2} d={d} />. Give your answer as a mixed number in its simplest form.</>,
-      answer: simpDen === 1 ? `${totalWhole + simpNum}` : <>{totalWhole} <Frac n={simpNum} d={simpDen} /></>,
+      prompt: <>Work out <Mixed w={w1} n={n1} d={d} /> − <Mixed w={w2} n={n2} d={d} />. Give your answer as a mixed number in its simplest form.</>,
+      answer: simpDen === 1 ? `${totalWhole + simpNum}` : <Mixed w={totalWhole} n={simpNum} d={simpDen} />,
     };
   },
 };
@@ -6418,12 +6525,13 @@ SUBTOPIC_BANK["angles-isosceles-triangle"] = {
 SUBTOPIC_BANK["angles-exterior-triangle"] = {
   topic: "Angles in Shapes", title: "Exterior angle of a triangle", marks: 2,
   build(rng) {
-    const a = seededInt(rng, 30, 85);
-    const b = seededInt(rng, 30, 85);
-    const exterior = a + b;
+    let a, c;
+    do { a = seededInt(rng, 30, 85); c = seededInt(rng, 30, 85); } while (a + c > 150);
+    const exterior = a + c;
     return {
-      prompt: `In triangle ABC, angle A = ${a}° and angle B = ${b}°. Side BC is extended to a point D. Find the size of the exterior angle ACD.`,
-      answer: `Exterior angle = angle A + angle B = ${a}° + ${b}° = ${exterior}°`,
+      prompt: `In triangle ABC, the side AB is extended to the point D as shown. Find the size of the exterior angle CBD.`,
+      render: <GeneralTriangleSVG sideAB={140} angleA={a} angleB={180 - a - c} labelA={`${a}\u00B0`} labelC={`${c}\u00B0`} labelExt="?" />,
+      answer: `Exterior angle = angle A + angle C = ${a}° + ${c}° = ${exterior}° (or 180° − ${180 - a - c}° = ${exterior}°)`,
     };
   },
 };
@@ -6515,9 +6623,14 @@ SUBTOPIC_BANK["angles-missing-in-polygon"] = {
       missing = sum - total;
       guard++;
     } while ((missing < 60 || missing > 170) && guard < 60);
+    const unknownIndex = seededInt(rng, 0, n - 1);
+    const angles = knownAngles.slice();
+    angles.splice(unknownIndex, 0, missing);
     return {
-      prompt: `A polygon with ${n} sides has interior angles of ${knownAngles.map((a) => `${a}°`).join(", ")}, and one more unknown angle. Find the size of the missing angle.`,
-      answer: `Sum of interior angles = (${n} - 2) × 180° = ${sum}°. Missing angle = ${sum}° - ${total}° = ${missing}°`,
+      prompt: `The diagram shows a polygon with ${n} sides. Find the size of the angle marked "?".`,
+      render: <PolygonAnglesSVG angles={angles} unknownIndex={unknownIndex} />,
+      accurateDiagram: true,
+      answer: `Sum of interior angles = (${n} − 2) × 180° = ${sum}°. Missing angle = ${sum}° − ${total}° = ${missing}°`,
     };
   },
 };
@@ -7002,6 +7115,203 @@ const y7hm = (t) => {
 };
 const y7rule = (d) => (d > 0 ? `add ${y7num(d)}` : `subtract ${y7num(-d)}`);
 
+/* --- Year 7 diagram components: number machine, number line, polygon angles --- */
+// Boxes with a pointed right-hand end joined by arrows, like an exam-paper
+// number machine. A step label of "?" is the unknown box.
+function FunctionMachineSVG({ steps, inLabel = "input", outLabel = "output" }) {
+  const boxW = 104, boxH = 58, gap = 48, labW = 66, labOutW = 82, top = 14;
+  const n = steps.length;
+  const x0 = labW;
+  const W = x0 + gap + n * boxW + (n - 1) * gap + gap + labOutW;
+  const H = top * 2 + boxH;
+  const yMid = top + boxH / 2;
+  const font = "'Times New Roman', Times, serif";
+  const arrow = (xa, xb, key) => (
+    <g key={key}>
+      <line x1={xa} y1={yMid} x2={xb - 8} y2={yMid} stroke="#000" strokeWidth="1.6" />
+      <polygon points={`${xb},${yMid} ${xb - 10},${yMid - 4.5} ${xb - 10},${yMid + 4.5}`} fill="#000" />
+    </g>
+  );
+  const boxes = steps.map((label, i) => {
+    const l = x0 + gap + i * (boxW + gap);
+    return (
+      <g key={`b${i}`}>
+        <polygon points={`${l},${top} ${l + boxW - 18},${top} ${l + boxW},${yMid} ${l + boxW - 18},${top + boxH} ${l},${top + boxH}`} fill="#fff" stroke="#000" strokeWidth="1.5" />
+        <text x={l + (boxW - 9) / 2} y={yMid + 7} fontSize="22" fontFamily={font} textAnchor="middle" fill="#000">{label}</text>
+      </g>
+    );
+  });
+  const arrows = [arrow(x0 + 4, x0 + gap - 2, "a0")];
+  steps.forEach((_, i) => {
+    const l = x0 + gap + i * (boxW + gap);
+    arrows.push(arrow(l + boxW + 6, l + boxW + gap - 2, `a${i + 1}`));
+  });
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} width={Math.min(W * 1.15, 540)} style={{ maxWidth: "100%", height: "auto", display: "block", margin: "0 auto" }}>
+      <text x={x0 - 4} y={yMid + 6} fontSize="19" fontFamily={font} textAnchor="end" fill="#000">{inLabel}</text>
+      {boxes}
+      {arrows}
+      <text x={W - labOutW + 4} y={yMid + 6} fontSize="19" fontFamily={font} fill="#000">{outLabel}</text>
+    </svg>
+  );
+}
+
+// A real number line: a tick at every interval, only the two ends labelled,
+// and an arrow pointing at one tick for the pupil to read.
+function NumberLineSVG({ L, U, k, m, fmt }) {
+  const W = 480, H = 100, padX = 40, y = 62;
+  const x = (i) => padX + (i / k) * (W - 2 * padX);
+  const f = fmt || ((v) => String(v));
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} width={500} style={{ maxWidth: "100%", height: "auto", display: "block", margin: "0 auto" }}>
+      <line x1={padX - 20} y1={y} x2={W - padX + 20} y2={y} stroke="#000" strokeWidth="1.6" />
+      {Array.from({ length: k + 1 }, (_, i) => {
+        const end = i === 0 || i === k;
+        return <line key={i} x1={x(i)} y1={y - (end ? 10 : 7)} x2={x(i)} y2={y + (end ? 10 : 7)} stroke="#000" strokeWidth={end ? 1.9 : 1.4} />;
+      })}
+      <text x={x(0)} y={y + 28} fontSize="14" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#000">{f(L)}</text>
+      <text x={x(k)} y={y + 28} fontSize="14" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#000">{f(U)}</text>
+      <line x1={x(m)} y1={y - 40} x2={x(m)} y2={y - 14} stroke="#b23b2e" strokeWidth="2.6" />
+      <polygon points={`${x(m)},${y - 6} ${x(m) - 7},${y - 18} ${x(m) + 7},${y - 18}`} fill="#b23b2e" />
+    </svg>
+  );
+}
+
+// A convex polygon drawn to match the interior angles given (the last two
+// side lengths are solved so it closes), with an arc and label in each corner.
+function PolygonAnglesSVG({ angles, unknownIndex }) {
+  const n = angles.length;
+  const rad = (d) => (d * Math.PI) / 180;
+  const ext = angles.map((a) => 180 - a);
+  const dirs = [0];
+  for (let k = 1; k < n; k++) dirs.push(dirs[k - 1] + ext[k]);
+  const u = dirs.map((d) => [Math.cos(rad(d)), Math.sin(rad(d))]);
+  let sides = null;
+  for (let phase = 0; phase < 120 && !sides; phase++) {
+    const s = [];
+    const amp = phase < 60 ? 0.18 : 0.32;
+    for (let k = 0; k < n - 2; k++) s.push(1 + amp * Math.sin(1.7 * k + phase * 2.1 + angles[0] * 0.1));
+    let Ax = 0, Ay = 0;
+    for (let k = 0; k < n - 2; k++) { Ax += s[k] * u[k][0]; Ay += s[k] * u[k][1]; }
+    const a = u[n - 2], b = u[n - 1];
+    const det = a[0] * b[1] - a[1] * b[0];
+    if (Math.abs(det) < 1e-6) continue;
+    const s1 = (-Ax * b[1] + Ay * b[0]) / det;
+    const s2 = (a[0] * -Ay - a[1] * -Ax) / det;
+    if (s1 > 0.75 && s1 < 1.6 && s2 > 0.75 && s2 < 1.6) sides = s.concat([s1, s2]);
+  }
+  let pts = [];
+  if (sides) {
+    let x = 0, y = 0;
+    pts.push([x, y]);
+    for (let k = 0; k < n - 1; k++) { x += sides[k] * u[k][0]; y += sides[k] * u[k][1]; pts.push([x, y]); }
+  } else {
+    pts = Array.from({ length: n }, (_, i) => [Math.cos(rad(90 + (360 / n) * i)), Math.sin(rad(90 + (360 / n) * i))]);
+  }
+  pts = pts.map(([x, y]) => [x, -y]);
+  const xs = pts.map((q) => q[0]), ys = pts.map((q) => q[1]);
+  const minX = Math.min(...xs), maxX = Math.max(...xs), minY = Math.min(...ys), maxY = Math.max(...ys);
+  const boxW = 360, boxH = 290, pad = 40;
+  const sc = Math.min((boxW - 2 * pad) / (maxX - minX || 1), (boxH - 2 * pad) / (maxY - minY || 1));
+  const offX = (boxW - (maxX - minX) * sc) / 2, offY = (boxH - (maxY - minY) * sc) / 2;
+  const V = pts.map(([x, y]) => [offX + (x - minX) * sc, offY + (y - minY) * sc]);
+  return (
+    <svg viewBox={`0 0 ${boxW} ${boxH}`} width={400} style={{ maxWidth: "100%", height: "auto", display: "block", margin: "0 auto" }}>
+      <polygon points={V.map((q) => q.join(",")).join(" ")} fill="none" stroke="#000" strokeWidth="1.6" strokeLinejoin="round" />
+      {V.map((q, i) => (
+        <AngleMark key={i} V={q} P={V[(i + n - 1) % n]} Q={V[(i + 1) % n]} label={i === unknownIndex ? "?" : `${angles[i]}\u00B0`} arcR={17} bold={i === unknownIndex} fontSize={i === unknownIndex ? 15 : 12.5} />
+      ))}
+    </svg>
+  );
+}
+
+/* --- Sequences: drawn pattern sequences (students continue the pattern) --- */
+function y7PatternShape(kind, n, p) {
+  const cells = [], sticks = [];
+  if (kind === "row") { const len = p.s + (n - 1) * p.d; for (let i = 0; i < len; i++) cells.push([i, 0]); }
+  else if (kind === "columns") { for (let i = 0; i < n; i++) for (let j = 0; j < p.r; j++) cells.push([i, j]); }
+  else if (kind === "L") { for (let j = 0; j <= n; j++) cells.push([0, j]); for (let i = 1; i <= n; i++) cells.push([i, n]); }
+  else if (kind === "cross") { cells.push([n, n]); for (let k = 1; k <= n; k++) cells.push([n - k, n], [n + k, n], [n, n - k], [n, n + k]); }
+  else { for (let i = 0; i <= n; i++) sticks.push([i, 0, i, 1]); for (let i = 0; i < n; i++) sticks.push([i, 0, i + 1, 0], [i, 1, i + 1, 1]); }
+  return { cells, sticks };
+}
+function y7PatternBox(sh) {
+  let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+  sh.cells.forEach(([x, y]) => { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x + 1); y1 = Math.max(y1, y + 1); });
+  sh.sticks.forEach(([a, b, c, d]) => { x0 = Math.min(x0, a, c); y0 = Math.min(y0, b, d); x1 = Math.max(x1, a, c); y1 = Math.max(y1, b, d); });
+  return { x0, y0, w: x1 - x0, h: y1 - y0 };
+}
+// Draws the listed patterns side by side, bottom-aligned and labelled, and
+// optionally a dashed empty box (labelled) where pupils draw the next one.
+function PatternSVG({ kind, p, indices, blankIndex }) {
+  const U = 24, GAP = 1.6, LABEL = 22;
+  const items = indices.map((n) => ({ n, blank: false, sh: y7PatternShape(kind, n, p) }));
+  if (blankIndex) items.push({ n: blankIndex, blank: true, sh: y7PatternShape(kind, blankIndex, p) });
+  items.forEach((it) => { it.box = y7PatternBox(it.sh); });
+  const maxH = Math.max(...items.map((it) => it.box.h)) + 0.4;
+  let x = 0.4;
+  const placed = items.map((it) => {
+    const w = Math.max(it.box.w + (it.blank ? 0.8 : 0), 3);
+    const o = { ...it, x, w };
+    x += w + GAP;
+    return o;
+  });
+  const W = (x - GAP + 0.4) * U, H = maxH * U + LABEL;
+  const yBase = maxH * U;
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} width={Math.min(W * (items.length > 1 ? 2.4 : 1.3), 600)} style={{ maxWidth: "100%", height: "auto", display: "block", margin: "0 auto" }}>
+      {placed.map((it) => {
+        const ox = (it.x + (it.w - it.box.w) / 2 - it.box.x0) * U;
+        const oy = yBase - 0.2 * U - (it.box.y0 + it.box.h) * U;
+        return (
+          <g key={it.n}>
+            {it.blank && <rect x={it.x * U} y={yBase - (it.box.h + 0.4) * U} width={it.w * U} height={(it.box.h + 0.4) * U} fill="none" stroke="#777" strokeWidth="1.2" strokeDasharray="5 4" />}
+            {!it.blank && it.sh.cells.map(([cx, cy], i) => <rect key={`c${i}`} x={ox + cx * U} y={oy + cy * U} width={U} height={U} fill="#cfe0f5" stroke="#1f3d66" strokeWidth="1.4" />)}
+            {!it.blank && it.sh.sticks.map(([a, b, c, d], i) => <line key={`s${i}`} x1={ox + a * U} y1={oy + b * U} x2={ox + c * U} y2={oy + d * U} stroke="#a8641c" strokeWidth="3.6" strokeLinecap="round" />)}
+            <text x={(it.x + it.w / 2) * U} y={yBase + 15} fontSize="12" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#000">Pattern {it.n}</text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+function y7PatternSpec(rng) {
+  const kind = pick(rng, ["row", "columns", "L", "cross", "sticks"]);
+  let p = {};
+  if (kind === "row") { do { p = { s: seededInt(rng, 1, 3), d: seededInt(rng, 1, 3) }; } while (p.s === 1 && p.d === 1); }
+  if (kind === "columns") p = { r: seededInt(rng, 2, 4) };
+  const unit = kind === "sticks" ? "matchsticks" : pick(rng, ["squares", "tiles"]);
+  const count = (n) => { const sh = y7PatternShape(kind, n, p); return sh.cells.length + sh.sticks.length; };
+  return { kind, p, unit, count };
+}
+SUBTOPIC_BANK["seq-pattern-draw-next"] = {
+  topic: "Sequences", title: "Draw the next pattern in a sequence", marks: 3,
+  build(rng) {
+    const { kind, p, unit, count } = y7PatternSpec(rng);
+    const d = count(2) - count(1);
+    return {
+      prompt: `Here are the first three patterns in a sequence. (a) Draw Pattern 4 in the dashed box. (b) How many ${unit} are needed for Pattern 10?`,
+      render: <PatternSVG kind={kind} p={p} indices={[1, 2, 3]} blankIndex={4} />,
+      accurateDiagram: true,
+      answer: `(a) Pattern 4 uses ${count(4)} ${unit} (drawn below). (b) The number of ${unit} goes up by ${d} each time, so Pattern 10 uses ${count(1)} + 9 × ${d} = ${count(10)}.`,
+      answerRender: <PatternSVG kind={kind} p={p} indices={[4]} />,
+    };
+  },
+};
+SUBTOPIC_BANK["seq-pattern-count-terms"] = {
+  topic: "Sequences", title: "Count a pattern sequence and continue it as numbers", marks: 2,
+  build(rng) {
+    const { kind, p, unit, count } = y7PatternSpec(rng);
+    const d = count(2) - count(1);
+    return {
+      prompt: `Here are the first three patterns in a sequence. Write down the number of ${unit} in each of Patterns 1, 2 and 3, then continue the number sequence to give the number of ${unit} in Patterns 4 and 5.`,
+      render: <PatternSVG kind={kind} p={p} indices={[1, 2, 3]} />,
+      accurateDiagram: true,
+      answer: `${[1, 2, 3, 4, 5].map(count).join(", ")} (add ${d} each time)`,
+    };
+  },
+};
+
 /* --- Sequences: term-to-term rules, linear and non-linear --- */
 SUBTOPIC_BANK["seq-continue-linear"] = {
   topic: "Sequences", title: "Continue a linear sequence", marks: 1,
@@ -7135,7 +7445,9 @@ SUBTOPIC_BANK["function-machine-output"] = {
     const m = y7Machine(rng, pick(rng, [1, 2, 2]));
     const working = m.list.map((s, i) => `${m.values[i]} ${s.op} ${s.k} = ${m.values[i + 1]}`).join(", ");
     return {
-      prompt: `A function machine has the rule: ${y7ruleText(m.list)}. The input is ${m.input}. What is the output?`,
+      prompt: `The diagram shows a number machine. Find the output when the input is ${m.input}.`,
+      render: <FunctionMachineSVG steps={m.list.map((s) => `${s.op} ${s.k}`)} />,
+      accurateDiagram: true,
       answer: `${m.output} (${working})`,
     };
   },
@@ -7148,7 +7460,9 @@ SUBTOPIC_BANK["function-machine-input"] = {
     const steps = [];
     for (let i = m.list.length - 1; i >= 0; i--) steps.push(`${m.values[i + 1]} ${inv[m.list[i].op]} ${m.list[i].k} = ${m.values[i]}`);
     return {
-      prompt: `A function machine has the rule: ${y7ruleText(m.list)}. The output is ${m.output}. What was the input?`,
+      prompt: `The diagram shows a number machine. Find the input when the output is ${m.output}.`,
+      render: <FunctionMachineSVG steps={m.list.map((s) => `${s.op} ${s.k}`)} />,
+      accurateDiagram: true,
       answer: `${m.input} (work backwards: ${steps.join(", ")})`,
     };
   },
@@ -7159,14 +7473,16 @@ SUBTOPIC_BANK["function-machine-expression"] = {
     const v = pick(rng, ["n", "x", "a"]);
     const kind = pick(rng, ["mult", "add", "multAdd", "multSub", "addMult"]);
     const k = seededInt(rng, 2, 9), c = seededInt(rng, 1, 9);
-    let rule, expr;
-    if (kind === "mult") { rule = `× ${k}`; expr = `${k}${v}`; }
-    else if (kind === "add") { rule = `+ ${c}`; expr = `${v} + ${c}`; }
-    else if (kind === "multAdd") { rule = `× ${k}, then + ${c}`; expr = `${k}${v} + ${c}`; }
-    else if (kind === "multSub") { rule = `× ${k}, then − ${c}`; expr = `${k}${v} − ${c}`; }
-    else { rule = `+ ${c}, then × ${k}`; expr = `${k}(${v} + ${c})`; }
+    let steps, expr;
+    if (kind === "mult") { steps = [`× ${k}`]; expr = `${k}${v}`; }
+    else if (kind === "add") { steps = [`+ ${c}`]; expr = `${v} + ${c}`; }
+    else if (kind === "multAdd") { steps = [`× ${k}`, `+ ${c}`]; expr = `${k}${v} + ${c}`; }
+    else if (kind === "multSub") { steps = [`× ${k}`, `− ${c}`]; expr = `${k}${v} − ${c}`; }
+    else { steps = [`+ ${c}`, `× ${k}`]; expr = `${k}(${v} + ${c})`; }
     return {
-      prompt: `The input to a function machine is ${v}. The machine does: ${rule}. Write an expression for the output.`,
+      prompt: `The diagram shows a number machine. The input is ${v}. Write an expression for the output.`,
+      render: <FunctionMachineSVG steps={steps} inLabel={v === "x" ? "input" : "input"} />,
+      accurateDiagram: true,
       answer: expr,
     };
   },
@@ -7179,8 +7495,10 @@ SUBTOPIC_BANK["function-machine-find-operation"] = {
     const mid = x * a;
     const out = plus ? mid + b : mid - b;
     return {
-      prompt: `A function machine multiplies the input by ${a}, then does one more step. When the input is ${x} the output is ${out}. What is the second step?`,
-      answer: `${x} × ${a} = ${mid}, and ${mid} to ${out} is ${plus ? "+" : "−"} ${b}. The second step is ${plus ? "add" : "subtract"} ${b}.`,
+      prompt: `The diagram shows a number machine. When the input is ${x}, the output is ${out}. Find the missing step in the second box.`,
+      render: <FunctionMachineSVG steps={[`× ${a}`, "?"]} />,
+      accurateDiagram: true,
+      answer: `${x} × ${a} = ${mid}, and ${mid} to ${out} is ${plus ? "+" : "−"} ${b}. The second box is ${plus ? "+" : "−"} ${b}.`,
     };
   },
 };
@@ -7218,7 +7536,7 @@ SUBTOPIC_BANK["like-terms-identify"] = {
     const unlikes = y7shuffle(rng, unlikePool).slice(0, 5 - likeCount + 1);
     const all = y7shuffle(rng, likes.concat(unlikes));
     return {
-      prompt: `Which of these are like terms with ${base}?  ${all.join("   ")}`,
+      prompt: `Which of these are like terms with ${base}?  ${all.join(",   ")}`,
       answer: `${likes.join(", ")} (they all contain exactly ${v}, with no other letters or powers)`,
     };
   },
@@ -7234,7 +7552,7 @@ SUBTOPIC_BANK["equivalent-expression-choose"] = {
     const opts = y7shuffle(rng, [correct].concat(wrong));
     const letters = ["A", "B", "C", "D"];
     return {
-      prompt: `Which expression is equivalent to ${a}(${v} + ${b})?   ${opts.map((o, i) => `${letters[i]}: ${o}`).join("   ")}`,
+      prompt: `Which expression is equivalent to ${a}(${v} + ${b})?   ${opts.map((o, i) => `${letters[i]}: ${o}`).join(",   ")}`,
       answer: `${letters[opts.indexOf(correct)]}: ${correct} (multiply both ${v} and ${b} by ${a})`,
     };
   },
@@ -7262,7 +7580,9 @@ SUBTOPIC_BANK["number-line-interval-value"] = {
     const m = seededInt(rng, 1, k - 1);
     const val = Math.round((L + m * s) * 100) / 100;
     return {
-      prompt: `A number line runs from ${y7num(L)} to ${y7num(U)} and is split into ${k} equal intervals. An arrow points exactly ${m} interval${m === 1 ? "" : "s"} from ${y7num(L)}. What number does the arrow point to?`,
+      prompt: `The arrow points to a number on the number line. What number does the arrow point to?`,
+      render: <NumberLineSVG L={L} U={U} k={k} m={m} fmt={y7num} />,
+      accurateDiagram: true,
       answer: `Each interval is (${y7num(U)} − ${y7num(L)}) ÷ ${k} = ${y7num(s)}. ${y7num(L)} + ${m} × ${y7num(s)} = ${y7num(val)}`,
     };
   },
@@ -8178,6 +8498,8 @@ const SUBTOPIC_TO_SPEC = {
   "seq-predict-pattern-term": "Algebra → Sequences → Continuing & Describing Sequences",
   "seq-missing-terms-linear": "Algebra → Sequences → Continuing & Describing Sequences",
   "seq-geometric-next": "Algebra → Sequences → Continuing & Describing Sequences",
+  "seq-pattern-draw-next": "Algebra → Sequences → Continuing & Describing Sequences",
+  "seq-pattern-count-terms": "Algebra → Sequences → Continuing & Describing Sequences",
   "function-machine-output": "Algebra → Introduction to Algebra → Function Machines",
   "function-machine-input": "Algebra → Introduction to Algebra → Function Machines",
   "function-machine-expression": "Algebra → Introduction to Algebra → Function Machines",
@@ -9855,7 +10177,7 @@ export default function QuizEngine() {
             ⠿
           </span>
           <strong>{number}.</strong>
-          <div style={{ flex: 1 }}>{q.prompt}</div>
+          <div style={{ flex: 1 }}>{mathify(q.prompt)}</div>
           <button
             onClick={onRegenerate}
             disabled={locked}
@@ -9879,7 +10201,7 @@ export default function QuizEngine() {
         {q.render && (
           <div style={{ margin: "6px auto 2px", maxWidth: "100%", textAlign: "center" }}>
             {q.render}
-            <div style={{ fontSize: 8.5, fontStyle: "italic", color: "var(--paper-muted)", marginTop: 2 }}>Diagram NOT accurately drawn</div>
+            {!q.accurateDiagram && <div style={{ fontSize: 8.5, fontStyle: "italic", color: "var(--paper-muted)", marginTop: 2 }}>Diagram NOT accurately drawn</div>}
           </div>
         )}
 
@@ -9887,7 +10209,7 @@ export default function QuizEngine() {
 
         {answersVisible && (
           <div className="qe-ms">
-            <strong>Mark scheme:</strong> {q.answer}
+            <strong>Mark scheme:</strong> {mathify(q.answer)}
             {q.answerRender && <div style={{ marginTop: 4 }}>{q.answerRender}</div>}
           </div>
         )}
@@ -10141,7 +10463,7 @@ export default function QuizEngine() {
                   ⠿
                 </span>
                 <strong>{i + 1}.</strong>
-                <div style={{ flex: 1 }}>{q.prompt}</div>
+                <div style={{ flex: 1 }}>{mathify(q.prompt)}</div>
               </div>
 
               {q.render && (
@@ -10152,7 +10474,7 @@ export default function QuizEngine() {
 
               {showAnswers && (
                 <div style={{ background: "var(--ok-soft)", border: "1px solid color-mix(in srgb, var(--ok) 40%, var(--line))", borderRadius: 8, padding: "10px 14px", fontSize: "clamp(12px, 1.3vw, 16px)", marginTop: "auto" }}>
-                  <strong style={{ color: "var(--ok)" }}>Answer:</strong> {q.answer}
+                  <strong style={{ color: "var(--ok)" }}>Answer:</strong> {mathify(q.answer)}
                   {q.answerRender && <div style={{ marginTop: 8 }}>{q.answerRender}</div>}
                 </div>
               )}
