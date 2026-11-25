@@ -273,7 +273,7 @@ script are in `LIBRARY_SETUP.md` and `supabase_setup.sql`. Notes for changes:
   segments, `SolidSVG` pyramid/cone take height/slant/radius labels. Remaining text-only: pure unit/time
   conversions (not geometry).
 - Year 9 schemes ("Year 9 · Set 1–3 (2026/27)") come from `Year 9 (Y9) Timelines 26-27.xlsx` (its Set 3 and Set 4 tabs are
-  identical; there is no Year 9 Set 4, so only Set 3 is shown). Weeks use the Y10 key format; unit-coded sets slice a per-unit question pool by lesson number. Constructions
+  identical; there is no Year 9 Set 4, so only Set 3 is shown). Weeks use the Y10 key format; every scheme (Y7 to Y11) now carries W/B dates, e.g. "HT1 · Week 1 (W/B 07/09/26) — …" (Y7/Y8 take theirs in order from the school calendar; Spring week 12 says "date TBC"); unit-coded sets slice a per-unit question pool by lesson number. Constructions
   and loci have no question types yet, so those lessons fall back to bearings/scale questions.
 
 - Short codes (7 characters, e.g. GMD9K8B) sit in the same optional Supabase project as the library: table
