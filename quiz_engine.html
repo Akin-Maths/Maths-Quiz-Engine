@@ -11734,7 +11734,7 @@ async function libRest(path, { method = "GET", body, prefer } = {}) {
   }
   if (!res.ok) {
     const d = await res.json().catch(() => ({}));
-    throw new Error(d.message || `The library couldn't complete that (error ${res.status}).`);
+    throw Object.assign(new Error(d.message || `The library couldn't complete that (error ${res.status}).`), { status: res.status });
   }
   return res.status === 204 ? null : res.json();
 }
@@ -11749,6 +11749,66 @@ const libUpdate = (id, patch) =>
 // Quizzes are only ever hidden, never destroyed (the database has no delete
 // permission at all), so a mistaken delete can be undone from the dashboard.
 const libHide = (id) => libUpdate(id, { deleted_at: new Date().toISOString() });
+
+/* ---------- short codes (optional, same Supabase project as the library) ----------
+   A short code is 7 letters/digits (e.g. GMD9K8B) that stands for a full quiz
+   code, so it can be printed on a sheet, read out, or put in a link
+   (?code=GMD9K8B). The server only stores the quiz code (question types and
+   seeds, no pupil data). Anyone can LOOK UP a short code, one at a time,
+   without signing in (a database function, so the list can't be browsed);
+   MAKING one needs the shared library sign-in. See supabase_setup.sql. ---------- */
+const SHORT_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no I, O, 0 or 1
+function shortRandomCode() {
+  const bytes = new Uint8Array(7);
+  if (typeof crypto !== "undefined" && crypto.getRandomValues) crypto.getRandomValues(bytes);
+  else for (let i = 0; i < 7; i++) bytes[i] = Math.floor(Math.random() * 256);
+  return Array.from(bytes, (b) => SHORT_ALPHABET[b % SHORT_ALPHABET.length]).join("");
+}
+// A pasted short code, or a link ending ?code=XXXXXXX. Returns the code in
+// capitals, or null if the text isn't one (a full quiz code is much longer).
+function shortCodeFrom(input) {
+  const text = String(input == null ? "" : input).trim();
+  const link = text.match(/[?&]code=([A-Za-z0-9]{7})(?![A-Za-z0-9%])/);
+  const raw = link ? link[1] : /^[A-Za-z0-9]{7}$/.test(text) ? text : null;
+  return raw ? raw.toUpperCase() : null;
+}
+async function shortLookup(code) {
+  const c = libConfig();
+  if (!c) throw new Error("Short codes aren't switched on for this copy of the engine yet.");
+  let res;
+  try {
+    res = await fetch(`${c.url}/rest/v1/rpc/get_short_code`, {
+      method: "POST",
+      headers: { apikey: c.anonKey, Authorization: `Bearer ${c.anonKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ p_code: code }),
+    });
+  } catch (e) {
+    throw new Error("Couldn't reach the code server. Check your internet connection and try again.");
+  }
+  if (!res.ok) throw new Error("The code server couldn't look that up just now. Try again in a moment.");
+  const data = await res.json().catch(() => null);
+  if (!data) throw new Error(`Short code ${code} wasn't found. Check it and try again.`);
+  return String(data);
+}
+// Needs the library sign-in. Reuses the existing short code for an identical
+// quiz (unless this is a follow-up, which always gets its own).
+async function shortMake(quizCode, parent) {
+  if (!parent) {
+    const found = await libRest(`short_codes?select=code&quiz_code=eq.${encodeURIComponent(quizCode)}&limit=1`);
+    if (found && found[0]) return found[0].code;
+  }
+  for (let i = 0; i < 8; i++) {
+    const code = shortRandomCode();
+    try {
+      const r = await libRest("short_codes", { method: "POST", body: { code, quiz_code: quizCode, parent_code: parent || null }, prefer: "return=representation" });
+      return r && r[0] ? r[0].code : code;
+    } catch (e) {
+      if (e && e.status === 409) continue; // that code was already taken, pick another
+      throw e;
+    }
+  }
+  throw new Error("Couldn't find a free short code. Please try again.");
+}
 
 // Split a quiz's questions across printed pages so each page renders as a
 // fixed 1-column x 3-row (3-cell) table. Pages fill front-to-back — page 1
@@ -12450,7 +12510,10 @@ function QuizEngine() {
     setFullScreenDoNow(false);
   };
   const loadCode = (text) => {
-    const parsed = parseQuizCode(typeof text === "string" ? text : codeInput);
+    const raw = typeof text === "string" ? text : codeInput;
+    const sc = shortCodeFrom(raw);
+    if (sc) { loadByShort(sc); return; }
+    const parsed = parseQuizCode(raw);
     if (!parsed.ok) {
       setCodeTone("err");
       setCodeMessage(parsed.message);
@@ -12719,6 +12782,61 @@ function QuizEngine() {
   const currentLink = typeof window !== "undefined" && currentCode
     ? `${window.location.origin}${window.location.pathname}?code=${encodeURIComponent(currentCode)}`
     : "";
+  // ---- short codes ----
+  const [shortFor, setShortFor] = useState(null); // { quiz, short }: which quiz the short code belongs to
+  const [attachShort, setAttachShort] = useState("");
+  const [shortBusy, setShortBusy] = useState(false);
+  const [shortMsg, setShortMsg] = useState({ tone: "ok", text: "" });
+  // The short code only counts while the open quiz is still exactly the one it was made for.
+  const activeShort = shortFor && shortFor.quiz === currentCode ? shortFor.short : "";
+  const shortLink = typeof window !== "undefined" && activeShort ? `${window.location.origin}${window.location.pathname}?code=${activeShort}` : "";
+  useEffect(() => {
+    if (attachShort && currentCode) { setShortFor({ quiz: currentCode, short: attachShort }); setAttachShort(""); }
+  }, [attachShort, currentCode]);
+  const loadByShort = async (short) => {
+    setCodeTone("ok");
+    setCodeMessage(`Looking up ${short}…`);
+    try {
+      const quizCode = await shortLookup(short);
+      loadCode(quizCode);
+      setAttachShort(short);
+      setCodeMessage((m) => `${m} (short code ${short})`);
+    } catch (e) {
+      setCodeTone("err");
+      setCodeMessage((e && e.message) || "Couldn't open that short code.");
+    }
+  };
+  useEffect(() => {
+    if (typeof window === "undefined" || initialDecoded) return;
+    const sc = shortCodeFrom(new URLSearchParams(window.location.search).get("code"));
+    if (sc) loadByShort(sc);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const shortFail = (e) => {
+    if (e && e.status === 401) { setLibSignedIn(false); setLibItems(null); }
+    setShortMsg({ tone: "err", text: (e && e.message) || "Something went wrong." });
+  };
+  const makeShort = async () => {
+    if (!currentCode) return;
+    setShortBusy(true);
+    try {
+      const short = await shortMake(currentCode, null);
+      setShortFor({ quiz: currentCode, short });
+      setShortMsg({ tone: "ok", text: "" });
+    } catch (e) { shortFail(e); } finally { setShortBusy(false); }
+  };
+  // Same topics and question types, new numbers, its own short code linked to this one.
+  const makeFollowUp = async () => {
+    if (!activeShort) return;
+    setShortBusy(true);
+    try {
+      const code2 = encodeQuizCode({ ids: selected, mode: practiceMode, length: lengthMode === "custom" ? selected.length : quizLength, lengthMode, salt: salt + 1 + Math.floor(Math.random() * 400000), version: activeVersion, nonces: {}, order: [] });
+      const short = await shortMake(code2, activeShort);
+      loadCode(code2);
+      setAttachShort(short);
+      setShortMsg({ tone: "ok", text: `Follow-up ready: ${short}. It has the same question types with new numbers.` });
+    } catch (e) { shortFail(e); } finally { setShortBusy(false); }
+  };
   const legacyCopy = (text) => {
     // navigator.clipboard is unavailable (or silently refuses) in some
     // browsers when this file is opened directly from disk rather than
@@ -12936,8 +13054,10 @@ function QuizEngine() {
             <div>Name: <span style={{ display: "inline-block", borderBottom: "1px solid var(--paper-rule)", width: 150 }}>&nbsp;</span></div>
             <div>Date: <span style={{ display: "inline-block", borderBottom: "1px solid var(--paper-rule)", width: 100 }}>&nbsp;</span></div>
             <div>Class: <span style={{ display: "inline-block", borderBottom: "1px solid var(--paper-rule)", width: 80 }}>&nbsp;</span></div>
-            {locked && (
-              <div style={{ marginLeft: "auto", fontFamily: "monospace", fontSize: 11, color: "var(--paper-muted)", wordBreak: "break-all", maxWidth: "100%" }}>Code: {currentCode || "—"}</div>
+            {(locked || activeShort) && (
+              activeShort
+                ? <div style={{ marginLeft: "auto", fontFamily: "monospace", fontSize: 14, fontWeight: 700, letterSpacing: ".1em", color: "var(--paper-ink)" }}>Code: {activeShort}</div>
+                : <div style={{ marginLeft: "auto", fontFamily: "monospace", fontSize: 11, color: "var(--paper-muted)", wordBreak: "break-all", maxWidth: "100%" }}>Code: {currentCode || "—"}</div>
             )}
           </div>
         )}
@@ -13527,6 +13647,36 @@ function QuizEngine() {
                 />
                 <button onClick={() => loadCode()} className={btnCls()}>Load</button>
               </div>
+              {libOn && (
+                <div style={{ marginTop: 14, paddingTop: 12, borderTop: "1px solid var(--line)" }}>
+                  <div style={{ fontWeight: 600, marginBottom: 6 }}>Short code</div>
+                  {activeShort ? (
+                    <>
+                      <div className="qe-row" style={{ flexWrap: "wrap", alignItems: "center" }}>
+                        <span className="mono" style={{ fontSize: "1.7rem", fontWeight: 700, letterSpacing: ".14em" }}>{activeShort}</span>
+                        <button onClick={() => copyText(activeShort, "Short code copied")} className={btnCls()}>Copy</button>
+                        <button onClick={() => copyText(shortLink, "Short link copied")} className={btnCls({ sm: true })}>Copy short link</button>
+                      </div>
+                      <div className="qe-row" style={{ marginTop: 8 }}>
+                        <button onClick={makeFollowUp} disabled={shortBusy} className={btnCls({ sm: true })} title="Same question types, new numbers, with its own short code">{shortBusy ? "Working…" : "Make follow-up quiz"}</button>
+                      </div>
+                    </>
+                  ) : libSignedIn ? (
+                    <div className="qe-row">
+                      <button onClick={makeShort} disabled={shortBusy || !currentCode} className={btnCls({ primary: true })}>{shortBusy ? "Working…" : "Make short code"}</button>
+                    </div>
+                  ) : (
+                    <form onSubmit={libDoSignIn} className="qe-row" style={{ flexWrap: "nowrap" }}>
+                      <input type="password" className="qe-field" value={libPassword} onChange={(e) => { setLibPassword(e.target.value); setLibMsg({ tone: "ok", text: "" }); }} placeholder="Library password, to make short codes" aria-label="Library password" autoComplete="current-password" />
+                      <button type="submit" disabled={libBusy} className={btnCls({ primary: true })}>Sign in</button>
+                    </form>
+                  )}
+                  {(shortMsg.text || (!libSignedIn && libMsg.text)) && (
+                    <div className={(shortMsg.text ? shortMsg.tone : libMsg.tone) === "ok" ? "qe-ok-text" : "qe-danger-text"} style={{ fontSize: ".78rem", marginTop: 6 }} role="status">{shortMsg.text || libMsg.text}</div>
+                  )}
+                  <div className="qe-note" style={{ marginTop: 6 }}>A 7-character code for this exact quiz, short enough to print on the sheet. Anyone can open it by typing it into the box above or using the short link; no login needed to open one.</div>
+                </div>
+              )}
               {codeMessage && (
                 <div
                   className={codeTone === "ok" ? "qe-ok-text" : codeTone === "err" ? "qe-danger-text" : undefined}
@@ -13916,6 +14066,7 @@ const SPEED_CHECKS = [
 ];
 
 ReactDOM.createRoot(document.getElementById("root")).render(<QuizEngine />);
+
 
 
 

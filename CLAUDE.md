@@ -276,6 +276,13 @@ script are in `LIBRARY_SETUP.md` and `supabase_setup.sql`. Notes for changes:
   identical; there is no Year 9 Set 4, so only Set 3 is shown). Weeks use the Y10 key format; unit-coded sets slice a per-unit question pool by lesson number. Constructions
   and loci have no question types yet, so those lessons fall back to bearings/scale questions.
 
+- Short codes (7 characters, e.g. GMD9K8B) sit in the same optional Supabase project as the library: table
+  `short_codes` (policies: library user reads/inserts), public look-up via the `get_short_code(p_code)` database function
+  (anon can call it, nobody can list). Client: `shortRandomCode/shortCodeFrom/shortLookup/shortMake` in the library
+  section; `?code=XXXXXXX` links and the paste box both route short codes through `loadByShort`; "Make short code" and
+  "Make follow-up quiz" live in the Quiz code card; the print header shows the short code. Hidden with the library
+  until `LIBRARY_CONFIG` is filled. Re-run `supabase_setup.sql` (idempotent) to add the table.
+
 ## Changelog (this session, roughly chronological)
 
 - Added an "expand two single brackets" Algebra subtopic; fixed a

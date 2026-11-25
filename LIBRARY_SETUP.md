@@ -67,6 +67,24 @@ whole setup takes about 10 minutes and you only do it once.
    Then rebuild (`cd tools && node build.js`), commit and push as usual. The
    **Saved quizzes** card appears for everyone, asking for the library password.
 
+## Short codes
+
+The same setup also switches on **short codes**: a 7-character code (for
+example `GMD9K8B`) for any quiz, short enough to print on the sheet or read out.
+Re-run `supabase_setup.sql` if you set the library up before short codes
+existed (it is safe to run again).
+
+- **Make short code** (in the *Quiz code* card, after signing in with the
+  library password) gives the open quiz a code and a short link
+  (`…/quiz_engine.html?code=GMD9K8B`). The code is also printed in the corner
+  of the worksheet.
+- **Anyone** can open a short code without a password: type it into the
+  "Paste a quiz code or link" box, or use the short link. Codes can be looked
+  up one at a time but not browsed.
+- **Make follow-up quiz** keeps the same question types, gives new numbers and
+  its own short code, ready to give in class next lesson.
+- Only the quiz code is stored (question types and seeds), never pupil data.
+
 ## Day to day
 
 - Teachers type the shared password once per computer. The browser remembers

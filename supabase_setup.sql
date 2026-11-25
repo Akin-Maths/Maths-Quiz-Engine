@@ -64,3 +64,46 @@ create trigger quizzes_touch before update on public.quizzes
   for each row execute function public.touch_updated_at();
 
 create index if not exists quizzes_created_idx on public.quizzes (created_at desc);
+
+-- ---------------------------------------------------------------------------
+-- 5. SHORT CODES (safe to run again). A short code is 7 letters/digits
+--    (e.g. GMD9K8B) that stands for a full quiz code, so it can be printed on a
+--    sheet or put in a link. Only the quiz code is stored (question types and
+--    seeds), never pupil data.
+--    - Anyone can LOOK UP one code at a time (the function below), without
+--      signing in, so pupils and other teachers can open a printed code.
+--    - Nobody can list or browse them: there is no public read access.
+--    - Only the shared library user can MAKE them.
+-- ---------------------------------------------------------------------------
+create table if not exists public.short_codes (
+  code        text primary key check (code ~ '^[A-Z0-9]{7}$'),
+  quiz_code   text not null check (char_length(quiz_code) between 9 and 2000),
+  parent_code text references public.short_codes (code),
+  created_at  timestamptz not null default now()
+);
+
+alter table public.short_codes enable row level security;
+
+drop policy if exists "library user can read short codes" on public.short_codes;
+drop policy if exists "library user can add short codes"  on public.short_codes;
+
+create policy "library user can read short codes" on public.short_codes
+  for select to authenticated using (public.is_library_user());
+create policy "library user can add short codes" on public.short_codes
+  for insert to authenticated with check (public.is_library_user());
+
+-- The public look-up: give it a code, get that one quiz code back (or nothing).
+create or replace function public.get_short_code(p_code text)
+returns text
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select quiz_code from public.short_codes where code = upper(btrim(p_code)) limit 1
+$$;
+
+revoke all on function public.get_short_code(text) from public;
+grant execute on function public.get_short_code(text) to anon, authenticated;
+
+create index if not exists short_codes_quiz_idx on public.short_codes (quiz_code);
