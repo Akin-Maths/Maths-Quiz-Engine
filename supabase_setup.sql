@@ -106,4 +106,16 @@ $$;
 revoke all on function public.get_short_code(text) from public;
 grant execute on function public.get_short_code(text) to anon, authenticated;
 
+-- ---------------------------------------------------------------------------
+-- 6. API PERMISSIONS (safe to run again). If "Grant API access to new tables
+--    automatically" was left unticked when the project was created, tables
+--    made here are invisible to the app until these grants exist. They only
+--    let the SIGNED-IN library user reach the tables; row level security
+--    above still decides what that user may do, and anon gets nothing.
+-- ---------------------------------------------------------------------------
+grant usage on schema public to anon, authenticated;
+grant execute on function public.is_library_user() to anon, authenticated;
+grant select, insert, update on public.quizzes     to authenticated;
+grant select, insert         on public.short_codes to authenticated;
+
 create index if not exists short_codes_quiz_idx on public.short_codes (quiz_code);

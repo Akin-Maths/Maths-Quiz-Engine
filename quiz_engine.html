@@ -11668,7 +11668,11 @@ function decodeLegacyQuizCode(code) {
    `quizzes` table at /rest/v1/quizzes. Row Level Security on that table, not
    this page, is what keeps strangers out; the anon key below is public by
    design and useless without the shared sign-in. ---------- */
-const LIBRARY_CONFIG = { url: "", anonKey: "", email: "" };
+const LIBRARY_CONFIG = {
+  url: "https://lxzjjrmwwoubmdikmqre.supabase.co",
+  anonKey: "sb_publishable_2yzuRLufHrLUA5ebBI9OvA_-oNL_sYs", // publishable key: safe in a public page
+  email: "mathsquizengine@gmail.com",
+};
 const LIB_SESSION_KEY = "quizEngineLibrarySession";
 function libConfig() {
   const c = (typeof window !== "undefined" && window.QE_LIBRARY_CONFIG) || LIBRARY_CONFIG;
@@ -14066,6 +14070,7 @@ const SPEED_CHECKS = [
 ];
 
 ReactDOM.createRoot(document.getElementById("root")).render(<QuizEngine />);
+
 
 
 
