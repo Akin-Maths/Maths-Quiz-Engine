@@ -119,3 +119,11 @@ grant select, insert, update on public.quizzes     to authenticated;
 grant select, insert         on public.short_codes to authenticated;
 
 create index if not exists short_codes_quiz_idx on public.short_codes (quiz_code);
+
+-- ---------------------------------------------------------------------------
+-- 7. CLASSES (safe to run again). Saved quizzes can be filed under a class
+--    code (e.g. 10A2) and an academic year (e.g. 2026/27).
+-- ---------------------------------------------------------------------------
+alter table public.quizzes add column if not exists class_code    text check (char_length(class_code) <= 6);
+alter table public.quizzes add column if not exists academic_year text check (char_length(academic_year) <= 9);
+create index if not exists quizzes_class_idx on public.quizzes (class_code, academic_year);

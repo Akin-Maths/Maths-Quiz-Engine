@@ -11706,8 +11706,23 @@ async function libRest(path, { method = "GET", body, prefer } = {}) {
   }
   return res.status === 204 ? null : res.json();
 }
-const LIB_COLUMNS = "id,name,author,notes,code,created_at,updated_at";
-const libList = () => libRest(`quizzes?select=${LIB_COLUMNS}&deleted_at=is.null&order=created_at.desc&limit=500`);
+const LIB_COLUMNS_BASE = "id,name,author,notes,code,created_at,updated_at";
+const LIB_COLUMNS = LIB_COLUMNS_BASE + ",class_code,academic_year";
+// class_code / academic_year only exist once the one-off "section 7" in
+// supabase_setup.sql has been run. Until then fall back to the old columns so
+// the library keeps working, and remember it so saves leave them out.
+let libClassesOk = true;
+const libList = async () => {
+  const q = (cols) => libRest(`quizzes?select=${cols}&deleted_at=is.null&order=created_at.desc&limit=500`);
+  try {
+    const rows = await q(LIB_COLUMNS);
+    libClassesOk = true;
+    return rows;
+  } catch (e) {
+    if (e && e.status === 400) { libClassesOk = false; return q(LIB_COLUMNS_BASE); }
+    throw e;
+  }
+};
 const libSave = (row) => libRest("quizzes", { method: "POST", body: row, prefer: "return=representation" }).then((r) => r && r[0]);
 const libUpdate = (id, patch) =>
   libRest(`quizzes?id=eq.${encodeURIComponent(id)}`, { method: "PATCH", body: patch, prefer: "return=representation" }).then((r) => {
@@ -12090,6 +12105,69 @@ function buildTimesTablesSpeedCheck(rng) {
   });
 }
 
+
+/* ---------- classes, academic year and "this week" ----------
+   Class codes are year + band + number (10A2). The number is the set. A class
+   code picks the scheme of work, and saved quizzes are filed under the class
+   code and academic year. */
+const ACADEMIC_YEAR = "2026/27";
+const CLASS_GROUPS = [
+  [7, { A: 3, B: 4 }], [8, { A: 3, B: 3 }], [9, { A: 3, B: 3 }], [10, { A: 4, B: 4 }], [11, { A: 4, B: 4 }],
+].map(([year, bands]) => ({ year, codes: Object.entries(bands).flatMap(([b, n]) => Array.from({ length: n }, (_, i) => `${year}${b}${i + 1}`)) }));
+function schemeForClass(code) {
+  const m = /^(\d+)[AB](\d)$/.exec(code || "");
+  if (!m) return null;
+  const y = +m[1], n = +m[2];
+  const key = y === 7 || y === 8 ? `Year ${y} (2026/27)`
+    : y === 9 || y === 10 ? `Year ${y} · Set ${n} (2026/27)`
+    : n === 1 ? "Year 11 · Set 1 (2026/27)" : n === 2 ? "Year 11 · Set 2 (2026/27)" : "Year 11 · Foundation (2026/27)";
+  return SCHEMES[key] ? key : null;
+}
+function weekStartOf(k) {
+  const m = /\(W\/B (\d\d)\/(\d\d)\/(\d\d)\)/.exec(k);
+  return m ? new Date(2000 + +m[3], +m[2] - 1, +m[1]) : null;
+}
+// The week that covers today; if the scheme has no row for today, the next
+// week coming up; after the last week, the last one.
+function currentWeekKey(scheme, now = new Date()) {
+  const keys = Object.keys(SCHEMES[scheme]);
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  let covering = null, upcoming = null, upDate = null, past = null, pastDate = null;
+  keys.forEach((k) => {
+    const d = weekStartOf(k);
+    if (!d) return;
+    const end = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 7);
+    if (d <= today && today < end) covering = k;
+    else if (d > today && (!upDate || d < upDate)) { upcoming = k; upDate = d; }
+    else if (d <= today && (!pastDate || d > pastDate)) { past = k; pastDate = d; }
+  });
+  return covering || upcoming || past || keys[0];
+}
+function weekIsThisWeek(k, now = new Date()) {
+  const d = weekStartOf(k);
+  if (!d) return false;
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  return d <= today && today < new Date(d.getFullYear(), d.getMonth(), d.getDate() + 7);
+}
+function weekShort(k) {
+  const m = /\(W\/B (\d\d\/\d\d)\/\d\d\)\s*—\s*(.*)$/.exec(k);
+  return m ? `W/B ${m[1]} — ${m[2]}` : k;
+}
+const weekFull = (k) => k.replace(/\s*\(W\/B[^)]*\)/, "");
+
+// A collapsed-by-default card, so the sidebar stays short.
+function QeFold({ title, hint, open, onToggle, wide, children }) {
+  return (
+    <section className={cx("qe-card qe-fold", wide && "wide")}>
+      <button type="button" className="qe-fold-head" aria-expanded={open} onClick={onToggle}>
+        <span><strong>{title}</strong>{hint ? <small>{hint}</small> : null}</span>
+        <span aria-hidden="true">{open ? "▾" : "▸"}</span>
+      </button>
+      {open && <div className="qe-fold-body">{children}</div>}
+    </section>
+  );
+}
+
 export default function QuizEngine() {
   const initialDecoded = useMemo(() => {
     if (typeof window === "undefined") return null;
@@ -12097,9 +12175,25 @@ export default function QuizEngine() {
     return code ? decodeQuizCode(code) : null;
   }, []);
 
-  const [schemeKey, setSchemeKey] = useState(Object.keys(SCHEMES)[0]);
-  const [weekKey, setWeekKey] = useState(Object.keys(SCHEMES[Object.keys(SCHEMES)[0]])[0]);
-  const [selected, setSelected] = useState(initialDecoded?.ids ?? SCHEMES[Object.keys(SCHEMES)[0]][Object.keys(SCHEMES[Object.keys(SCHEMES)[0]])[0]]);
+  // Start on the remembered class (if any) at this week's topics, so the page
+  // opens on a ready quiz.
+  const startPlan = useMemo(() => {
+    let cls = "";
+    try { cls = window.localStorage.getItem("quizEngineClass") || ""; } catch (e) {}
+    const sch = (cls && schemeForClass(cls)) || Object.keys(SCHEMES)[0];
+    if (!schemeForClass(cls)) cls = "";
+    return { cls, sch, wk: currentWeekKey(sch) };
+  }, []);
+  const [classCode, setClassCode] = useState(startPlan.cls);
+  const [schemeKey, setSchemeKey] = useState(startPlan.sch);
+  const [weekKey, setWeekKey] = useState(startPlan.wk);
+  const [selected, setSelected] = useState(initialDecoded?.ids ?? SCHEMES[startPlan.sch][startPlan.wk]);
+  const [folds, setFolds] = useState({});
+  const toggleFold = (k) => setFolds((f) => ({ ...f, [k]: !f[k] }));
+  const [libShowAll, setLibShowAll] = useState(false);
+  const [saveOpen, setSaveOpen] = useState(false);
+  const [libActiveId, setLibActiveId] = useState(null);
+  const [libClasses, setLibClasses] = useState(true);
   const [openStrands, setOpenStrands] = useState(new Set(["Statistics & Probability"]));
   // Middle "Domain" layer between Strand and Group (e.g. Statistics & Probability →
   // Averages & Spread → Averages from a List), matching Mr Barton Maths's Ultimate
@@ -12434,6 +12528,18 @@ export default function QuizEngine() {
     setQuestionNonces({});
     setCustomLabel(null);
   };
+  const pickClass = (code) => {
+    if (locked) return;
+    setClassCode(code);
+    try { window.localStorage.setItem("quizEngineClass", code); } catch (e) {}
+    const sch = code ? schemeForClass(code) : null;
+    if (sch) applyWeek(sch, currentWeekKey(sch));
+  };
+  const stepWeek = (delta) => {
+    const keys = Object.keys(SCHEMES[schemeKey]);
+    const i = keys.indexOf(weekKey) + delta;
+    if (i >= 0 && i < keys.length) applyWeek(schemeKey, keys[i]);
+  };
   const setPracticeModeSafe = (mode) => {
     if (locked) return;
     setPracticeMode(mode);
@@ -12473,6 +12579,7 @@ export default function QuizEngine() {
   // that leaves in `selected` (see effectiveIds above) rather than from a
   // separate typed number.
   const switchToCustomMode = () => {
+    setFolds((f) => ({ ...f, topics: true }));
     if (locked) return;
     setLengthMode("custom");
     setFullScreenDoNow(false);
@@ -12522,7 +12629,7 @@ export default function QuizEngine() {
   };
   const libRefresh = async () => {
     setLibBusy(true);
-    try { setLibItems(await libList()); } catch (e) { libFail(e); } finally { setLibBusy(false); }
+    try { const rows = await libList(); setLibClasses(libClassesOk); setLibItems(rows); } catch (e) { libFail(e); } finally { setLibBusy(false); }
   };
   useEffect(() => {
     if (libOn && libSignedIn && libItems === null) libRefresh();
@@ -12549,8 +12656,13 @@ export default function QuizEngine() {
     try {
       const author = libAuthor.trim();
       try { window.localStorage.setItem("quizEngineAuthor", author); } catch (e) {}
-      const row = await libSave({ name, author: author || null, code: currentCode });
+      const row = await libSave({
+        name, author: author || null, code: currentCode,
+        ...(libClassesOk ? { class_code: classCode || null, academic_year: classCode ? ACADEMIC_YEAR : null } : null),
+      });
       setLibItems((prev) => [row, ...(prev || [])]);
+      setLibActiveId(row.id);
+      setSaveOpen(false);
       setLibName("");
       setLibMsg({ tone: "ok", text: `Saved “${name}” to the library.` });
     } catch (e) { libFail(e); } finally { setLibBusy(false); }
@@ -12577,6 +12689,7 @@ export default function QuizEngine() {
     try {
       await libHide(item.id);
       setLibItems((prev) => (prev || []).filter((x) => x.id !== item.id));
+      setLibActiveId(null);
       setLibMsg({ tone: "ok", text: `Deleted “${item.name}”.` });
     } catch (e) { libFail(e); } finally { setLibBusy(false); }
   };
@@ -13075,6 +13188,11 @@ export default function QuizEngine() {
     ));
   }
 
+  const weekKeys = Object.keys(SCHEMES[schemeKey]);
+  const weekIdx = weekKeys.indexOf(weekKey);
+  const stripShowAll = libShowAll || !classCode || !libClasses;
+  const stripItems = (libItems || []).filter((x) => stripShowAll || (x.class_code === classCode && x.academic_year === ACADEMIC_YEAR));
+  const libActiveItem = libActiveId ? (libItems || []).find((x) => x.id === libActiveId) : null;
   const printBlocked = lengthMode === "weekly" && selected.length < quizLength;
   const printBlockedTip = printBlocked
     ? `Pick ${quizLength - selected.length} more question${quizLength - selected.length === 1 ? "" : "s"} before printing (${selected.length}/${quizLength})`
@@ -13263,13 +13381,79 @@ export default function QuizEngine() {
       </div>
       ) : (
       <>
+      {libOn && (
+        <section className="qe-strip no-print" aria-label="Saved quizzes">
+          <div className="qe-strip-head">
+            <div className="qe-strip-title">
+              Saved quizzes <span className="qe-note">· {stripShowAll ? "all classes" : classCode} · {ACADEMIC_YEAR}</span>
+            </div>
+            {libSignedIn ? (
+              <div className="qe-row">
+                {classCode && libClasses && (
+                  <button type="button" className={btnCls({ sm: true, active: libShowAll })} aria-pressed={libShowAll} onClick={() => setLibShowAll((a) => !a)}>All classes</button>
+                )}
+                <button type="button" className={btnCls({ sm: true, primary: true })} onClick={() => setSaveOpen((o) => !o)} disabled={!currentCode}>Save this quiz</button>
+                <button type="button" className={btnCls({ sm: true })} onClick={libRefresh} disabled={libBusy}>Refresh</button>
+                <button type="button" className={btnCls({ sm: true })} onClick={libDoSignOut} title="Do this on a shared computer when you've finished">Sign out</button>
+              </div>
+            ) : (
+              <form onSubmit={libDoSignIn} className="qe-row qe-signin">
+                <input type="password" className="qe-field" value={libPassword} onChange={(e) => { setLibPassword(e.target.value); setLibMsg({ tone: "ok", text: "" }); }} placeholder="Library password" aria-label="Library password" autoComplete="current-password" />
+                <button type="submit" disabled={libBusy} className={btnCls({ sm: true, primary: true })}>{libBusy ? "Signing in…" : "Sign in"}</button>
+              </form>
+            )}
+          </div>
+          {libSignedIn && saveOpen && (
+            <form onSubmit={(e) => { e.preventDefault(); libDoSave(); }} className="qe-row" style={{ marginTop: 10 }}>
+              <input className="qe-field qe-inline" value={libName} onChange={(e) => { setLibName(e.target.value); setLibMsg({ tone: "ok", text: "" }); }} placeholder="Name this quiz, e.g. Indices starter" aria-label="Quiz name" maxLength={120} autoFocus />
+              <input className="qe-field qe-inline" value={libAuthor} onChange={(e) => setLibAuthor(e.target.value)} placeholder="Your name" aria-label="Your name" maxLength={60} />
+              <button type="submit" disabled={libBusy || !currentCode} className={btnCls({ sm: true, primary: true })}>{classCode && libClasses ? `Save to ${classCode}` : "Save"}</button>
+              <button type="button" className={btnCls({ sm: true })} onClick={() => setSaveOpen(false)}>Cancel</button>
+            </form>
+          )}
+          {libSignedIn && !libClasses && (
+            <div className="qe-note" style={{ marginTop: 8 }}>Quizzes can't be filed by class yet: the library needs its one-off update (section 7 of supabase_setup.sql). Everything else still works.</div>
+          )}
+          {libSignedIn && (
+            <div className="qe-chips" aria-live="polite">
+              {libItems === null ? (
+                <span className="qe-note">Loading…</span>
+              ) : stripItems.length === 0 ? (
+                <span className="qe-note">{stripShowAll ? "Nothing saved yet. Build a quiz and press Save this quiz." : `Nothing saved for ${classCode} yet. Build a quiz and press Save this quiz.`}</span>
+              ) : (
+                stripItems.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    className={cx("qe-chip", libActiveId === item.id && "is-active")}
+                    onClick={() => { libDoOpen(item); setLibActiveId(item.id); }}
+                    title={`${item.author ? item.author + " · " : ""}${new Date(item.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}`}
+                  >
+                    {item.name}{stripShowAll && item.class_code ? <small> · {item.class_code}</small> : null}
+                  </button>
+                ))
+              )}
+            </div>
+          )}
+          {libSignedIn && libActiveItem && (
+            <div className="qe-row" style={{ marginTop: 8 }}>
+              <span className="qe-note">Open: <strong>{libActiveItem.name}</strong></span>
+              <button type="button" onClick={() => libDoUpdate(libActiveItem)} disabled={libBusy || !currentCode} className={btnCls({ sm: true })} title="Replace this saved quiz with the one you have open now">Update with current quiz</button>
+              <button type="button" onClick={() => libDoDelete(libActiveItem)} disabled={libBusy} className={btnCls({ sm: true, tone: "warn" })}>Delete</button>
+            </div>
+          )}
+          {libMsg.text && (
+            <div className={libMsg.tone === "ok" ? "qe-ok-text" : "qe-danger-text"} style={{ fontSize: ".78rem", marginTop: 8 }} role="status">{libMsg.text}</div>
+          )}
+        </section>
+      )}
       <div className="quiz-grid qe-layout">
 
         <aside className={cx("no-print qe-side", !builderOpen && "is-collapsed")}>
           <header className="qe-side-head">
             <div>
               <h1 className="qe-title">Quiz Templating Engine</h1>
-              <p className="qe-sub">Full GCSE spec browser — pick a scheme, a week, then edit freely</p>
+              <p className="qe-sub">Pick a class and week, then print.</p>
             </div>
             <div className="qe-seg tight" role="group" aria-label="Colour theme">
               {[["auto", "Auto"], ["light", "Light"], ["dark", "Dark"]].map(([k, label]) => (
@@ -13286,122 +13470,92 @@ export default function QuizEngine() {
 
           <div className="qe-cards">
             <section className="qe-card">
-              <div className="qe-card-head">
-                <h3>Speed checks</h3>
-                <div className="qe-note">Fixed-format fluency sheets, separate from the topic picker.</div>
-              </div>
-              <div className="qe-speed">
-                {SPEED_CHECKS.map((sc) => (
-                  <button
-                    key={sc.kind}
-                    type="button"
-                    className="qe-speed-btn"
-                    style={{ "--tag": sc.tag }}
-                    onClick={() => { setSpeedCheckKind(sc.kind); setTimerPreset(sc.secs); setSpeedCheckOpen(true); }}
-                    title={sc.tip}
-                  >
-                    <span className="qe-speed-dot" aria-hidden="true" />
-                    <span>
-                      <strong>{sc.title}</strong>
-                      <small>{sc.blurb}</small>
-                    </span>
-                  </button>
+              <label className="qe-label" htmlFor="qe-class">Class</label>
+              <select id="qe-class" className="qe-field" value={classCode} onChange={(e) => pickClass(e.target.value)} disabled={locked}>
+                <option value="">Choose your class…</option>
+                {CLASS_GROUPS.map((g) => (
+                  <optgroup key={g.year} label={`Year ${g.year}`}>
+                    {g.codes.map((c) => <option key={c} value={c}>{c}</option>)}
+                  </optgroup>
                 ))}
-              </div>
-            </section>
-
-            <section className="qe-card">
-              <div className="qe-card-head">
-                <h3>Scheme of work</h3>
-              </div>
-              <label className="qe-label" htmlFor="qe-scheme">Scheme of work</label>
-              <select
-                id="qe-scheme"
-                className="qe-field"
-                value={schemeKey}
-                onChange={(e) => applyWeek(e.target.value, Object.keys(SCHEMES[e.target.value])[0])}
-                disabled={locked}
-              >
-                {Object.keys(SCHEMES).map((k) => <option key={k} value={k}>{k}</option>)}
               </select>
 
               <label className="qe-label" htmlFor="qe-week">Week beginning</label>
-              <select
-                id="qe-week"
-                className="qe-field"
-                value={weekKey}
-                onChange={(e) => applyWeek(schemeKey, e.target.value)}
-                disabled={locked}
-              >
-                {Object.keys(SCHEMES[schemeKey]).map((k) => <option key={k} value={k}>{k}</option>)}
-              </select>
-              <div className="qe-note" style={{ marginTop: 8 }}>
-                Picks that week's topics automatically — edit the list below before generating.
+              <div className="qe-weekrow">
+                <button type="button" className={btnCls()} onClick={() => stepWeek(-1)} disabled={locked || weekIdx <= 0} aria-label="Previous week" title="Previous week">◀</button>
+                <select id="qe-week" className="qe-field" value={weekKey} onChange={(e) => applyWeek(schemeKey, e.target.value)} disabled={locked}>
+                  {weekKeys.map((k) => <option key={k} value={k}>{weekShort(k)}</option>)}
+                </select>
+                <button type="button" className={btnCls()} onClick={() => stepWeek(1)} disabled={locked || weekIdx >= weekKeys.length - 1} aria-label="Next week" title="Next week">▶</button>
               </div>
+              <div className="qe-note" style={{ marginTop: 6 }}>
+                {weekFull(weekKey)}{weekIsThisWeek(weekKey) ? " · this week" : ""}
+              </div>
+
+              <span className="qe-label">Quiz</span>
+              <div className="qe-seg" style={{ opacity: locked ? 0.5 : 1 }}>
+                <button disabled={locked} onClick={() => setQuizLengthSafe(4, "donow")} className={btnCls({ active: lengthMode === "donow" })} title="4 questions — fits a Do Now, one A4 side">Do Now · 4</button>
+                <button disabled={locked} onClick={() => setQuizLengthSafe(6, "weekly")} className={btnCls({ active: lengthMode === "weekly" })} title="6 questions — a weekly quiz, three per printed page">Weekly · 6</button>
+                <button disabled={locked} onClick={switchToCustomMode} className={btnCls({ active: lengthMode === "custom" })} title="Build any size quiz you want from the topics you choose">Custom</button>
+              </div>
+              {(lengthMode === "custom" || lengthMode === "weekly") && (
+                <div className="qe-note" style={{ marginTop: 6, opacity: locked ? 0.5 : 1 }}>
+                  {lengthMode === "weekly" ? (
+                    <>Total: <strong className={selected.length === quizLength ? "qe-ok-text" : undefined}>{selected.length}/{quizLength}</strong> questions.{selected.length < quizLength && <> Printing unlocks once you reach {quizLength}.</>}</>
+                  ) : (
+                    <>Total: <strong>{selected.length}</strong> question{selected.length === 1 ? "" : "s"}.</>
+                  )}{" "}
+                  Change them under “Choose topics”.
+                </div>
+              )}
+
+              <span className="qe-label">Version</span>
+              <div className="qe-seg">
+                {versions.map((v) => (
+                  <button key={v.id} onClick={() => setActiveVersion(v.id)} className={btnCls({ active: v.id === activeVersion })} aria-pressed={v.id === activeVersion}>
+                    {VERSION_LABELS[v.id] || v.id}
+                  </button>
+                ))}
+              </div>
+              <button onClick={regenerate} disabled={locked} className={btnCls({ block: true })} style={{ marginTop: 8 }} title={locked ? "Unlock the quiz first to generate new numbers" : "Reroll every question with fresh numbers"}>↻ New numbers</button>
             </section>
 
             <section className="qe-card">
-              <div className="qe-card-head">
-                <h3>Practice settings</h3>
-              </div>
               <button
-                onClick={() => setLocked((l) => !l)}
-                title={locked ? "Unlock to change subtopics, mode, length or numbers again" : "Freeze this exact quiz so it can't be accidentally changed or regenerated before printing/projecting"}
-                className={btnCls({ active: locked, tone: "warn", block: true })}
+                onClick={() => window.print()}
+                disabled={printBlocked}
+                className={btnCls({ primary: true, block: true })}
+                title={printBlockedTip}
               >
-                {locked ? "🔒 Quiz locked — click to unlock" : "🔓 Lock quiz"}
+                🖨 Print quiz
               </button>
-
-              <span className="qe-label">Practice mode</span>
-              <div className="qe-seg" style={{ opacity: locked ? 0.5 : 1 }}>
-                <button disabled={locked} onClick={() => setPracticeModeSafe("interleaved")} className={btnCls({ active: practiceMode === "interleaved" })} title="Mix several skills — students must choose the method">Interleaved</button>
-                <button disabled={locked} onClick={() => setPracticeModeSafe("blocked")} className={btnCls({ active: practiceMode === "blocked" })} title="Repeat one skill so the method is fixed">Blocked</button>
-              </div>
-
-              <span className="qe-label">Quiz length</span>
-              <div className="qe-seg" style={{ opacity: locked ? 0.5 : 1 }}>
-                <button disabled={locked} onClick={() => setQuizLengthSafe(4, "donow")} className={btnCls({ active: lengthMode === "donow" })} title="4 questions — fits a Do Now, one A4 side">Do Now (4)</button>
-                <button disabled={locked} onClick={() => setQuizLengthSafe(6, "weekly")} className={btnCls({ active: lengthMode === "weekly" })} title="6 questions — a weekly quiz, three per printed page">Weekly Quiz (6)</button>
-                <button disabled={locked} onClick={switchToCustomMode} className={btnCls({ active: lengthMode === "custom" })} title="Tick topics below (and use +/− for extra copies) to build any size quiz you want">Custom</button>
-              </div>
-              {(lengthMode === "custom" || lengthMode === "weekly") && (
-                <div className="qe-note" style={{ marginTop: 8, opacity: locked ? 0.5 : 1 }}>
-                  Tick topics below, then use the +/− next to a ticked one to include it more than once.
-                  <br />
-                  {lengthMode === "weekly" ? (
-                    <>
-                      Total: <strong className={selected.length === quizLength ? "qe-ok-text" : undefined}>{selected.length}/{quizLength}</strong> questions.
-                      {selected.length < quizLength && <> Printing unlocks once you reach {quizLength}.</>}
-                    </>
-                  ) : (
-                    <>Total: <strong>{selected.length}</strong> question{selected.length === 1 ? "" : "s"}.</>
-                  )}
-                </div>
-              )}
-              {lengthMode === "donow" && (
-                <button
-                  onClick={() => setFullScreenDoNow(true)}
-                  title="Project the 4 questions as a full-screen 2x2 grid — still prints cleanly as one page for the teacher"
-                  className={btnCls({ block: true })}
-                  style={{ marginTop: 10 }}
-                >
-                  📺 Go full screen (Do Now)
+              <div className="qe-seg" style={{ marginTop: 8 }}>
+                <button onClick={() => setShowAnswers((x) => !x)} className={btnCls({ active: showAnswers, tone: "ok" })}>
+                  {showAnswers ? "Hide mark scheme" : "Mark scheme"}
                 </button>
-              )}
+                <button
+                  onClick={() => setSavingAllVersionsPdf(true)}
+                  disabled={printBlocked || savingAllVersionsPdf}
+                  className={btnCls()}
+                  title={
+                    printBlocked
+                      ? `Pick ${quizLength - selected.length} more question${quizLength - selected.length === 1 ? "" : "s"} before saving (${selected.length}/${quizLength})`
+                      : "Opens the print dialog with all 3 versions together — Version 1 with no mark scheme, Version 2 with the mark scheme, Version 3 with no mark scheme. Choose \"Save as PDF\" as the destination."
+                  }
+                >
+                  {savingAllVersionsPdf ? "Preparing…" : "💾 PDF, all versions"}
+                </button>
+                <button onClick={() => copyText(currentLink, "Link copied")} className={btnCls()} title="Copy a link that opens this exact quiz">🔗 Copy link</button>
+              </div>
+              {copyFlash && <div className="qe-ok-text" style={{ fontSize: ".78rem", marginTop: 6 }}>{copyFlash}</div>}
+              {printBlocked && <div className="qe-note" style={{ marginTop: 6 }}>{printBlockedTip}</div>}
             </section>
 
-            <section className="qe-card wide">
-              <div className="qe-card-head">
-                <h3>Topic picker</h3>
-                <div className="qe-note">
-                  {lengthMode === "custom"
-                    ? `${new Set(selected).size} topic${new Set(selected).size === 1 ? "" : "s"} · ${selected.length} question${selected.length === 1 ? "" : "s"} selected`
+            <QeFold wide title="Choose topics" hint={lengthMode === "custom"
+                    ? `${new Set(selected).size} topic${new Set(selected).size === 1 ? "" : "s"} · ${selected.length} question${selected.length === 1 ? "" : "s"}`
                     : lengthMode === "weekly"
-                    ? `${new Set(selected).size} topic${new Set(selected).size === 1 ? "" : "s"} · ${selected.length}/${quizLength} questions selected`
-                    : `${selected.length}/${practiceMode === "blocked" ? 1 : quizLength} subtopics selected`}
-                </div>
-              </div>
-
+                    ? `${new Set(selected).size} topic${new Set(selected).size === 1 ? "" : "s"} · ${selected.length}/${quizLength} questions`
+                    : `${selected.length}/${practiceMode === "blocked" ? 1 : quizLength} selected`} open={!!folds.topics} onToggle={() => toggleFold("topics")}>
               <div className="qe-row" style={{ flexWrap: "nowrap" }}>
                 <input
                   type="search"
@@ -13531,55 +13685,69 @@ export default function QuizEngine() {
                   );
                 })}
               </div>
-            </section>
+            </QeFold>
 
-            <section className="qe-card">
-              <div className="qe-card-head">
-                <h3>Versions &amp; export</h3>
+            <QeFold title="More options" hint="Scheme, mixed or one skill, lock" open={!!folds.more} onToggle={() => toggleFold("more")}>
+              <label className="qe-label" htmlFor="qe-scheme">Scheme of work</label>
+              <select
+                id="qe-scheme"
+                className="qe-field"
+                value={schemeKey}
+                onChange={(e) => applyWeek(e.target.value, currentWeekKey(e.target.value))}
+                disabled={locked}
+              >
+                {Object.keys(SCHEMES).map((k) => <option key={k} value={k}>{k}</option>)}
+              </select>
+              <div className="qe-note" style={{ marginTop: 6 }}>Choosing a class sets this for you.</div>
+
+              <span className="qe-label">Practice mode</span>
+              <div className="qe-seg" style={{ opacity: locked ? 0.5 : 1 }}>
+                <button disabled={locked} onClick={() => setPracticeModeSafe("interleaved")} className={btnCls({ active: practiceMode === "interleaved" })} title="Mix several skills — students must choose the method">Mixed skills</button>
+                <button disabled={locked} onClick={() => setPracticeModeSafe("blocked")} className={btnCls({ active: practiceMode === "blocked" })} title="Repeat one skill so the method is fixed">One skill</button>
               </div>
-              <div className="qe-seg">
-                {versions.map((v) => (
-                  <button key={v.id} onClick={() => setActiveVersion(v.id)} className={btnCls({ active: v.id === activeVersion })} aria-pressed={v.id === activeVersion}>
-                    {VERSION_LABELS[v.id] || v.id}
+
+              <button
+                onClick={() => setLocked((l) => !l)}
+                title={locked ? "Unlock to change subtopics, mode, length or numbers again" : "Freeze this exact quiz so it can't be accidentally changed or regenerated before printing/projecting"}
+                className={btnCls({ active: locked, tone: "warn", block: true })}
+                style={{ marginTop: 12 }}
+              >
+                {locked ? "🔒 Quiz frozen — click to unfreeze" : "🔓 Freeze quiz"}
+              </button>
+              {lengthMode === "donow" && (
+                <button
+                  onClick={() => setFullScreenDoNow(true)}
+                  title="Project the 4 questions as a full-screen 2x2 grid — still prints cleanly as one page for the teacher"
+                  className={btnCls({ block: true })}
+                  style={{ marginTop: 8 }}
+                >
+                  📺 Go full screen (Do Now)
+                </button>
+              )}
+            </QeFold>
+
+            <QeFold title="Speed checks" hint="Fixed fluency sheets" open={!!folds.speed} onToggle={() => toggleFold("speed")}>
+              <div className="qe-speed">
+                {SPEED_CHECKS.map((sc) => (
+                  <button
+                    key={sc.kind}
+                    type="button"
+                    className="qe-speed-btn"
+                    style={{ "--tag": sc.tag }}
+                    onClick={() => { setSpeedCheckKind(sc.kind); setTimerPreset(sc.secs); setSpeedCheckOpen(true); }}
+                    title={sc.tip}
+                  >
+                    <span className="qe-speed-dot" aria-hidden="true" />
+                    <span>
+                      <strong>{sc.title}</strong>
+                      <small>{sc.blurb}</small>
+                    </span>
                   </button>
                 ))}
               </div>
-              <div className="qe-stack" style={{ marginTop: 10 }}>
-                <button onClick={regenerate} disabled={locked} className={btnCls({ block: true })} title={locked ? "Unlock the quiz first to generate new numbers" : "Reroll every question with fresh numbers"}>↻ New numbers</button>
-                <button onClick={() => setShowAnswers((s) => !s)} className={btnCls({ active: showAnswers, tone: "ok", block: true })}>
-                  {showAnswers ? "Hide mark scheme" : "Show mark scheme"}
-                </button>
-                <button
-                  onClick={() => window.print()}
-                  disabled={printBlocked}
-                  className={btnCls({ primary: true, block: true })}
-                  title={printBlockedTip}
-                >
-                  🖨 Print quiz
-                </button>
-                <button
-                  onClick={() => setSavingAllVersionsPdf(true)}
-                  disabled={printBlocked || savingAllVersionsPdf}
-                  className={btnCls({ block: true })}
-                  title={
-                    printBlocked
-                      ? `Pick ${quizLength - selected.length} more question${quizLength - selected.length === 1 ? "" : "s"} before saving (${selected.length}/${quizLength})`
-                      : "Opens the print dialog with all 3 versions together — Version 1 with no mark scheme, Version 2 with the mark scheme, Version 3 with no mark scheme. Choose \"Save as PDF\" as the destination."
-                  }
-                >
-                  {savingAllVersionsPdf ? "Preparing…" : "💾 Save all versions as PDF"}
-                </button>
-              </div>
-              <div className="qe-note" style={{ marginTop: 10 }}>
-                Printing leaves out this panel. Versions 1–3 use the same skills in the same order with fresh numbers, handy for different classes or retests. Drag a question's ⠿ handle to reorder it. "Save all versions as PDF" bundles all three into one file — Version 1 and 3 without the mark scheme, Version 2 with it — via your browser's print dialog.
-              </div>
-            </section>
+            </QeFold>
 
-            <section className="qe-card">
-              <div className="qe-card-head">
-                <h3>Quiz code</h3>
-                <div className="qe-note">Reopen this exact quiz later, or share it.</div>
-              </div>
+            <QeFold title="Quiz code" hint="Reopen or share this exact quiz" open={!!folds.code} onToggle={() => toggleFold("code")}>
               <div className="qe-row" style={{ flexWrap: "nowrap" }}>
                 <textarea
                   readOnly
@@ -13657,90 +13825,7 @@ export default function QuizEngine() {
               <div className="qe-note" style={{ marginTop: 8 }}>
                 The code holds the whole quiz, order and all, so it works anywhere with no login. It ignores capital letters, spaces and dashes, so you can paste it straight from an email or message.
               </div>
-            </section>
-
-            {libOn && (
-              <section className="qe-card wide">
-                <div className="qe-card-head">
-                  <h3>Saved quizzes</h3>
-                  <div className="qe-note">A shared library for all teachers. Save a quiz here and open it from any computer.</div>
-                </div>
-                {!libSignedIn ? (
-                  <form onSubmit={libDoSignIn} className="qe-row" style={{ flexWrap: "nowrap" }}>
-                    <input
-                      type="password"
-                      className="qe-field"
-                      value={libPassword}
-                      onChange={(e) => { setLibPassword(e.target.value); setLibMsg({ tone: "ok", text: "" }); }}
-                      placeholder="Library password"
-                      aria-label="Library password"
-                      autoComplete="current-password"
-                    />
-                    <button type="submit" disabled={libBusy} className={btnCls({ primary: true })}>{libBusy ? "Signing in…" : "Sign in"}</button>
-                  </form>
-                ) : (
-                  <>
-                    <div className="qe-row" style={{ flexWrap: "nowrap" }}>
-                      <input
-                        className="qe-field"
-                        value={libName}
-                        onChange={(e) => { setLibName(e.target.value); setLibMsg({ tone: "ok", text: "" }); }}
-                        onKeyDown={(e) => { if (e.key === "Enter") libDoSave(); }}
-                        placeholder="Name this quiz, e.g. 10B fractions wk 3"
-                        aria-label="Quiz name"
-                        maxLength={120}
-                      />
-                    </div>
-                    <div className="qe-row" style={{ marginTop: 8, flexWrap: "nowrap" }}>
-                      <input
-                        className="qe-field"
-                        value={libAuthor}
-                        onChange={(e) => setLibAuthor(e.target.value)}
-                        placeholder="Your name (so others know who made it)"
-                        aria-label="Your name"
-                        maxLength={60}
-                      />
-                      <button onClick={libDoSave} disabled={libBusy || !currentCode} className={btnCls({ primary: true })}>Save</button>
-                    </div>
-                    <div className="qe-row" style={{ marginTop: 12, flexWrap: "nowrap" }}>
-                      <input
-                        className="qe-field"
-                        value={libSearch}
-                        onChange={(e) => setLibSearch(e.target.value)}
-                        placeholder="Search saved quizzes…"
-                        aria-label="Search saved quizzes"
-                      />
-                      <button onClick={libRefresh} disabled={libBusy} className={btnCls({ sm: true })} title="Reload the list">Refresh</button>
-                    </div>
-                    <div className="qe-lib-list" aria-live="polite">
-                      {libItems === null ? (
-                        <div className="qe-note">Loading…</div>
-                      ) : libVisible.length === 0 ? (
-                        <div className="qe-note">{libItems.length === 0 ? "Nothing saved yet. Build a quiz, name it above and press Save." : "No saved quiz matches that search."}</div>
-                      ) : (
-                        libVisible.map((item) => (
-                          <div key={item.id} className="qe-lib-item">
-                            <div className="qe-lib-name">{item.name}</div>
-                            <div className="qe-note">{item.author ? `${item.author} · ` : ""}{new Date(item.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</div>
-                            <div className="qe-row" style={{ marginTop: 6 }}>
-                              <button onClick={() => libDoOpen(item)} className={btnCls({ sm: true, primary: true })}>Open</button>
-                              <button onClick={() => libDoUpdate(item)} disabled={libBusy || !currentCode} className={btnCls({ sm: true })} title="Replace this saved quiz with the one you have open now">Update</button>
-                              <button onClick={() => libDoDelete(item)} disabled={libBusy} className={btnCls({ sm: true, tone: "warn" })}>Delete</button>
-                            </div>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                    <div className="qe-row" style={{ marginTop: 10 }}>
-                      <button onClick={libDoSignOut} className={btnCls({ sm: true })} title="Do this on a shared computer when you've finished">Sign out of library</button>
-                    </div>
-                  </>
-                )}
-                {libMsg.text && (
-                  <div className={libMsg.tone === "ok" ? "qe-ok-text" : "qe-danger-text"} style={{ fontSize: ".78rem", marginTop: 8 }} role="status">{libMsg.text}</div>
-                )}
-              </section>
-            )}
+            </QeFold>
           </div>
         </aside>
 
@@ -13848,6 +13933,24 @@ html,body{background:var(--bg)}
 .qe-lib-item{border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:var(--panel)}
 .qe-lib-name{font-weight:700;overflow-wrap:anywhere}
 .qe-ok-text{color:var(--ok);font-weight:700}
+.qe-weekrow{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:6px;align-items:stretch}
+.qe-fold{padding:0}
+.qe-fold-head{display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;text-align:left;background:none;border:0;color:var(--ink);padding:12px 16px;cursor:pointer;border-radius:12px}
+.qe-fold-head:hover{background:var(--panel-2)}
+.qe-fold-head strong{display:block;font:700 .95rem/1.3 var(--display)}
+.qe-fold-head small{display:block;color:var(--muted);font-size:.78rem;line-height:1.35;margin-top:1px}
+.qe-fold-body{padding:2px 16px 16px;border-top:1px solid var(--line);padding-top:12px}
+.qe-strip{max-width:1500px;margin:0 auto 14px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 14px}
+.qe-strip-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.qe-strip-title{font:700 .95rem/1.3 var(--display)}
+.qe-strip .qe-signin{flex-wrap:nowrap}
+.qe-strip .qe-signin .qe-field{width:220px}
+.qe-strip .qe-inline{width:auto;flex:1 1 200px;min-width:160px}
+.qe-chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;max-height:100px;overflow:auto}
+.qe-chip{border:1px solid var(--line);background:var(--panel-2);color:var(--ink);border-radius:999px;padding:5px 13px;font-size:.84rem;font-weight:700;cursor:pointer;line-height:1.25}
+.qe-chip small{color:var(--muted);font-weight:400}
+.qe-chip:hover{border-color:color-mix(in srgb,var(--accent) 55%,var(--line))}
+.qe-chip.is-active{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
 .qe-danger-text{color:var(--danger);font-weight:700}
 
 /* Speed-check button family: one shape, a small colour tag tells them apart */

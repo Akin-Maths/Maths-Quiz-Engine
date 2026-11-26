@@ -348,3 +348,9 @@ script are in `LIBRARY_SETUP.md` and `supabase_setup.sql`. Notes for changes:
    `name (1).html`/`name_1.html` (e.g. because a same-named file was already
    downloaded) causes a 404 with no obvious error. If a deploy stops working,
    check the exact filenames in the GitHub repo first.
+
+## Classes and sidebar layout
+- Sidebar = Class, week (◀ ▶, opens on the week covering today, else the next one), Quiz (Do Now/Weekly/Custom), Version, then Print. Everything else is in collapsed `QeFold` cards (Choose topics, More options, Speed checks, Quiz code).
+- Class codes (`CLASS_GROUPS`): 7A1-3, 7B1-4, 8A1-3, 8B1-3, 9A1-3, 9B1-3, 10A1-4, 10B1-4, 11A1-4, 11B1-4. `schemeForClass` maps them: Y7/Y8 one scheme; Y9/Y10 number = set; Y11 1 = Set 1, 2 = Set 2, 3/4 = Foundation. The chosen class is remembered in localStorage (`quizEngineClass`). `ACADEMIC_YEAR` = "2026/27" (change each September).
+- Saved quizzes are a strip across the top, filtered by class + academic year (`class_code`, `academic_year` columns: section 7 of supabase_setup.sql). If those columns don't exist yet the library falls back to unfiled quizzes (`libClassesOk`).
+
