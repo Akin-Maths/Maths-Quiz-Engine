@@ -160,22 +160,23 @@ function BoxplotSVG({ min, q1, median, q3, max, unitLabel }) {
    square. Everything is placed relative to the triangle's centre so a label
    is always on the outside of its edge, whichever way up the triangle is. */
 const SERIF = "'Times New Roman', Times, serif";
-function TriLabel({ x, y, children, size = 14, anchor = "middle" }) {
+const TRI_FILL = "#E3E8F5", TRI_INK = "#1F2A4D"; // right-angled triangles: pale blue fill, deep navy outline
+function TriLabel({ x, y, children, size = 14, anchor = "middle", plain = false }) {
   return (
-    <text x={x} y={y + size * 0.32} fontSize={size} fontFamily={SERIF} fontStyle="italic" textAnchor={anchor} fill="#000" stroke="#fff" strokeWidth="3" paintOrder="stroke">
+    <text x={x} y={y + size * 0.32} fontSize={size} fontFamily={plain ? "Arial, Helvetica, sans-serif" : SERIF} fontStyle={plain ? "normal" : "italic"} textAnchor={anchor} fill="#000" stroke="#fff" strokeWidth="3" paintOrder="stroke">
       {children}
     </text>
   );
 }
 // Label for the edge P-Q, on the side facing away from the centre G.
-function edgeLabel(P, Q, G, text, key, gap = 7, size = 14) {
+function edgeLabel(P, Q, G, text, key, gap = 7, size = 14, plain = false) {
   const mx = (P[0] + Q[0]) / 2, my = (P[1] + Q[1]) / 2;
   let nx = -(Q[1] - P[1]), ny = Q[0] - P[0];
   const l = Math.hypot(nx, ny) || 1; nx /= l; ny /= l;
   if ((mx - G[0]) * nx + (my - G[1]) * ny < 0) { nx = -nx; ny = -ny; }
-  const halfW = (String(text).length * size * 0.44 + 2) / 2, halfH = size * 0.4;
+  const halfW = (String(text).length * size * (plain ? 0.52 : 0.44) + 2) / 2, halfH = size * 0.4;
   const d = gap + halfW * Math.abs(nx) + halfH * Math.abs(ny);
-  return <TriLabel key={key} x={mx + nx * d} y={my + ny * d} size={size}>{svgMath(text)}</TriLabel>;
+  return <TriLabel key={key} x={mx + nx * d} y={my + ny * d} size={size} plain={plain}>{plain ? text : svgMath(text)}</TriLabel>;
 }
 // Vertex letter just beyond the corner V, pointing away from the centre G.
 function vertexLabel(V, G, text, key, gap = 13, size = 16) {
@@ -188,28 +189,28 @@ function vertexLabel(V, G, text, key, gap = 13, size = 16) {
    base/height/hyp are real numeric lengths (order preserved visually);
    pass '?' as a label to mark the unknown side. ---------- */
 function RightTriangleSVG({ base, height, orientation = "bl", baseLabel, heightLabel, hypLabel, angleLabel }) {
-  const boxW = 270, boxH = 200, marginX = 62, marginY = 40;
+  const boxW = 300, boxH = 232, marginX = 72, marginY = 46;
   const maxSide = Math.max(base, height);
-  const scale = 112 / maxSide;
-  const b = Math.max(base * scale, 40);
-  const h = Math.max(height * scale, 40);
+  const scale = 144 / maxSide;
+  const b = Math.max(base * scale, 48);
+  const h = Math.max(height * scale, 48);
   let A, B, C; // A = right-angle vertex, B = end of base leg, C = end of height leg
   if (orientation === "bl") { A = [marginX, boxH - marginY]; B = [marginX + b, boxH - marginY]; C = [marginX, boxH - marginY - h]; }
   else if (orientation === "br") { A = [boxW - marginX, boxH - marginY]; B = [boxW - marginX - b, boxH - marginY]; C = [boxW - marginX, boxH - marginY - h]; }
   else if (orientation === "tl") { A = [marginX, marginY]; B = [marginX + b, marginY]; C = [marginX, marginY + h]; }
   else { A = [boxW - marginX, marginY]; B = [boxW - marginX - b, marginY]; C = [boxW - marginX, marginY + h]; }
   const G = [(A[0] + B[0] + C[0]) / 3, (A[1] + B[1] + C[1]) / 3];
-  const sq = 10; // right-angle square: A plus a step along each leg
+  const sq = 12; // right-angle square: A plus a step along each leg
   const ub = [Math.sign(B[0] - A[0]), Math.sign(B[1] - A[1])], uc = [Math.sign(C[0] - A[0]), Math.sign(C[1] - A[1])];
   const markerPts = `${A[0] + ub[0] * sq},${A[1] + ub[1] * sq} ${A[0] + (ub[0] + uc[0]) * sq},${A[1] + (ub[1] + uc[1]) * sq} ${A[0] + uc[0] * sq},${A[1] + uc[1] * sq}`;
   return (
-    <svg viewBox={`0 0 ${boxW} ${boxH}`} width="100%" style={{ maxWidth: 300, display: "block" }}>
-      <polygon points={`${A[0]},${A[1]} ${B[0]},${B[1]} ${C[0]},${C[1]}`} fill="none" stroke="#000" strokeWidth="1.5" strokeLinejoin="round" />
-      <polyline points={markerPts} fill="none" stroke="#000" strokeWidth="1.2" />
-      {baseLabel ? edgeLabel(A, B, G, baseLabel, "b") : null}
-      {heightLabel ? edgeLabel(A, C, G, heightLabel, "h") : null}
-      {hypLabel ? edgeLabel(B, C, G, hypLabel, "y") : null}
-      {angleLabel ? <AngleMark V={B} P={A} Q={C} label={angleLabel} arcR={18} /> : null}
+    <svg viewBox={`0 0 ${boxW} ${boxH}`} width={boxW} style={{ maxWidth: "100%", height: "auto", display: "block", margin: "0 auto" }}>
+      <polygon points={`${A[0]},${A[1]} ${B[0]},${B[1]} ${C[0]},${C[1]}`} fill={TRI_FILL} stroke={TRI_INK} strokeWidth="2.6" strokeLinejoin="round" />
+      <polyline points={markerPts} fill="none" stroke={TRI_INK} strokeWidth="1.4" />
+      {baseLabel ? edgeLabel(A, B, G, baseLabel, "b", 9, 15, true) : null}
+      {heightLabel ? edgeLabel(A, C, G, heightLabel, "h", 9, 15, true) : null}
+      {hypLabel ? edgeLabel(B, C, G, hypLabel, "y", 9, 15, true) : null}
+      {angleLabel ? <AngleMark V={B} P={A} Q={C} label={angleLabel} arcR={22} /> : null}
     </svg>
   );
 }
@@ -10060,11 +10061,11 @@ function ExactTrigSVG({ angle }) {
   const R0 = [56, 168], B = [56 + bx, 168], T = [56, 168 - by];
   const base = angle === 45 ? "1" : "√3", hyp = angle === 45 ? "√2" : "2";
   return y10Svg(W, H, 320, <>
-    <polygon points={`${R0.join(",")} ${B.join(",")} ${T.join(",")}`} fill="none" stroke="#000" strokeWidth="1.8" strokeLinejoin="round" />
+    <polygon points={`${R0.join(",")} ${B.join(",")} ${T.join(",")}`} fill={TRI_FILL} stroke={TRI_INK} strokeWidth="2.6" strokeLinejoin="round" />
     {y10RightMark(R0, B, T, 11)}
-    {y10TS((R0[0] + B[0]) / 2, 168 + 20, base)}
-    {y10TS(R0[0] - 10, (R0[1] + T[1]) / 2 + 4, "1", { anchor: "end" })}
-    {y10TS((B[0] + T[0]) / 2 + 14, (B[1] + T[1]) / 2 - 6, hyp, { anchor: "start" })}
+    {y10T((R0[0] + B[0]) / 2, 168 + 22, base, { size: 15 })}
+    {y10T(R0[0] - 10, (R0[1] + T[1]) / 2 + 5, "1", { anchor: "end", size: 15 })}
+    {y10T((B[0] + T[0]) / 2 + 14, (B[1] + T[1]) / 2 - 6, hyp, { anchor: "start", size: 15 })}
     {angle === 60 ? <AngleMark V={T} P={R0} Q={B} label="60°" arcR={24} /> : <AngleMark V={B} P={R0} Q={T} label={`${angle}°`} arcR={26} />}
   </>);
 }
@@ -14399,6 +14400,7 @@ const SPEED_CHECKS = [
 ];
 
 ReactDOM.createRoot(document.getElementById("root")).render(<QuizEngine />);
+
 
 
 
