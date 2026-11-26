@@ -154,43 +154,62 @@ function BoxplotSVG({ min, q1, median, q3, max, unitLabel }) {
 }
 
 
+/* ---------- house style for triangle and angle diagrams ----------
+   Thin black lines, italic serif letters (A, B, C, x, θ), side lengths set
+   OUTSIDE their edges with their units, small angle arcs and a right-angle
+   square. Everything is placed relative to the triangle's centre so a label
+   is always on the outside of its edge, whichever way up the triangle is. */
+const SERIF = "'Times New Roman', Times, serif";
+function TriLabel({ x, y, children, size = 14, anchor = "middle" }) {
+  return (
+    <text x={x} y={y + size * 0.32} fontSize={size} fontFamily={SERIF} fontStyle="italic" textAnchor={anchor} fill="#000" stroke="#fff" strokeWidth="3" paintOrder="stroke">
+      {children}
+    </text>
+  );
+}
+// Label for the edge P-Q, on the side facing away from the centre G.
+function edgeLabel(P, Q, G, text, key, gap = 7, size = 14) {
+  const mx = (P[0] + Q[0]) / 2, my = (P[1] + Q[1]) / 2;
+  let nx = -(Q[1] - P[1]), ny = Q[0] - P[0];
+  const l = Math.hypot(nx, ny) || 1; nx /= l; ny /= l;
+  if ((mx - G[0]) * nx + (my - G[1]) * ny < 0) { nx = -nx; ny = -ny; }
+  const halfW = (String(text).length * size * 0.44 + 2) / 2, halfH = size * 0.4;
+  const d = gap + halfW * Math.abs(nx) + halfH * Math.abs(ny);
+  return <TriLabel key={key} x={mx + nx * d} y={my + ny * d} size={size}>{svgMath(text)}</TriLabel>;
+}
+// Vertex letter just beyond the corner V, pointing away from the centre G.
+function vertexLabel(V, G, text, key, gap = 13, size = 16) {
+  let dx = V[0] - G[0], dy = V[1] - G[1];
+  const l = Math.hypot(dx, dy) || 1; dx /= l; dy /= l;
+  return <TriLabel key={key} x={V[0] + dx * gap} y={V[1] + dy * gap} size={size}>{text}</TriLabel>;
+}
+
 /* ---------- right-angled triangle, proportionally scaled, 4 orientations.
    base/height/hyp are real numeric lengths (order preserved visually);
    pass '?' as a label to mark the unknown side. ---------- */
 function RightTriangleSVG({ base, height, orientation = "bl", baseLabel, heightLabel, hypLabel, angleLabel }) {
-  const boxW = 220, boxH = 170, marginX = 46, marginY = 30;
+  const boxW = 270, boxH = 200, marginX = 62, marginY = 40;
   const maxSide = Math.max(base, height);
-  const scale = 108 / maxSide;
-  const b = Math.max(base * scale, 34);
-  const h = Math.max(height * scale, 34);
+  const scale = 112 / maxSide;
+  const b = Math.max(base * scale, 40);
+  const h = Math.max(height * scale, 40);
   let A, B, C; // A = right-angle vertex, B = end of base leg, C = end of height leg
   if (orientation === "bl") { A = [marginX, boxH - marginY]; B = [marginX + b, boxH - marginY]; C = [marginX, boxH - marginY - h]; }
   else if (orientation === "br") { A = [boxW - marginX, boxH - marginY]; B = [boxW - marginX - b, boxH - marginY]; C = [boxW - marginX, boxH - marginY - h]; }
   else if (orientation === "tl") { A = [marginX, marginY]; B = [marginX + b, marginY]; C = [marginX, marginY + h]; }
   else { A = [boxW - marginX, marginY]; B = [boxW - marginX - b, marginY]; C = [boxW - marginX, marginY + h]; }
-
-  const sq = 10; // right-angle marker size
-  const markerPts =
-    orientation === "bl" ? `${A[0]},${A[1] - sq} ${A[0] + sq},${A[1] - sq} ${A[0] + sq},${A[1]}` :
-    orientation === "br" ? `${A[0]},${A[1] - sq} ${A[0] - sq},${A[1] - sq} ${A[0] - sq},${A[1]}` :
-    orientation === "tl" ? `${A[0]},${A[1] + sq} ${A[0] + sq},${A[1] + sq} ${A[0] + sq},${A[1]}` :
-    `${A[0]},${A[1] + sq} ${A[0] - sq},${A[1] + sq} ${A[0] - sq},${A[1]}`;
-
-  const mid = (p, q) => [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2];
-  const baseMid = mid(A, B), heightMid = mid(A, C), hypMid = mid(B, C);
-  const baseUp = orientation === "bl" || orientation === "br" ? -10 : 16;
-  const heightSide = orientation === "bl" || orientation === "tl" ? -12 : 12;
-  const hypOffsetX = (orientation === "bl" || orientation === "tl") ? 10 : -10;
-  const hypOffsetY = (orientation === "bl" || orientation === "br") ? 8 : -8;
-
+  const G = [(A[0] + B[0] + C[0]) / 3, (A[1] + B[1] + C[1]) / 3];
+  const sq = 10; // right-angle square: A plus a step along each leg
+  const ub = [Math.sign(B[0] - A[0]), Math.sign(B[1] - A[1])], uc = [Math.sign(C[0] - A[0]), Math.sign(C[1] - A[1])];
+  const markerPts = `${A[0] + ub[0] * sq},${A[1] + ub[1] * sq} ${A[0] + (ub[0] + uc[0]) * sq},${A[1] + (ub[1] + uc[1]) * sq} ${A[0] + uc[0] * sq},${A[1] + uc[1] * sq}`;
   return (
-    <svg viewBox={`0 0 ${boxW} ${boxH}`} width="100%" style={{ maxWidth: 260, display: "block" }}>
-      <polygon points={`${A[0]},${A[1]} ${B[0]},${B[1]} ${C[0]},${C[1]}`} fill="none" stroke="#000" strokeWidth="1.6" />
+    <svg viewBox={`0 0 ${boxW} ${boxH}`} width="100%" style={{ maxWidth: 300, display: "block" }}>
+      <polygon points={`${A[0]},${A[1]} ${B[0]},${B[1]} ${C[0]},${C[1]}`} fill="none" stroke="#000" strokeWidth="1.5" strokeLinejoin="round" />
       <polyline points={markerPts} fill="none" stroke="#000" strokeWidth="1.2" />
-      <text x={baseMid[0]} y={baseMid[1] + baseUp} fontSize="13" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#000">{baseLabel}</text>
-      <text x={heightMid[0] + (heightSide < 0 ? -8 : 8)} y={heightMid[1] + 4} fontSize="13" fontFamily="Arial, sans-serif" textAnchor={heightSide < 0 ? "end" : "start"} fill="#000">{heightLabel}</text>
-      <text x={hypMid[0] + hypOffsetX} y={hypMid[1] + hypOffsetY} fontSize="13" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#000">{hypLabel}</text>
-      {angleLabel && <text x={B[0] + (A[0] - B[0]) * 0.22} y={B[1] + (A[1] - B[1]) * 0.22 + 4} fontSize="12" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#000">{angleLabel}</text>}
+      {baseLabel ? edgeLabel(A, B, G, baseLabel, "b") : null}
+      {heightLabel ? edgeLabel(A, C, G, heightLabel, "h") : null}
+      {hypLabel ? edgeLabel(B, C, G, hypLabel, "y") : null}
+      {angleLabel ? <AngleMark V={B} P={A} Q={C} label={angleLabel} arcR={18} /> : null}
     </svg>
   );
 }
@@ -201,10 +220,9 @@ function RightTriangleSVG({ base, height, orientation = "bl", baseLabel, heightL
 function GeneralTriangleSVG({ sideAB, angleA, angleB, labelA, labelB, labelC, sideALabel, sideBLabel, sideCLabel, labelExt }) {
   // Place A at origin along AB; B along positive x. Compute C from angleA and law of sines.
   const angleC = 180 - angleA - angleB;
-  const sinA = Math.sin(angleA * Math.PI / 180);
   const sinB_ = Math.sin(angleB * Math.PI / 180);
   const sinC = Math.sin(angleC * Math.PI / 180);
-  // side c (opposite C) = sideAB. side a (opposite A) = sideAB * sinA / sinC. side b (opposite B) = sideAB * sinB_ / sinC.
+  // side b (opposite B) = sideAB * sinB / sinC.
   const sideB_len = sideAB * sinB_ / sinC;
   // C position: from A at angle angleA above AB
   const Cx = sideB_len * Math.cos(angleA * Math.PI / 180);
@@ -215,38 +233,35 @@ function GeneralTriangleSVG({ sideAB, angleA, angleB, labelA, labelB, labelC, si
   const minY = Math.min(...ys), maxY = Math.max(...ys);
   const w = maxX - minX, h = maxY - minY;
   const extra = labelExt ? 56 : 0;
-  const baseW = 260, boxH = 200, pad = 38;
+  const baseW = 300, boxH = 230, padX = 56, padY = 44;
   const boxW = baseW + extra;
-  const scale = Math.min((baseW - 2 * pad) / w, (boxH - 2 * pad) / h);
-  const tx = (x) => (x - minX) * scale + pad;
-  const ty = (y) => (y - minY) * scale + pad;
+  const scale = Math.min((baseW - 2 * padX) / w, (boxH - 2 * padY) / h);
+  const offX = (baseW - w * scale) / 2, offY = (boxH - h * scale) / 2;
+  const tx = (x) => (x - minX) * scale + offX;
+  const ty = (y) => (y - minY) * scale + offY;
   const A = [tx(0), ty(0)];
   const B = [tx(sideAB), ty(0)];
   const C = [tx(Cx), ty(Cy)];
   const D = [B[0] + 46, B[1]];
-  const mid = (p, q) => [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2];
-  // Side labels sit just outside each edge
-  const AB_mid = mid(A, B);
-  const AC_mid = mid(A, C);
-  const BC_mid = mid(B, C);
+  const G = [(A[0] + B[0] + C[0]) / 3, (A[1] + B[1] + C[1]) / 3];
   return (
-    <svg viewBox={`0 0 ${boxW} ${boxH}`} width={330 + extra} style={{ maxWidth: "100%", height: "auto", display: "block", margin: "0 auto" }}>
-      <polygon points={`${A[0]},${A[1]} ${B[0]},${B[1]} ${C[0]},${C[1]}`} fill="none" stroke="#000" strokeWidth="1.6" />
-      {labelExt && <line x1={B[0]} y1={B[1]} x2={D[0]} y2={D[1]} stroke="#000" strokeWidth="1.6" />}
-      {labelExt && <text x={D[0] + 6} y={D[1] + 5} fontSize="13" fontFamily="Arial, sans-serif" fontWeight="700" fill="#000">D</text>}
-      {/* Vertex letters */}
-      <text x={A[0] - 14} y={A[1] + 15} fontSize="13" fontFamily="Arial, sans-serif" fontWeight="700" fill="#000">A</text>
-      <text x={B[0] + (labelExt ? -2 : 6)} y={B[1] + 16} fontSize="13" fontFamily="Arial, sans-serif" fontWeight="700" fill="#000">B</text>
-      <text x={C[0] - 4} y={C[1] - 9} fontSize="13" fontFamily="Arial, sans-serif" fontWeight="700" fill="#000">C</text>
+    <svg viewBox={`0 0 ${boxW} ${boxH}`} width={340 + extra} style={{ maxWidth: "100%", height: "auto", display: "block", margin: "0 auto" }}>
+      <polygon points={`${A[0]},${A[1]} ${B[0]},${B[1]} ${C[0]},${C[1]}`} fill="none" stroke="#000" strokeWidth="1.5" strokeLinejoin="round" />
+      {labelExt && <line x1={B[0]} y1={B[1]} x2={D[0]} y2={D[1]} stroke="#000" strokeWidth="1.5" />}
+      {labelExt && <TriLabel x={D[0] + 12} y={D[1]} size={16}>D</TriLabel>}
+      {/* Vertex letters, outside each corner */}
+      {vertexLabel(A, G, "A", "A")}
+      {labelExt ? <TriLabel x={B[0] - 4} y={B[1] + 17} size={16}>B</TriLabel> : vertexLabel(B, G, "B", "B")}
+      {vertexLabel(C, G, "C", "C")}
       {/* Angle arcs and labels, one in each corner that has a label */}
-      {labelA && <AngleMark V={A} P={B} Q={C} label={labelA} arcR={22} bold={labelA === "?"} />}
-      {labelB && <AngleMark V={B} P={A} Q={C} label={labelB} arcR={22} bold={labelB === "?"} />}
-      {labelC && <AngleMark V={C} P={A} Q={B} label={labelC} arcR={22} bold={labelC === "?"} />}
-      {labelExt && <AngleMark V={B} P={D} Q={C} label={labelExt} arcR={30} bold={labelExt === "?"} />}
-      {/* Side labels: c = AB (bottom), b = AC (left), a = BC (right) */}
-      {sideCLabel && <text x={AB_mid[0]} y={AB_mid[1] + 16} fontSize="13" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#000">{svgMath(sideCLabel)}</text>}
-      {sideBLabel && <text x={AC_mid[0] - 14} y={AC_mid[1]} fontSize="13" fontFamily="Arial, sans-serif" textAnchor="end" fill="#000">{svgMath(sideBLabel)}</text>}
-      {sideALabel && <text x={BC_mid[0] + 12} y={BC_mid[1]} fontSize="13" fontFamily="Arial, sans-serif" fill="#000">{svgMath(sideALabel)}</text>}
+      {labelA && <AngleMark V={A} P={B} Q={C} label={labelA} arcR={18} />}
+      {labelB && <AngleMark V={B} P={A} Q={C} label={labelB} arcR={18} />}
+      {labelC && <AngleMark V={C} P={A} Q={B} label={labelC} arcR={18} />}
+      {labelExt && <AngleMark V={B} P={D} Q={C} label={labelExt} arcR={28} />}
+      {/* Side labels, outside their edges: c = AB (bottom), b = AC (left), a = BC (right) */}
+      {sideCLabel && edgeLabel(A, B, G, sideCLabel, "c")}
+      {sideBLabel && edgeLabel(A, C, G, sideBLabel, "bb")}
+      {sideALabel && edgeLabel(B, C, G, sideALabel, "aa")}
     </svg>
   );
 }
@@ -262,65 +277,48 @@ function polarPt(cx, cy, r, deg) {
    plus label strings — this component is a pure, geometrically-correct
    renderer, same division of labour as GeneralTriangleSVG. ---------- */
 function CircleTheoremSVG({ theorem, ...props }) {
-  const boxW = 240, boxH = 200, cx = 120, cy = 104, R = 72;
-  const circle = <circle cx={cx} cy={cy} r={R} fill="none" stroke="#000" strokeWidth="1.4" />;
-
-  function rightAngleMarker(vertex, p1, p2, size = 9) {
-    const u1 = [p1[0] - vertex[0], p1[1] - vertex[1]];
-    const l1 = Math.hypot(u1[0], u1[1]);
-    const n1 = [u1[0] / l1, u1[1] / l1];
-    const u2 = [p2[0] - vertex[0], p2[1] - vertex[1]];
-    const l2 = Math.hypot(u2[0], u2[1]);
-    const n2 = [u2[0] / l2, u2[1] / l2];
+  const cx = 125, cy = 112, R = 72;
+  const C0 = [cx, cy];
+  const ln = (P, Q, k) => <line key={k} x1={P[0]} y1={P[1]} x2={Q[0]} y2={Q[1]} stroke="#000" strokeWidth="1.5" />;
+  const lab = (V, t, k) => vertexLabel(V, C0, t, k, 13, 16);
+  const circle = <circle cx={cx} cy={cy} r={R} fill="none" stroke="#000" strokeWidth="1.5" />;
+  const dot = <circle cx={cx} cy={cy} r={2.4} fill="#000" />;
+  const frame = (boxW, boxH, kids) => (
+    <svg viewBox={`0 0 ${boxW} ${boxH}`} width={boxW} style={{ maxWidth: "100%", height: "auto", display: "block", margin: "0 auto" }}>{kids}</svg>
+  );
+  const rightAngleMarker = (vertex, p1, p2, size = 9) => {
+    const nrm = (q) => { const l = Math.hypot(q[0] - vertex[0], q[1] - vertex[1]) || 1; return [(q[0] - vertex[0]) / l, (q[1] - vertex[1]) / l]; };
+    const n1 = nrm(p1), n2 = nrm(p2);
     const m1 = [vertex[0] + n1[0] * size, vertex[1] + n1[1] * size];
     const m2 = [m1[0] + n2[0] * size, m1[1] + n2[1] * size];
     const m3 = [vertex[0] + n2[0] * size, vertex[1] + n2[1] * size];
-    return `${m1[0]},${m1[1]} ${m2[0]},${m2[1]} ${m3[0]},${m3[1]}`;
-  }
+    return <polyline points={`${m1[0]},${m1[1]} ${m2[0]},${m2[1]} ${m3[0]},${m3[1]}`} fill="none" stroke="#000" strokeWidth="1.2" />;
+  };
 
   if (theorem === "centre") {
     const { centreAngleDeg, centreLabel, circumLabel } = props;
-    const [Ax, Ay] = polarPt(cx, cy, R, 90 + centreAngleDeg / 2);
-    const [Bx, By] = polarPt(cx, cy, R, 90 - centreAngleDeg / 2);
-    const [Cx, Cy] = polarPt(cx, cy, R, 270);
-    return (
-      <svg viewBox={`0 0 ${boxW} ${boxH}`} width="100%" style={{ maxWidth: 260, display: "block" }}>
-        {circle}
-        <line x1={cx} y1={cy} x2={Ax} y2={Ay} stroke="#000" strokeWidth="1.3" />
-        <line x1={cx} y1={cy} x2={Bx} y2={By} stroke="#000" strokeWidth="1.3" />
-        <line x1={Cx} y1={Cy} x2={Ax} y2={Ay} stroke="#000" strokeWidth="1.3" />
-        <line x1={Cx} y1={Cy} x2={Bx} y2={By} stroke="#000" strokeWidth="1.3" />
-        <circle cx={cx} cy={cy} r={2.2} fill="#000" />
-        <text x={cx + 6} y={cy - 6} fontSize="12" fontFamily="Arial, sans-serif" fill="#000">O</text>
-        <text x={Ax + (Ax > cx ? 6 : -14)} y={Ay - 4} fontSize="12" fontFamily="Arial, sans-serif" fill="#000">A</text>
-        <text x={Bx + (Bx > cx ? 6 : -14)} y={By + 14} fontSize="12" fontFamily="Arial, sans-serif" fill="#000">B</text>
-        <text x={Cx - 6} y={Cy + 18} fontSize="12" fontFamily="Arial, sans-serif" fill="#000">C</text>
-        <text x={cx} y={cy - 22} fontSize="13" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#000">{centreLabel}</text>
-        <text x={Cx} y={Cy - 12} fontSize="13" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#000">{circumLabel}</text>
-      </svg>
-    );
+    const A = polarPt(cx, cy, R, 90 + centreAngleDeg / 2);
+    const B = polarPt(cx, cy, R, 90 - centreAngleDeg / 2);
+    const C = polarPt(cx, cy, R, 270);
+    return frame(250, 224, <>
+      {circle}{ln(C0, A, "oa")}{ln(C0, B, "ob")}{ln(C, A, "ca")}{ln(C, B, "cb")}{dot}
+      {lab(A, "A", "A")}{lab(B, "B", "B")}{lab(C, "C", "C")}
+      <TriLabel x={cx + 16} y={cy + 4} size={16}>O</TriLabel>
+      <AngleMark V={C0} P={A} Q={B} label={centreLabel} arcR={20} />
+      <AngleMark V={C} P={A} Q={B} label={circumLabel} arcR={24} />
+    </>);
   }
 
   if (theorem === "semicircle") {
     const { cAngleDeg, labelA, labelB } = props;
-    const [Ax, Ay] = polarPt(cx, cy, R, 180);
-    const [Bx, By] = polarPt(cx, cy, R, 0);
-    const [Cx, Cy] = polarPt(cx, cy, R, cAngleDeg);
-    const markerPts = rightAngleMarker([Cx, Cy], [Ax, Ay], [Bx, By]);
-    return (
-      <svg viewBox={`0 0 ${boxW} ${boxH}`} width="100%" style={{ maxWidth: 260, display: "block" }}>
-        {circle}
-        <line x1={Ax} y1={Ay} x2={Bx} y2={By} stroke="#000" strokeWidth="1.3" />
-        <line x1={Ax} y1={Ay} x2={Cx} y2={Cy} stroke="#000" strokeWidth="1.3" />
-        <line x1={Bx} y1={By} x2={Cx} y2={Cy} stroke="#000" strokeWidth="1.3" />
-        <polyline points={markerPts} fill="none" stroke="#000" strokeWidth="1.1" />
-        <text x={Ax - 14} y={Ay + 4} fontSize="12" fontFamily="Arial, sans-serif" fill="#000">A</text>
-        <text x={Bx + 4} y={By + 4} fontSize="12" fontFamily="Arial, sans-serif" fill="#000">B</text>
-        <text x={Cx - 4} y={Cy - 10} fontSize="12" fontFamily="Arial, sans-serif" fill="#000">C</text>
-        <text x={(Ax + Cx) / 2 - 10} y={(Ay + Cy) / 2 - 4} fontSize="13" fontFamily="Arial, sans-serif" fill="#000">{labelA}</text>
-        <text x={(Bx + Cx) / 2 + 2} y={(By + Cy) / 2 - 4} fontSize="13" fontFamily="Arial, sans-serif" fill="#000">{labelB}</text>
-      </svg>
-    );
+    const A = polarPt(cx, cy, R, 180), B = polarPt(cx, cy, R, 0), C = polarPt(cx, cy, R, cAngleDeg);
+    return frame(250, 224, <>
+      {circle}{ln(A, B, "ab")}{ln(A, C, "ac")}{ln(B, C, "bc")}
+      {rightAngleMarker(C, A, B)}
+      {lab(A, "A", "A")}{lab(B, "B", "B")}{lab(C, "C", "C")}
+      {labelA ? <AngleMark V={A} P={B} Q={C} label={labelA} arcR={24} /> : null}
+      {labelB ? <AngleMark V={B} P={A} Q={C} label={labelB} arcR={24} /> : null}
+    </>);
   }
 
   if (theorem === "tangent-kite") {
@@ -330,44 +328,31 @@ function CircleTheoremSVG({ theorem, ...props }) {
     const A = [cx + R * Math.cos(alpha), cy - R * Math.sin(alpha)];
     const B = [cx + R * Math.cos(alpha), cy + R * Math.sin(alpha)];
     const P = [cx + d, cy];
-    return (
-      <svg viewBox={`0 0 ${boxW} ${boxH}`} width="100%" style={{ maxWidth: 260, display: "block" }}>
-        {circle}
-        <line x1={cx} y1={cy} x2={A[0]} y2={A[1]} stroke="#000" strokeWidth="1.3" />
-        <line x1={cx} y1={cy} x2={B[0]} y2={B[1]} stroke="#000" strokeWidth="1.3" />
-        <line x1={A[0]} y1={A[1]} x2={P[0]} y2={P[1]} stroke="#000" strokeWidth="1.3" />
-        <line x1={B[0]} y1={B[1]} x2={P[0]} y2={P[1]} stroke="#000" strokeWidth="1.3" />
-        <polyline points={rightAngleMarker(A, [cx, cy], P)} fill="none" stroke="#000" strokeWidth="1.1" />
-        <polyline points={rightAngleMarker(B, [cx, cy], P)} fill="none" stroke="#000" strokeWidth="1.1" />
-        <circle cx={cx} cy={cy} r={2.2} fill="#000" />
-        <text x={cx - 18} y={cy + 4} fontSize="12" fontFamily="Arial, sans-serif" fill="#000">O</text>
-        <text x={A[0] - 4} y={A[1] - 8} fontSize="12" fontFamily="Arial, sans-serif" fill="#000">A</text>
-        <text x={B[0] - 4} y={B[1] + 16} fontSize="12" fontFamily="Arial, sans-serif" fill="#000">B</text>
-        <text x={P[0] + 6} y={P[1] + 4} fontSize="12" fontFamily="Arial, sans-serif" fill="#000">P</text>
-        <text x={cx + 16} y={cy - 4} fontSize="13" fontFamily="Arial, sans-serif" fill="#000">{labelO}</text>
-        <text x={P[0] - 38} y={P[1] + 4} fontSize="13" fontFamily="Arial, sans-serif" fill="#000">{labelP}</text>
-      </svg>
-    );
+    const boxW = Math.max(250, Math.round(cx + d + 34));
+    return frame(boxW, 224, <>
+      {circle}{ln(C0, A, "oa")}{ln(C0, B, "ob")}{ln(A, P, "ap")}{ln(B, P, "bp")}
+      {rightAngleMarker(A, C0, P)}{rightAngleMarker(B, C0, P)}{dot}
+      {lab(A, "A", "A")}{lab(B, "B", "B")}
+      <TriLabel x={P[0] + 8} y={P[1] - 18} size={16}>P</TriLabel>
+      <TriLabel x={cx - 14} y={cy + 14} size={16}>O</TriLabel>
+      <AngleMark V={C0} P={A} Q={B} label={labelO} arcR={22} />
+      <AngleMark V={P} P={A} Q={B} label={labelP} arcR={18} outside />
+    </>);
   }
 
   // theorem === "cyclic-quad"
   const { angleAtADeg, labelA, labelC } = props;
-  const [Ax, Ay] = polarPt(cx, cy, R, 0);
-  const [Bx, By] = polarPt(cx, cy, R, 180 - angleAtADeg);
-  const [Cx, Cy] = polarPt(cx, cy, R, 180);
-  const [Dx, Dy] = polarPt(cx, cy, R, 180 + angleAtADeg);
-  return (
-    <svg viewBox={`0 0 ${boxW} ${boxH}`} width="100%" style={{ maxWidth: 260, display: "block" }}>
-      {circle}
-      <polygon points={`${Ax},${Ay} ${Bx},${By} ${Cx},${Cy} ${Dx},${Dy}`} fill="none" stroke="#000" strokeWidth="1.4" />
-      <text x={Ax + 6} y={Ay + 4} fontSize="12" fontFamily="Arial, sans-serif" fill="#000">A</text>
-      <text x={Bx - 4} y={By - 8} fontSize="12" fontFamily="Arial, sans-serif" fill="#000">B</text>
-      <text x={Cx - 16} y={Cy + 4} fontSize="12" fontFamily="Arial, sans-serif" fill="#000">C</text>
-      <text x={Dx - 4} y={Dy + 18} fontSize="12" fontFamily="Arial, sans-serif" fill="#000">D</text>
-      <text x={Ax - 28} y={Ay - 2} fontSize="13" fontFamily="Arial, sans-serif" fill="#000">{labelA}</text>
-      <text x={Cx + 10} y={Cy - 2} fontSize="13" fontFamily="Arial, sans-serif" fill="#000">{labelC}</text>
-    </svg>
-  );
+  const A = polarPt(cx, cy, R, 0);
+  const B = polarPt(cx, cy, R, 180 - angleAtADeg);
+  const C = polarPt(cx, cy, R, 180);
+  const D = polarPt(cx, cy, R, 180 + angleAtADeg);
+  return frame(250, 224, <>
+    {circle}
+    <polygon points={[A, B, C, D].map((q) => q.join(",")).join(" ")} fill="none" stroke="#000" strokeWidth="1.5" strokeLinejoin="round" />
+    {lab(A, "A", "A")}{lab(B, "B", "B")}{lab(C, "C", "C")}{lab(D, "D", "D")}
+    <AngleMark V={A} P={B} Q={D} label={labelA} arcR={22} />
+    <AngleMark V={C} P={B} Q={D} label={labelC} arcR={22} />
+  </>);
 }
 
 /* ---------- Tier 2 diagram helpers: coordinate grid, bar/pie charts,
@@ -539,27 +524,44 @@ function AngleFactsSVG({ mode = "line", angles, unknownIndex, labels }) {
 }
 
 function BearingSVG({ bearingDeg, unknown }) {
-  const boxW = 240, boxH = 220;
-  const Ax = 70, Ay = 150, R = 90;
+  // A is the point we measure from; B is on the given bearing. The drawing is
+  // sized from where everything lands, so a bearing towards the west (or any
+  // direction) is never cut off.
+  const R = 96, arcR = 30, northUp = 76, northDown = 22;
   const rad = (bearingDeg * Math.PI) / 180;
-  const Bx = Ax + R * Math.sin(rad);
-  const By = Ay - R * Math.cos(rad);
-  const arcR = 32;
+  const sx = Math.sin(rad), cy = Math.cos(rad);
+  const dBx = R * sx, dBy = -R * cy; // B relative to A
+  const half = rad / 2, lr = arcR + 15;
+  const lblX = lr * Math.sin(half), lblY = -lr * Math.cos(half); // angle label, relative to A
+  // "A" goes in the clearest direction: furthest from the north line, its
+  // dashed continuation south, and the line to B.
+  const angDist = (x, y) => Math.abs((((x - y) % 360) + 540) % 360 - 180);
+  let bestPhi = 270, bestScore = -1;
+  for (let phi = 0; phi < 360; phi += 15) {
+    const sc = Math.min(angDist(phi, 0), angDist(phi, 180), angDist(phi, bearingDeg));
+    if (sc > bestScore) { bestScore = sc; bestPhi = phi; }
+  }
+  const aAng = (bestPhi * Math.PI) / 180, aX = 17 * Math.sin(aAng), aY = -17 * Math.cos(aAng);
+  const minX = Math.min(-arcR, dBx, 0, lblX - 12, aX - 8) - 22, maxX = Math.max(arcR, dBx, 0, lblX + 12, aX + 8) + 22;
+  const minY = Math.min(-northUp, dBy) - 24, maxY = Math.max(northDown, dBy, lblY + 12, aY + 8) + 22;
+  const boxW = maxX - minX, boxH = maxY - minY;
+  const Ax = -minX, Ay = -minY;
+  const Bx = Ax + dBx, By = Ay + dBy;
   const startPt = [Ax, Ay - arcR];
-  const endPt = [Ax + arcR * Math.sin(rad), Ay - arcR * Math.cos(rad)];
+  const endPt = [Ax + arcR * sx, Ay - arcR * cy];
   const large = bearingDeg > 180 ? 1 : 0;
   return (
-    <svg viewBox={`0 0 ${boxW} ${boxH}`} width="100%" style={{ maxWidth: 260, display: "block" }}>
-      <line x1={Ax} y1={Ay + 20} x2={Ax} y2={Ay - 70} stroke="#000" strokeWidth="1.2" strokeDasharray="4,3" />
-      <polygon points={`${Ax},${Ay - 70} ${Ax - 4},${Ay - 60} ${Ax + 4},${Ay - 60}`} fill="#000" />
-      <text x={Ax} y={Ay - 74} fontSize="11" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#000">N</text>
+    <svg viewBox={`0 0 ${boxW} ${boxH}`} width={Math.min(boxW, 300)} style={{ maxWidth: "100%", height: "auto", display: "block", margin: "0 auto" }}>
+      <line x1={Ax} y1={Ay + northDown} x2={Ax} y2={Ay - northUp} stroke="#000" strokeWidth="1.2" strokeDasharray="4,3" />
+      <polygon points={`${Ax},${Ay - northUp - 4} ${Ax - 4},${Ay - northUp + 7} ${Ax + 4},${Ay - northUp + 7}`} fill="#000" />
+      <text x={Ax} y={Ay - northUp - 10} fontSize="14" fontFamily={SERIF} textAnchor="middle" fill="#000">N</text>
       <line x1={Ax} y1={Ay} x2={Bx} y2={By} stroke="#000" strokeWidth="1.5" />
-      <path d={`M${startPt[0]},${startPt[1]} A${arcR},${arcR} 0 ${large} 1 ${endPt[0]},${endPt[1]}`} fill="none" stroke="#000" strokeWidth="1" />
+      <path d={`M${startPt[0]},${startPt[1]} A${arcR},${arcR} 0 ${large} 1 ${endPt[0]},${endPt[1]}`} fill="none" stroke="#000" strokeWidth="1.1" />
       <circle cx={Ax} cy={Ay} r={2.4} fill="#000" />
       <circle cx={Bx} cy={By} r={2.4} fill="#000" />
-      <text x={Ax - 14} y={Ay + 14} fontSize="12" fontFamily="Arial, sans-serif" fontWeight="700" fill="#000">A</text>
-      <text x={Bx + (Bx > Ax ? 6 : -16)} y={By - 4} fontSize="12" fontFamily="Arial, sans-serif" fontWeight="700" fill="#000">B</text>
-      <text x={Ax + 18} y={Ay - 30} fontSize="12" fontFamily="Arial, sans-serif" fill="#000">{unknown ? "?" : `${bearingDeg}°`}</text>
+      <TriLabel x={Ax + aX} y={Ay + aY} size={16}>A</TriLabel>
+      <TriLabel x={Bx + sx * 13} y={By - cy * 13} size={16}>B</TriLabel>
+      <TriLabel x={Ax + lblX} y={Ay + lblY} size={14}>{unknown ? "?" : `${bearingDeg}°`}</TriLabel>
     </svg>
   );
 }
@@ -650,47 +652,47 @@ function sideTicks(p1, p2, count) {
 }
 
 function TrapeziumAnglesSVG({ a }) {
-  const pad = 26;
-  const A = [15, 0], B = [75, 0], C = [95, 55], D = [0, 55];
-  const ptsStr = [A, B, C, D].map(([x, y]) => `${x + pad},${y + pad}`).join(" ");
+  const pad = 40;
+  const A = [34, 0], B = [170, 0], C = [212, 118], D = [0, 118];
+  const P = (q) => [q[0] + pad, q[1] + pad];
+  const [pA, pB, pC, pD] = [A, B, C, D].map(P);
+  const G = [(pA[0] + pB[0] + pC[0] + pD[0]) / 4, (pA[1] + pB[1] + pC[1] + pD[1]) / 4];
   return (
-    <svg viewBox={`0 0 ${95 + 2 * pad} ${55 + 2 * pad}`} width="100%" style={{ maxWidth: 240, display: "block" }}>
-      <polygon points={ptsStr} fill="none" stroke="#000" strokeWidth="1.6" />
-      {parallelTick((A[0] + B[0]) / 2 + pad, (A[1] + B[1]) / 2 + pad)}
-      {parallelTick((C[0] + D[0]) / 2 + pad, (C[1] + D[1]) / 2 + pad)}
-      <text x={A[0] + pad - 6} y={A[1] + pad - 8} fontSize="13" fontFamily="Arial, sans-serif" textAnchor="end" fill="#000">A</text>
-      <text x={B[0] + pad + 6} y={B[1] + pad - 8} fontSize="13" fontFamily="Arial, sans-serif" textAnchor="start" fill="#000">B</text>
-      <text x={C[0] + pad + 6} y={C[1] + pad + 14} fontSize="13" fontFamily="Arial, sans-serif" textAnchor="start" fill="#000">C</text>
-      <text x={D[0] + pad - 6} y={D[1] + pad + 14} fontSize="13" fontFamily="Arial, sans-serif" textAnchor="end" fill="#000">D</text>
-      <text x={A[0] + pad + 10} y={A[1] + pad + 16} fontSize="12" fontFamily="Arial, sans-serif" fill="#000">{a}°</text>
-      <text x={D[0] + pad + 10} y={D[1] + pad - 6} fontSize="12" fontFamily="Arial, sans-serif" fill="#000">?</text>
+    <svg viewBox={`0 0 ${212 + 2 * pad} ${118 + 2 * pad}`} width={212 + 2 * pad} style={{ maxWidth: "100%", height: "auto", display: "block", margin: "0 auto" }}>
+      <polygon points={[pA, pB, pC, pD].map((q) => q.join(",")).join(" ")} fill="none" stroke="#000" strokeWidth="1.5" strokeLinejoin="round" />
+      {parallelTick((pA[0] + pB[0]) / 2, (pA[1] + pB[1]) / 2)}
+      {parallelTick((pC[0] + pD[0]) / 2, (pC[1] + pD[1]) / 2)}
+      {vertexLabel(pA, G, "A", "A")}
+      {vertexLabel(pB, G, "B", "B")}
+      {vertexLabel(pC, G, "C", "C")}
+      {vertexLabel(pD, G, "D", "D")}
+      <AngleMark V={pA} P={pB} Q={pD} label={`${a}°`} arcR={20} />
+      <AngleMark V={pD} P={pA} Q={pC} label="?" arcR={20} />
     </svg>
   );
 }
 
 function KiteAnglesSVG({ angleA, angleBD }) {
-  const pad = 22;
-  const A = [45, 0], B = [80, 40], C = [45, 95], D = [10, 40];
-  const centre = [45, 43.75];
-  const labelPos = ([vx, vy]) => [vx + 0.35 * (centre[0] - vx), vy + 0.35 * (centre[1] - vy)];
-  const [lax, lay] = labelPos(A), [lbx, lby] = labelPos(B), [ldx, ldy] = labelPos(D), [lcx, lcy] = labelPos(C);
-  const ptsStr = [A, B, C, D].map(([x, y]) => `${x + pad},${y + pad}`).join(" ");
-  const shift = ([x, y]) => [x + pad, y + pad];
+  const pad = 40;
+  const A = [100, 0], B = [176, 88], C = [100, 208], D = [24, 88];
+  const P = (q) => [q[0] + pad, q[1] + pad];
+  const [pA, pB, pC, pD] = [A, B, C, D].map(P);
+  const G = [(pA[0] + pB[0] + pC[0] + pD[0]) / 4, (pA[1] + pB[1] + pC[1] + pD[1]) / 4];
   return (
-    <svg viewBox={`0 0 ${90 + 2 * pad} ${95 + 2 * pad}`} width="100%" style={{ maxWidth: 200, display: "block" }}>
-      <polygon points={ptsStr} fill="none" stroke="#000" strokeWidth="1.6" />
-      {sideTicks(shift(A), shift(B), 1)}
-      {sideTicks(shift(A), shift(D), 1)}
-      {sideTicks(shift(C), shift(B), 2)}
-      {sideTicks(shift(C), shift(D), 2)}
-      <text x={A[0] + pad} y={A[1] + pad - 8} fontSize="13" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#000">A</text>
-      <text x={B[0] + pad + 8} y={B[1] + pad + 4} fontSize="13" fontFamily="Arial, sans-serif" textAnchor="start" fill="#000">B</text>
-      <text x={C[0] + pad} y={C[1] + pad + 16} fontSize="13" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#000">C</text>
-      <text x={D[0] + pad - 8} y={D[1] + pad + 4} fontSize="13" fontFamily="Arial, sans-serif" textAnchor="end" fill="#000">D</text>
-      <text x={lax + pad} y={lay + pad} fontSize="11.5" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#000">{angleA}°</text>
-      <text x={lbx + pad} y={lby + pad} fontSize="11.5" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#000">{angleBD}°</text>
-      <text x={ldx + pad} y={ldy + pad} fontSize="11.5" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#000">{angleBD}°</text>
-      <text x={lcx + pad} y={lcy + pad} fontSize="11.5" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#000">?</text>
+    <svg viewBox={`0 0 ${200 + 2 * pad} ${208 + 2 * pad}`} width={200 + 2 * pad} style={{ maxWidth: "100%", height: "auto", display: "block", margin: "0 auto" }}>
+      <polygon points={[pA, pB, pC, pD].map((q) => q.join(",")).join(" ")} fill="none" stroke="#000" strokeWidth="1.5" strokeLinejoin="round" />
+      {sideTicks(pA, pB, 1)}
+      {sideTicks(pA, pD, 1)}
+      {sideTicks(pC, pB, 2)}
+      {sideTicks(pC, pD, 2)}
+      {vertexLabel(pA, G, "A", "A")}
+      {vertexLabel(pB, G, "B", "B")}
+      {vertexLabel(pC, G, "C", "C")}
+      {vertexLabel(pD, G, "D", "D")}
+      <AngleMark V={pA} P={pB} Q={pD} label={`${angleA}°`} arcR={22} />
+      <AngleMark V={pB} P={pA} Q={pC} label={`${angleBD}°`} arcR={20} />
+      <AngleMark V={pD} P={pC} Q={pA} label={`${angleBD}°`} arcR={20} />
+      <AngleMark V={pC} P={pD} Q={pB} label="?" arcR={22} />
     </svg>
   );
 }
@@ -919,9 +921,9 @@ function NotationAngleSVG({ labels }) {
       <line x1={cx} y1={cy} x2={x2} y2={y2} stroke="#000" strokeWidth="1.5" />
       <path d={`M${ax1},${ay1} A${arcR},${arcR} 0 0 0 ${ax2},${ay2}`} fill="none" stroke="#000" strokeWidth="1.2" />
       <circle cx={cx} cy={cy} r={2.2} fill="#000" />
-      <text x={cx} y={cy - 12} fontSize="15" fontFamily="Arial, sans-serif" fontWeight="700" textAnchor="middle" fill="#000">{labels[1]}</text>
-      <text x={x1 - 8} y={y1 + 6} fontSize="15" fontFamily="Arial, sans-serif" fontWeight="700" textAnchor="end" fill="#000">{labels[0]}</text>
-      <text x={x2 + 8} y={y2 + 6} fontSize="15" fontFamily="Arial, sans-serif" fontWeight="700" fill="#000">{labels[2]}</text>
+      <text x={cx} y={cy - 12} fontSize="16.5" fontFamily={SERIF} fontStyle="italic" textAnchor="middle" fill="#000">{labels[1]}</text>
+      <text x={x1 - 8} y={y1 + 6} fontSize="16.5" fontFamily={SERIF} fontStyle="italic" textAnchor="end" fill="#000">{labels[0]}</text>
+      <text x={x2 + 8} y={y2 + 6} fontSize="16.5" fontFamily={SERIF} fontStyle="italic" fill="#000">{labels[2]}</text>
     </svg>
   );
 }
@@ -1021,7 +1023,7 @@ function AngleMark({ V, P, Q, label, arcR = 20, bold = false, fontSize = 12.5, i
   return (
     <g>
       <path d={`M${a1[0]},${a1[1]} A${arcR},${arcR} 0 0 ${cross > 0 ? 1 : 0} ${a2[0]},${a2[1]}`} fill="none" stroke="#000" strokeWidth="1.1" />
-      <text x={lx} y={ly + 4} fontSize={fontSize} fontFamily="Arial, sans-serif" fontWeight={bold ? 700 : 400} textAnchor="middle" fill="#000" stroke="#fff" strokeWidth="3" paintOrder="stroke">{svgMath(text)}</text>
+      <text x={lx} y={ly + fontSize * 0.34} fontSize={fontSize * 1.1} fontFamily={SERIF} fontStyle="italic" textAnchor="middle" fill="#000" stroke="#fff" strokeWidth="3" paintOrder="stroke">{svgMath(text)}</text>
     </g>
   );
 }
@@ -7520,7 +7522,7 @@ function PolygonAnglesSVG({ angles, unknownIndex, labels }) {
     <svg viewBox={`0 0 ${boxW} ${boxH}`} width={longLabels ? 440 : 400} style={{ maxWidth: "100%", height: "auto", display: "block", margin: "0 auto" }}>
       <polygon points={V.map((q) => q.join(",")).join(" ")} fill="none" stroke="#000" strokeWidth="1.6" strokeLinejoin="round" />
       {V.map((q, i) => (
-        <AngleMark key={i} V={q} P={V[(i + n - 1) % n]} Q={V[(i + 1) % n]} label={labels ? labels[i] : i === unknownIndex ? "?" : `${angles[i]}\u00B0`} arcR={17} outside={longLabels} bold={i === unknownIndex} fontSize={i === unknownIndex ? 15 : 12.5} />
+        <AngleMark key={i} V={q} P={V[(i + n - 1) % n]} Q={V[(i + 1) % n]} label={labels ? labels[i] : i === unknownIndex ? "?" : `${angles[i]}\u00B0`} arcR={17} outside={longLabels || n >= 6} bold={i === unknownIndex} fontSize={i === unknownIndex ? 15 : 12.5} />
       ))}
     </svg>
   );
@@ -7618,7 +7620,7 @@ function ParallelogramAnglesSVG({ angleA, ask }) {
       <polygon points={Pt.map((q) => q.join(",")).join(" ")} fill="none" stroke="#000" strokeWidth="1.6" strokeLinejoin="round" />
       {Pt.map((q, i) => {
         const d = [q[0] - cen[0], q[1] - cen[1]], l = Math.hypot(d[0], d[1]) || 1;
-        return <text key={`t${i}`} x={q[0] + (d[0] / l) * 15} y={q[1] + (d[1] / l) * 15 + 5} fontSize="14" fontFamily="Arial, sans-serif" fontWeight="700" textAnchor="middle" fill="#000">{letters[i]}</text>;
+        return <text key={`t${i}`} x={q[0] + (d[0] / l) * 15} y={q[1] + (d[1] / l) * 15 + 5} fontSize="15.4" fontFamily={SERIF} fontStyle="italic" textAnchor="middle" fill="#000">{letters[i]}</text>;
       })}
       {Pt.map((q, i) => labels[i] ? <AngleMark key={i} V={q} P={Pt[(i + 3) % 4]} Q={Pt[(i + 1) % 4]} label={labels[i]} arcR={20} bold={labels[i] === "?"} fontSize={labels[i] === "?" ? 15 : 13} /> : null)}
     </svg>
@@ -8831,8 +8833,8 @@ function AngleTypeSVG({ angle, label }) {
       {angle === 90
         ? <polyline points={`${V[0] + 16},${V[1]} ${V[0] + 16},${V[1] - 16} ${V[0]},${V[1] - 16}`} fill="none" stroke="#000" strokeWidth="1.2" />
         : <path d={`M${a1[0]},${a1[1]} A${arcR},${arcR} 0 ${large} 0 ${a2[0]},${a2[1]}`} fill="none" stroke="#000" strokeWidth="1.2" />}
-      {angle !== 90 && <text x={lp[0]} y={lp[1] + 4} fontSize="13" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#000" stroke="#fff" strokeWidth="3" paintOrder="stroke">{label}</text>}
-      {angle === 90 && <text x={V[0] + 32} y={V[1] - 22} fontSize="13" fontFamily="Arial, sans-serif" fill="#000">{label}</text>}
+      {angle !== 90 && <text x={lp[0]} y={lp[1] + 4} fontSize="14.3" fontFamily={SERIF} fontStyle="italic" textAnchor="middle" fill="#000" stroke="#fff" strokeWidth="3" paintOrder="stroke">{label}</text>}
+      {angle === 90 && <text x={V[0] + 32} y={V[1] - 22} fontSize="14.3" fontFamily={SERIF} fontStyle="italic" fill="#000">{label}</text>}
       <circle cx={V[0]} cy={V[1]} r="2.4" fill="#000" />
     </svg>
   );
@@ -9862,8 +9864,10 @@ SUBTOPIC_BANK["shape-naming-polygon-by-sides"] = {
 const Y10_BLUE = "#1f3d66";
 const Y10_GREEN = "#2a7a3b";
 function y10T(x, y, t, o = {}) {
-  return <text key={o.key} x={x} y={y} fontSize={o.size || 13} fontFamily="Arial, sans-serif" fontWeight={o.bold ? 700 : 400} textAnchor={o.anchor || "middle"} fill={o.fill || "#000"} stroke="#fff" strokeWidth="3" paintOrder="stroke">{svgMath(t)}</text>;
+  const serif = !!o.serif; // house style for angle/triangle diagrams: italic serif
+  return <text key={o.key} x={x} y={y} fontSize={(o.size || 13) * (serif ? 1.1 : 1)} fontFamily={serif ? SERIF : "Arial, sans-serif"} fontStyle={serif ? "italic" : undefined} fontWeight={serif ? 400 : o.bold ? 700 : 400} textAnchor={o.anchor || "middle"} fill={o.fill || "#000"} stroke="#fff" strokeWidth="3" paintOrder="stroke">{svgMath(t)}</text>;
 }
+const y10TS = (x, y, t, o = {}) => y10T(x, y, t, { ...o, serif: true });
 function y10RightMark(V, P, Q, size = 9) {
   const nrm = (a) => { const l = Math.hypot(a[0] - V[0], a[1] - V[1]) || 1; return [(a[0] - V[0]) / l, (a[1] - V[1]) / l]; };
   const u = nrm(P), w = nrm(Q);
@@ -9989,7 +9993,7 @@ function SSSTriangleSVG({ sides }) {
     let nx = -(q[1] - p[1]), ny = q[0] - p[0];
     const nl = Math.hypot(nx, ny) || 1; nx /= nl; ny /= nl;
     if (nx * (m[0] - cen[0]) + ny * (m[1] - cen[1]) < 0) { nx = -nx; ny = -ny; }
-    return y10T(m[0] + nx * 18, m[1] + ny * 18 + 4, text, { key: text });
+    return y10TS(m[0] + nx * 18, m[1] + ny * 18 + 4, text, { key: text });
   };
   return y10Svg(W, H, 340, <>
     <polygon points={`${P0.join(",")} ${P1.join(",")} ${P2.join(",")}`} fill="none" stroke="#000" strokeWidth="1.8" strokeLinejoin="round" />
@@ -10014,10 +10018,10 @@ function IsoscelesSVG({ halfBase, height, baseLabel, sideLabel, heightLabel, ape
     {tick(A, L)}{tick(A, R)}
     {heightLabel && <line x1={A[0]} y1={A[1]} x2={M[0]} y2={M[1]} stroke="#000" strokeWidth="1.2" strokeDasharray="4 3" />}
     {heightLabel && y10RightMark(M, [M[0] + 1, M[1]], [M[0], M[1] - 1], 9)}
-    {heightLabel && y10T(M[0] + 8, (A[1] + M[1]) / 2 + 4, heightLabel, { anchor: "start" })}
-    {y10T(M[0], baseY + 20, baseLabel)}
-    {sideLabel && y10T((A[0] + L[0]) / 2 - 12, (A[1] + L[1]) / 2 - 2, sideLabel, { anchor: "end" })}
-    {sideLabel && y10T((A[0] + R[0]) / 2 + 12, (A[1] + R[1]) / 2 - 2, sideLabel, { anchor: "start" })}
+    {heightLabel && y10TS(M[0] + 8, (A[1] + M[1]) / 2 + 4, heightLabel, { anchor: "start" })}
+    {y10TS(M[0], baseY + 20, baseLabel)}
+    {sideLabel && y10TS((A[0] + L[0]) / 2 - 12, (A[1] + L[1]) / 2 - 2, sideLabel, { anchor: "end" })}
+    {sideLabel && y10TS((A[0] + R[0]) / 2 + 12, (A[1] + R[1]) / 2 - 2, sideLabel, { anchor: "start" })}
     {apexLabel && <AngleMark V={A} P={L} Q={R} label={apexLabel} arcR={24} />}
   </>);
 }
@@ -10028,8 +10032,8 @@ function SquareDiagonalSVG({ sideLabel, diagLabel = "?" }) {
     <rect x={x0} y={y0} width={S} height={S} fill="none" stroke="#000" strokeWidth="1.8" />
     <line x1={x0} y1={y0 + S} x2={x0 + S} y2={y0} stroke="#000" strokeWidth="1.5" strokeDasharray="5 4" />
     {y10RightMark([x0 + S, y0 + S], [x0 + S - 1, y0 + S], [x0 + S, y0 + S - 1], 10)}
-    {y10T(x0 + S / 2, y0 + S + 22, sideLabel)}
-    {y10T(x0 + S / 2 - 14, y0 + S / 2 - 8, diagLabel, { bold: true })}
+    {y10TS(x0 + S / 2, y0 + S + 22, sideLabel)}
+    {y10TS(x0 + S / 2 - 14, y0 + S / 2 - 8, diagLabel, { bold: true })}
   </>);
 }
 
@@ -10046,9 +10050,9 @@ function ExactTrigSVG({ angle }) {
       <line x1={ox} y1={oy} x2={tx} y2={ty} stroke={Y8_RED} strokeWidth="2.6" />
       <circle cx={tx} cy={ty} r="4" fill={Y8_RED} />
       <circle cx={ox} cy={oy} r="2.6" fill="#000" />
-      {angle === 0 ? y10T((ox + tx) / 2, oy - 10, "1", { bold: true }) : y10T(ox + 10, (oy + ty) / 2, "1", { bold: true, anchor: "start" })}
-      {y10T(ox + 150, oy - 100, `θ = ${angle}°`, { bold: true, size: 15 })}
-      {y10T(ox + 150, oy - 78, "unit circle (radius 1)", { size: 11.5, fill: "#555" })}
+      {angle === 0 ? y10TS((ox + tx) / 2, oy - 10, "1", { bold: true }) : y10TS(ox + 10, (oy + ty) / 2, "1", { bold: true, anchor: "start" })}
+      {y10TS(ox + 150, oy - 100, `θ = ${angle}°`, { bold: true, size: 15 })}
+      {y10TS(ox + 150, oy - 78, "unit circle (radius 1)", { size: 11.5, fill: "#555" })}
     </>);
   }
   const u = angle === 45 ? 118 : 84;
@@ -10058,9 +10062,9 @@ function ExactTrigSVG({ angle }) {
   return y10Svg(W, H, 320, <>
     <polygon points={`${R0.join(",")} ${B.join(",")} ${T.join(",")}`} fill="none" stroke="#000" strokeWidth="1.8" strokeLinejoin="round" />
     {y10RightMark(R0, B, T, 11)}
-    {y10T((R0[0] + B[0]) / 2, 168 + 20, base)}
-    {y10T(R0[0] - 10, (R0[1] + T[1]) / 2 + 4, "1", { anchor: "end" })}
-    {y10T((B[0] + T[0]) / 2 + 14, (B[1] + T[1]) / 2 - 6, hyp, { anchor: "start" })}
+    {y10TS((R0[0] + B[0]) / 2, 168 + 20, base)}
+    {y10TS(R0[0] - 10, (R0[1] + T[1]) / 2 + 4, "1", { anchor: "end" })}
+    {y10TS((B[0] + T[0]) / 2 + 14, (B[1] + T[1]) / 2 - 6, hyp, { anchor: "start" })}
     {angle === 60 ? <AngleMark V={T} P={R0} Q={B} label="60°" arcR={24} /> : <AngleMark V={B} P={R0} Q={T} label={`${angle}°`} arcR={26} />}
   </>);
 }
@@ -10080,8 +10084,8 @@ function ElevationSVG({ mode, angle, distLabel, heightLabel = "?" }) {
       <circle cx={ox} cy={gy} r="3.4" fill="#000" />
       {y10RightMark([bx, gy], [bx - 1, gy], [bx, gy - 1], 9)}
       <AngleMark V={[ox, gy]} P={[bx, gy]} Q={[bx, ty]} label={`${angle}°`} arcR={30} />
-      {y10T((ox + bx) / 2, gy + 20, distLabel)}
-      {y10T(bx + 14, (ty + gy) / 2 + 4, heightLabel, { anchor: "start", bold: heightLabel === "?" })}
+      {y10TS((ox + bx) / 2, gy + 20, distLabel)}
+      {y10TS(bx + 14, (ty + gy) / 2 + 4, heightLabel, { anchor: "start", bold: heightLabel === "?" })}
     </>);
   }
   const cx0 = 84, bx = cx0 + Lpx, ty = gy - Hpx;
@@ -10093,8 +10097,8 @@ function ElevationSVG({ mode, angle, distLabel, heightLabel = "?" }) {
     <polygon points={`${bx - 13},${gy - 9} ${bx + 13},${gy - 9} ${bx + 8},${gy} ${bx - 8},${gy}`} fill="#fff" stroke="#000" strokeWidth="1.5" />
     {y10RightMark([cx0, gy], [cx0 + 1, gy], [cx0, gy - 1], 9)}
     <AngleMark V={[cx0, ty]} P={[cx0 + Lpx, ty]} Q={[bx, gy]} label={`${angle}°`} arcR={34} />
-    {y10T((cx0 + bx) / 2, gy + 20, distLabel)}
-    {y10T(cx0 - 42, (ty + gy) / 2 + 4, heightLabel, { anchor: "end", bold: heightLabel === "?" })}
+    {y10TS((cx0 + bx) / 2, gy + 20, distLabel)}
+    {y10TS(cx0 - 42, (ty + gy) / 2 + 4, heightLabel, { anchor: "end", bold: heightLabel === "?" })}
   </>);
 }
 
@@ -10134,13 +10138,13 @@ function BackBearingSVG({ bearing, labelB = "?" }) {
     const lp = [V[0] + (r + 19) * Math.sin((deg / 2 * Math.PI) / 180), V[1] - (r + 19) * Math.cos((deg / 2 * Math.PI) / 180)];
     return <g>
       <path d={`M${V[0]},${V[1] - r} A${r},${r} 0 ${deg > 180 ? 1 : 0} 1 ${e[0]},${e[1]}`} fill="none" stroke="#000" strokeWidth="1.2" />
-      {y10T(lp[0], lp[1] + 4, label, { bold, size: 12.5 })}
+      {y10TS(lp[0], lp[1] + 4, label, { bold, size: 12.5 })}
     </g>;
   };
   const north = (V) => <g>
     <line x1={V[0]} y1={V[1]} x2={V[0]} y2={V[1] - 70} stroke="#000" strokeWidth="1.2" strokeDasharray="4 3" />
     <polygon points={`${V[0]},${V[1] - 76} ${V[0] - 4},${V[1] - 66} ${V[0] + 4},${V[1] - 66}`} fill="#000" />
-    {y10T(V[0], V[1] - 82, "N", { size: 12 })}
+    {y10TS(V[0], V[1] - 82, "N", { size: 12 })}
   </g>;
   return y10Svg(W, H, 330, <>
     {north(A)}{north(B)}
@@ -10148,8 +10152,8 @@ function BackBearingSVG({ bearing, labelB = "?" }) {
     {arc(A, bearing, 30, `${pad3(bearing)}°`, false)}
     {arc(B, back, 30, labelB === "?" ? "?" : labelB, labelB === "?")}
     <circle cx={A[0]} cy={A[1]} r="3" fill="#000" /><circle cx={B[0]} cy={B[1]} r="3" fill="#000" />
-    {y10T(A[0] - ux * 15, A[1] - uy * 15 + 5, "A", { bold: true })}
-    {y10T(B[0] + ux * 15, B[1] + uy * 15 + 5, "B", { bold: true })}
+    {y10TS(A[0] - ux * 15, A[1] - uy * 15 + 5, "A", { bold: true })}
+    {y10TS(B[0] + ux * 15, B[1] + uy * 15 + 5, "B", { bold: true })}
   </>);
 }
 
@@ -10164,7 +10168,7 @@ function SameSegmentSVG({ angle, labelC, labelD }) {
     {seg(C, A)}{seg(C, B)}{seg(D, A)}{seg(D, B)}
     <AngleMark V={C} P={A} Q={B} label={labelC} arcR={24} />
     <AngleMark V={D} P={A} Q={B} label={labelD} arcR={24} bold={labelD === "?"} />
-    {[["A", 270 - angle], ["B", 270 + angle], ["C", 122], ["D", 50]].map(([t, a]) => { const p = pol(a, R + 14); return <g key={t}>{y10T(p[0], p[1] + 5, t, { bold: true })}</g>; })}
+    {[["A", 270 - angle], ["B", 270 + angle], ["C", 122], ["D", 50]].map(([t, a]) => { const p = pol(a, R + 14); return <g key={t}>{y10TS(p[0], p[1] + 5, t, { bold: true })}</g>; })}
   </>);
 }
 
@@ -10181,9 +10185,9 @@ function AlternateSegmentSVG({ theta, labelT, labelQ }) {
     {seg(T, P)}{seg(Q, T)}{seg(Q, P)}
     <AngleMark V={T} P={[T[0] + 60, T[1]]} Q={P} label={labelT} arcR={26} />
     <AngleMark V={Q} P={T} Q={P} label={labelQ} arcR={24} bold={labelQ === "?"} />
-    {y10T(T[0], T[1] + 18, "T", { bold: true })}
-    {y10T(out(P, 13)[0], out(P, 13)[1] + 5, "P", { bold: true })}
-    {y10T(out(Q, 13)[0], out(Q, 13)[1] + 5, "Q", { bold: true })}
+    {y10TS(T[0], T[1] + 18, "T", { bold: true })}
+    {y10TS(out(P, 13)[0], out(P, 13)[1] + 5, "P", { bold: true })}
+    {y10TS(out(Q, 13)[0], out(Q, 13)[1] + 5, "Q", { bold: true })}
   </>);
 }
 
@@ -10204,10 +10208,10 @@ function TangentsSVG({ aob, labelO, labelP }) {
     <circle cx={O[0]} cy={O[1]} r="2.6" fill="#000" />
     <AngleMark V={O} P={A} Q={B} label={labelO} arcR={14} bold={labelO === "?"} />
     <AngleMark V={P} P={A} Q={B} label={labelP} arcR={12} bold={labelP === "?"} outside={pOut} />
-    {y10T(O[0] - 12, O[1] + 5, "O", { bold: true, anchor: "end" })}
-    {y10T(A[0] - 2, A[1] - 9, "A", { bold: true })}
-    {y10T(B[0] - 2, B[1] + 19, "B", { bold: true })}
-    {pOut ? y10T(P[0], P[1] - 16, "P", { bold: true }) : y10T(P[0] + 10, P[1] + 5, "P", { bold: true, anchor: "start" })}
+    {y10TS(O[0] - 12, O[1] + 5, "O", { bold: true, anchor: "end" })}
+    {y10TS(A[0] - 2, A[1] - 9, "A", { bold: true })}
+    {y10TS(B[0] - 2, B[1] + 19, "B", { bold: true })}
+    {pOut ? y10TS(P[0], P[1] - 16, "P", { bold: true }) : y10TS(P[0] + 10, P[1] + 5, "P", { bold: true, anchor: "start" })}
   </>);
 }
 
@@ -10227,9 +10231,9 @@ function RadiiTriangleSVG({ centre, labelO, labelA, labelB }) {
     <AngleMark V={O} P={A} Q={B} label={labelO} arcR={12} bold={labelO === "?"} />
     {labelA && <AngleMark V={A} P={O} Q={B} label={labelA} arcR={16} bold={labelA === "?"} outside />}
     {labelB && <AngleMark V={B} P={O} Q={A} label={labelB} arcR={16} bold={labelB === "?"} outside />}
-    {y10T(O[0] + 10, O[1] - 8, "O", { bold: true, anchor: "start" })}
-    {y10T(A[0] - 9, A[1] - 8, "A", { bold: true, anchor: "end" })}
-    {y10T(B[0] + 9, B[1] - 8, "B", { bold: true, anchor: "start" })}
+    {y10TS(O[0] + 10, O[1] - 8, "O", { bold: true, anchor: "start" })}
+    {y10TS(A[0] - 9, A[1] - 8, "A", { bold: true, anchor: "end" })}
+    {y10TS(B[0] + 9, B[1] - 8, "B", { bold: true, anchor: "start" })}
   </>);
 }
 
@@ -14395,6 +14399,8 @@ const SPEED_CHECKS = [
 ];
 
 ReactDOM.createRoot(document.getElementById("root")).render(<QuizEngine />);
+
+
 
 
 
