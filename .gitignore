@@ -1,3 +1,4 @@
 node_modules/
 supabase_setup_ready.sql
 supabase_teachers.sql
+supabase_teacher_classes.sql

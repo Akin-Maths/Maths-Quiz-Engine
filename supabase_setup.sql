@@ -147,3 +147,30 @@ grant select on public.teachers to authenticated;
 
 alter table public.quizzes add column if not exists teacher_code text check (char_length(teacher_code) <= 8);
 create index if not exists quizzes_teacher_idx on public.quizzes (teacher_code);
+
+-- ---------------------------------------------------------------------------
+-- 9. TEACHER CLASSES (safe to run again). Which classes each teacher teaches,
+--    as a comma-separated list, e.g. 'Y7, 9A2, 10B1'. When a teacher signs in
+--    the website only offers those classes (with a button to show every
+--    class). Year 7 and Year 8 have no class codes: write Y7 and Y8.
+--    Set it by running, for example:
+--      update public.teachers set classes = 'Y8, 9A2, 10B1' where code = 'AAI';
+-- ---------------------------------------------------------------------------
+alter table public.teachers add column if not exists classes text check (char_length(classes) <= 120);
+
+-- ---------------------------------------------------------------------------
+-- 10. TEACHER CODE DROPDOWN (safe to run again). Lets the sign-in screen show a
+--     dropdown of teacher codes. It returns ONLY the codes (never names or
+--     classes), and only these codes are visible before signing in.
+-- ---------------------------------------------------------------------------
+create or replace function public.list_teacher_codes()
+returns setof text
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select code from public.teachers order by code
+$$;
+revoke all on function public.list_teacher_codes() from public;
+grant execute on function public.list_teacher_codes() to anon, authenticated;
