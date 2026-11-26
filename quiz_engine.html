@@ -2388,13 +2388,42 @@ SUBTOPIC_BANK["bounds-multiply"] = {
 };
 SUBTOPIC_BANK["bounds-accuracy"] = {
   topic: "Bounds", title: "Suitable degree of accuracy from bounds", marks: 3,
+  // One value is rounded to the nearest whole number (±0.5) and the other to
+  // 2 d.p. (±0.005); x = A ÷ B or A × B. The numbers are chosen so the bounds
+  // agree to 2 or 3 s.f. (1 s.f. only as a last resort), and the answer states
+  // the most accurate value both bounds share.
   build(rng) {
-    const a = seededInt(rng, 5, 12), b = seededInt(rng, 3, 8);
-    const lower = ((a - 0.5) / (b + 0.5)).toFixed(3);
-    const upper = ((a + 0.5) / (b - 0.5)).toFixed(3);
+    const divide = pick(rng, [true, false]);
+    const wholeIsA = pick(rng, [true, false]);
+    const sf = (v, s) => Number(v.toPrecision(s));
+    let found = null;
+    for (let t = 0; t < 80 && !found; t++) {
+      let whole, dec;
+      if (divide && wholeIsA) { whole = seededInt(rng, 25, 480); dec = seededInt(rng, 150, 950) / 100; }
+      else if (divide) { whole = seededInt(rng, 12, 60); dec = seededInt(rng, 1500, 9500) / 100; }
+      else { whole = seededInt(rng, 20, 95); dec = seededInt(rng, 150, 950) / 100; }
+      const a = wholeIsA ? whole : dec, b = wholeIsA ? dec : whole;
+      const ha = wholeIsA ? 0.5 : 0.005, hb = wholeIsA ? 0.005 : 0.5;
+      const lb = divide ? (a - ha) / (b + hb) : (a - ha) * (b - hb);
+      const ub = divide ? (a + ha) / (b - hb) : (a + ha) * (b + hb);
+      let s = 0;
+      for (const k of [3, 2, 1]) { if (sf(lb, k) === sf(ub, k)) { s = k; break; } }
+      if (s > 0 && sf(lb, s + 1) !== sf(ub, s + 1) && (s >= 2 || t >= 40)) found = { a, b, ha, hb, lb, ub, s };
+    }
+    if (!found) { // safe fallback (A = 160 to the nearest whole, B = 4.00 to 2 d.p.)
+      const a = 160, b = 4, ha = 0.5, hb = 0.005;
+      found = { a, b, ha, hb, lb: (a - ha) / (b + hb), ub: (a + ha) / (b - hb), s: 2 };
+    }
+    const { a, b, ha, hb, lb, ub, s } = found;
+    const txt = (v, h) => (h === 0.5 ? String(v) : v.toFixed(2));
+    const bnd = (v, h) => (h === 0.5 ? v.toFixed(1) : v.toFixed(3));
+    const desc = (h) => (h === 0.5 ? "the nearest whole number" : "2 decimal places");
+    const agreed = sf(lb, s);
+    const lowOp = divide ? `${bnd(a - ha, ha)} ÷ ${bnd(b + hb, hb)}` : `${bnd(a - ha, ha)} × ${bnd(b - hb, hb)}`;
+    const upOp = divide ? `${bnd(a + ha, ha)} ÷ ${bnd(b - hb, hb)}` : `${bnd(a + ha, ha)} × ${bnd(b + hb, hb)}`;
     return {
-      prompt: <>x = <Frac n="A" d="B" /> where A = {a} and B = {b}, both to the nearest whole number. Work out the value of x to a suitable degree of accuracy. Justify your answer.</>,
-      answer: `LB = ${lower}, UB = ${upper}. Both round to the same value to 1 s.f., so x ≈ ${Math.round((a / b) * 10) / 10} (1 s.f.).`,
+      prompt: <>x = {divide ? <Frac n="A" d="B" /> : <>A × B</>} where A = {txt(a, ha)} correct to {desc(ha)} and B = {txt(b, hb)} correct to {desc(hb)}. Work out the value of x to a suitable degree of accuracy. You must show your working and give a reason for your answer.</>,
+      answer: `${bnd(a - ha, ha)} ≤ A < ${bnd(a + ha, ha)} and ${bnd(b - hb, hb)} ≤ B < ${bnd(b + hb, hb)}. Lower bound of x = ${lowOp} = ${lb.toPrecision(4)}; upper bound of x = ${upOp} = ${ub.toPrecision(4)}. Both bounds round to ${agreed} to ${s} s.f., but not to ${s + 1} s.f., so x = ${agreed} (${s} s.f.).`,
     };
   },
 };
@@ -14366,6 +14395,7 @@ const SPEED_CHECKS = [
 ];
 
 ReactDOM.createRoot(document.getElementById("root")).render(<QuizEngine />);
+
 
 
 
