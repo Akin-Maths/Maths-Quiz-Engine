@@ -127,3 +127,23 @@ create index if not exists short_codes_quiz_idx on public.short_codes (quiz_code
 alter table public.quizzes add column if not exists class_code    text check (char_length(class_code) <= 6);
 alter table public.quizzes add column if not exists academic_year text check (char_length(academic_year) <= 9);
 create index if not exists quizzes_class_idx on public.quizzes (class_code, academic_year);
+
+-- ---------------------------------------------------------------------------
+-- 8. TEACHERS (safe to run again). A staff list (teacher code -> name) that only
+--    the signed-in library user can read. Teachers sign in with the shared
+--    password plus their own code; quizzes they save carry their name.
+--    Add or rename staff by running INSERT statements (see the separate
+--    teachers file); the website itself can never change this list.
+-- ---------------------------------------------------------------------------
+create table if not exists public.teachers (
+  code text primary key check (code ~ '^[A-Z0-9]{2,8}$'),
+  name text not null check (char_length(name) between 1 and 60)
+);
+alter table public.teachers enable row level security;
+drop policy if exists "library user can read teachers" on public.teachers;
+create policy "library user can read teachers" on public.teachers
+  for select to authenticated using (public.is_library_user());
+grant select on public.teachers to authenticated;
+
+alter table public.quizzes add column if not exists teacher_code text check (char_length(teacher_code) <= 8);
+create index if not exists quizzes_teacher_idx on public.quizzes (teacher_code);

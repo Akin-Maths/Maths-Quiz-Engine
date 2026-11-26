@@ -11688,7 +11688,7 @@ async function libToken() {
   }
   return s.access_token;
 }
-async function libRest(path, { method = "GET", body, prefer } = {}) {
+async function libRest(path, { method = "GET", body, prefer, soft } = {}) {
   const c = libConfig();
   const token = await libToken();
   const res = await fetch(`${c.url}/rest/v1/${path}`, {
@@ -11696,7 +11696,7 @@ async function libRest(path, { method = "GET", body, prefer } = {}) {
     headers: { apikey: c.anonKey, Authorization: `Bearer ${token}`, "Content-Type": "application/json", ...(prefer ? { Prefer: prefer } : null) },
     body: body ? JSON.stringify(body) : undefined,
   });
-  if (res.status === 401) {
+  if (res.status === 401 && !soft) {
     libStoreSession(null);
     throw Object.assign(new Error("Your library sign-in has expired. Please sign in again."), { status: 401 });
   }
@@ -11712,17 +11712,29 @@ const LIB_COLUMNS = LIB_COLUMNS_BASE + ",class_code,academic_year";
 // supabase_setup.sql has been run. Until then fall back to the old columns so
 // the library keeps working, and remember it so saves leave them out.
 let libClassesOk = true;
+let libTeacherOk = true;
 const libList = async () => {
   const q = (cols) => libRest(`quizzes?select=${cols}&deleted_at=is.null&order=created_at.desc&limit=500`);
-  try {
-    const rows = await q(LIB_COLUMNS);
-    libClassesOk = true;
-    return rows;
-  } catch (e) {
-    if (e && e.status === 400) { libClassesOk = false; return q(LIB_COLUMNS_BASE); }
-    throw e;
+  const tries = [
+    [LIB_COLUMNS + ",teacher_code", true, true],
+    [LIB_COLUMNS, true, false],
+    [LIB_COLUMNS_BASE, false, false],
+  ];
+  for (let i = 0; i < tries.length; i++) {
+    try {
+      const rows = await q(tries[i][0]);
+      libClassesOk = tries[i][1];
+      libTeacherOk = tries[i][2];
+      return rows;
+    } catch (e) {
+      if (!(e && e.status === 400) || i === tries.length - 1) throw e;
+    }
   }
 };
+// Staff list (teacher code -> name). Lives in Supabase behind the library
+// sign-in, so names are never in the public page. "soft" = a failure here
+// must not sign the teacher out.
+const libTeachers = () => libRest("teachers?select=code,name&order=name", { soft: true });
 const libSave = (row) => libRest("quizzes", { method: "POST", body: row, prefer: "return=representation" }).then((r) => r && r[0]);
 const libUpdate = (id, patch) =>
   libRest(`quizzes?id=eq.${encodeURIComponent(id)}`, { method: "PATCH", body: patch, prefer: "return=representation" }).then((r) => {
@@ -12194,6 +12206,20 @@ export default function QuizEngine() {
   const [saveOpen, setSaveOpen] = useState(false);
   const [libActiveId, setLibActiveId] = useState(null);
   const [libClasses, setLibClasses] = useState(true);
+  const [libTeacherCol, setLibTeacherCol] = useState(true);
+  const [libMine, setLibMine] = useState(false);
+  // null = not loaded yet, false = no staff list set up (old behaviour), array = the staff list
+  const [teachers, setTeachers] = useState(null);
+  const [teacherCode, setTeacherCode] = useState(() => {
+    try { return window.localStorage.getItem("quizEngineTeacher") || ""; } catch (e) { return ""; }
+  });
+  const [teacherInput, setTeacherInput] = useState("");
+  const [teacherErr, setTeacherErr] = useState("");
+  // Visitors who arrive on a shared ?code= link skip the sign-in screen so the
+  // quiz opens straight away; they can still sign in from the top bar.
+  const [gateBypass, setGateBypass] = useState(() => {
+    try { return !!new URLSearchParams(window.location.search).get("code"); } catch (e) { return false; }
+  });
   const [openStrands, setOpenStrands] = useState(new Set(["Statistics & Probability"]));
   // Middle "Domain" layer between Strand and Group (e.g. Statistics & Probability →
   // Averages & Spread → Averages from a List), matching Mr Barton Maths's Ultimate
@@ -12629,7 +12655,7 @@ export default function QuizEngine() {
   };
   const libRefresh = async () => {
     setLibBusy(true);
-    try { const rows = await libList(); setLibClasses(libClassesOk); setLibItems(rows); } catch (e) { libFail(e); } finally { setLibBusy(false); }
+    try { const rows = await libList(); setLibClasses(libClassesOk); setLibTeacherCol(libTeacherOk); setLibItems(rows); } catch (e) { libFail(e); } finally { setLibBusy(false); }
   };
   useEffect(() => {
     if (libOn && libSignedIn && libItems === null) libRefresh();
@@ -12647,18 +12673,67 @@ export default function QuizEngine() {
       setLibMsg({ tone: "ok", text: "" });
     } catch (err) { libFail(err); } finally { setLibBusy(false); }
   };
-  const libDoSignOut = () => { libSignOut(); setLibSignedIn(false); setLibItems(null); setLibMsg({ tone: "ok", text: "" }); };
+  const libDoSignOut = () => {
+    libSignOut();
+    setLibSignedIn(false); setLibItems(null); setLibMsg({ tone: "ok", text: "" });
+    setTeachers(null); setTeacherCode(""); setTeacherErr(""); setLibActiveId(null); setSaveOpen(false); setGateBypass(false);
+    try { window.localStorage.removeItem("quizEngineTeacher"); } catch (e) {}
+  };
+  const loadTeachers = async () => {
+    try { const rows = await libTeachers(); setTeachers(rows && rows.length ? rows : false); } catch (e) { setTeachers(false); }
+  };
+  useEffect(() => {
+    if (libOn && libSignedIn && teachers === null) loadTeachers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [libOn, libSignedIn, teachers]);
+  const rememberTeacher = (code) => {
+    setTeacherCode(code);
+    try { window.localStorage.setItem("quizEngineTeacher", code); } catch (e) {}
+  };
+  // The one sign-in screen: teacher code + shared password. Signing in opens the
+  // website and connects the library in one go.
+  const gateSignIn = async (e) => {
+    if (e) e.preventDefault();
+    const code = teacherInput.trim().toUpperCase();
+    if (!libPassword) { setLibMsg({ tone: "err", text: "Enter the password." }); return; }
+    setLibBusy(true);
+    try {
+      await libSignIn(libPassword);
+      let list = false;
+      try { const rows = await libTeachers(); list = rows && rows.length ? rows : false; } catch (err) { list = false; }
+      if (list) {
+        if (!code) { libSignOut(); setLibMsg({ tone: "err", text: "Enter your teacher code." }); return; }
+        if (!list.some((t) => t.code === code)) { libSignOut(); setLibMsg({ tone: "err", text: "That teacher code isn't recognised. Check it and try again." }); return; }
+        rememberTeacher(code);
+      }
+      setTeachers(list);
+      setLibPassword("");
+      setTeacherInput("");
+      setLibItems(null);
+      setLibSignedIn(true);
+      setLibMsg({ tone: "ok", text: "" });
+    } catch (err) { libFail(err); } finally { setLibBusy(false); }
+  };
+  const libDoTeacher = (e) => {
+    if (e) e.preventDefault();
+    const code = teacherInput.trim().toUpperCase();
+    if (!Array.isArray(teachers) || !teachers.some((t) => t.code === code)) { setTeacherErr("That teacher code isn't recognised."); return; }
+    rememberTeacher(code);
+    setTeacherInput(""); setTeacherErr("");
+  };
   const libDoSave = async () => {
     const name = libName.trim();
     if (!name) { setLibMsg({ tone: "err", text: "Give the quiz a name first." }); return; }
     if (!currentCode) { setLibMsg({ tone: "err", text: "Tick some topics first, there is no quiz to save yet." }); return; }
+    if (teacherMode && !teacher) { setLibMsg({ tone: "err", text: "Enter your teacher code first." }); return; }
     setLibBusy(true);
     try {
-      const author = libAuthor.trim();
-      try { window.localStorage.setItem("quizEngineAuthor", author); } catch (e) {}
+      const author = teacherMode ? teacher.name : libAuthor.trim();
+      if (!teacherMode) { try { window.localStorage.setItem("quizEngineAuthor", author); } catch (e) {} }
       const row = await libSave({
         name, author: author || null, code: currentCode,
         ...(libClassesOk ? { class_code: classCode || null, academic_year: classCode ? ACADEMIC_YEAR : null } : null),
+        ...(libTeacherOk && teacher ? { teacher_code: teacher.code } : null),
       });
       setLibItems((prev) => [row, ...(prev || [])]);
       setLibActiveId(row.id);
@@ -12677,7 +12752,7 @@ export default function QuizEngine() {
     if (!window.confirm(`Replace “${item.name}” in the shared library with the quiz you have open now?`)) return;
     setLibBusy(true);
     try {
-      const author = libAuthor.trim();
+      const author = teacherMode ? "" : libAuthor.trim();
       const row = await libUpdate(item.id, { code: currentCode, ...(author ? { author } : null) });
       setLibItems((prev) => (prev || []).map((x) => (x.id === row.id ? row : x)));
       setLibMsg({ tone: "ok", text: `Updated “${item.name}”.` });
@@ -13190,8 +13265,15 @@ export default function QuizEngine() {
 
   const weekKeys = Object.keys(SCHEMES[schemeKey]);
   const weekIdx = weekKeys.indexOf(weekKey);
+  const teacherMode = Array.isArray(teachers);
+  const teacher = teacherMode && teacherCode ? teachers.find((t) => t.code === teacherCode) || null : null;
+  // Show the teacher's current name from the staff list, so renaming someone there updates their old quizzes too.
+  const ownerName = (it) => (teacherMode && it.teacher_code && (teachers.find((t) => t.code === it.teacher_code) || {}).name) || it.author || "";
+  const canEditItem = (it) => !teacherMode || !it.teacher_code || (!!teacher && it.teacher_code === teacher.code);
+  const showGate = libOn && !libSignedIn && !gateBypass;
   const stripShowAll = libShowAll || !classCode || !libClasses;
-  const stripItems = (libItems || []).filter((x) => stripShowAll || (x.class_code === classCode && x.academic_year === ACADEMIC_YEAR));
+  const stripItems = (libItems || []).filter((x) =>
+    libMine && teacher ? x.teacher_code === teacher.code : stripShowAll || (x.class_code === classCode && x.academic_year === ACADEMIC_YEAR));
   const libActiveItem = libActiveId ? (libItems || []).find((x) => x.id === libActiveId) : null;
   const printBlocked = lengthMode === "weekly" && selected.length < quizLength;
   const printBlockedTip = printBlocked
@@ -13201,7 +13283,21 @@ export default function QuizEngine() {
   return (
     <div className="app-shell qe-app">
       <style>{QE_STYLES}</style>
-      {speedCheckOpen && speedCheckFullScreen ? (
+      {showGate ? (
+        <div className="qe-gate no-print">
+          <form className="qe-gate-card" onSubmit={gateSignIn}>
+            <h1 className="qe-title">Quiz Templating Engine</h1>
+            <p className="qe-sub">Sign in to build quizzes and open your saved ones.</p>
+            <label className="qe-label" htmlFor="qe-gate-code">Teacher code</label>
+            <input id="qe-gate-code" className="qe-field" value={teacherInput} onChange={(e) => { setTeacherInput(e.target.value); setLibMsg({ tone: "ok", text: "" }); }} maxLength={8} autoCapitalize="characters" autoCorrect="off" spellCheck={false} autoComplete="username" autoFocus />
+            <label className="qe-label" htmlFor="qe-gate-pass">Password</label>
+            <input id="qe-gate-pass" type="password" className="qe-field" value={libPassword} onChange={(e) => { setLibPassword(e.target.value); setLibMsg({ tone: "ok", text: "" }); }} autoComplete="current-password" />
+            <button type="submit" disabled={libBusy} className={btnCls({ primary: true, block: true })} style={{ marginTop: 16 }}>{libBusy ? "Signing in…" : "Sign in"}</button>
+            {libMsg.text && <div className={libMsg.tone === "ok" ? "qe-ok-text" : "qe-danger-text"} style={{ fontSize: ".85rem", marginTop: 10 }} role="status">{libMsg.text}</div>}
+            <div className="qe-note" style={{ marginTop: 14 }}>You only need to do this once on each computer. Need a teacher code or the password? Ask your department.</div>
+          </form>
+        </div>
+      ) : speedCheckOpen && speedCheckFullScreen ? (
       <div className="speedcheck-fullscreen qe-full">
         <div className="no-print qe-full-head">
           <div className="qe-full-title">{speedCheckInfo.title}</div>
@@ -13385,30 +13481,46 @@ export default function QuizEngine() {
         <section className="qe-strip no-print" aria-label="Saved quizzes">
           <div className="qe-strip-head">
             <div className="qe-strip-title">
-              Saved quizzes <span className="qe-note">· {stripShowAll ? "all classes" : classCode} · {ACADEMIC_YEAR}</span>
+              Saved quizzes <span className="qe-note">· {libMine && teacher ? "my quizzes" : stripShowAll ? "all classes" : classCode} · {ACADEMIC_YEAR}</span>
             </div>
             {libSignedIn ? (
               <div className="qe-row">
-                {classCode && libClasses && (
+                {teacher && <span className="qe-note">Signed in as <strong>{teacher.name}</strong></span>}
+                {teacher && libTeacherCol && (
+                  <button type="button" className={btnCls({ sm: true, active: libMine })} aria-pressed={libMine} onClick={() => setLibMine((m) => !m)}>My quizzes</button>
+                )}
+                {classCode && libClasses && !libMine && (
                   <button type="button" className={btnCls({ sm: true, active: libShowAll })} aria-pressed={libShowAll} onClick={() => setLibShowAll((a) => !a)}>All classes</button>
                 )}
-                <button type="button" className={btnCls({ sm: true, primary: true })} onClick={() => setSaveOpen((o) => !o)} disabled={!currentCode}>Save this quiz</button>
+                {(!teacherMode || teacher) && (
+                  <button type="button" className={btnCls({ sm: true, primary: true })} onClick={() => setSaveOpen((o) => !o)} disabled={!currentCode}>Save this quiz</button>
+                )}
                 <button type="button" className={btnCls({ sm: true })} onClick={libRefresh} disabled={libBusy}>Refresh</button>
                 <button type="button" className={btnCls({ sm: true })} onClick={libDoSignOut} title="Do this on a shared computer when you've finished">Sign out</button>
               </div>
             ) : (
-              <form onSubmit={libDoSignIn} className="qe-row qe-signin">
-                <input type="password" className="qe-field" value={libPassword} onChange={(e) => { setLibPassword(e.target.value); setLibMsg({ tone: "ok", text: "" }); }} placeholder="Library password" aria-label="Library password" autoComplete="current-password" />
-                <button type="submit" disabled={libBusy} className={btnCls({ sm: true, primary: true })}>{libBusy ? "Signing in…" : "Sign in"}</button>
-              </form>
+              <div className="qe-row">
+                <span className="qe-note">Sign in to save quizzes and open your saved ones.</span>
+                <button type="button" className={btnCls({ sm: true, primary: true })} onClick={() => setGateBypass(false)}>Sign in</button>
+              </div>
             )}
           </div>
-          {libSignedIn && saveOpen && (
+          {libSignedIn && teacherMode && !teacher && (
+            <form onSubmit={libDoTeacher} className="qe-row" style={{ marginTop: 10 }}>
+              <input className="qe-field qe-inline" value={teacherInput} onChange={(e) => { setTeacherInput(e.target.value); setTeacherErr(""); }} placeholder="Your teacher code" aria-label="Teacher code" maxLength={8} autoCapitalize="characters" autoCorrect="off" spellCheck={false} />
+              <button type="submit" className={btnCls({ sm: true, primary: true })}>Continue</button>
+              {teacherErr && <span className="qe-danger-text" style={{ fontSize: ".78rem" }}>{teacherErr}</span>}
+            </form>
+          )}
+          {libSignedIn && saveOpen && (!teacherMode || teacher) && (
             <form onSubmit={(e) => { e.preventDefault(); libDoSave(); }} className="qe-row" style={{ marginTop: 10 }}>
               <input className="qe-field qe-inline" value={libName} onChange={(e) => { setLibName(e.target.value); setLibMsg({ tone: "ok", text: "" }); }} placeholder="Name this quiz, e.g. Indices starter" aria-label="Quiz name" maxLength={120} autoFocus />
-              <input className="qe-field qe-inline" value={libAuthor} onChange={(e) => setLibAuthor(e.target.value)} placeholder="Your name" aria-label="Your name" maxLength={60} />
+              {!teacherMode && (
+                <input className="qe-field qe-inline" value={libAuthor} onChange={(e) => setLibAuthor(e.target.value)} placeholder="Your name" aria-label="Your name" maxLength={60} />
+              )}
               <button type="submit" disabled={libBusy || !currentCode} className={btnCls({ sm: true, primary: true })}>{classCode && libClasses ? `Save to ${classCode}` : "Save"}</button>
               <button type="button" className={btnCls({ sm: true })} onClick={() => setSaveOpen(false)}>Cancel</button>
+              {teacher && <span className="qe-note">Saved in the name of {teacher.name}</span>}
             </form>
           )}
           {libSignedIn && !libClasses && (
@@ -13419,7 +13531,7 @@ export default function QuizEngine() {
               {libItems === null ? (
                 <span className="qe-note">Loading…</span>
               ) : stripItems.length === 0 ? (
-                <span className="qe-note">{stripShowAll ? "Nothing saved yet. Build a quiz and press Save this quiz." : `Nothing saved for ${classCode} yet. Build a quiz and press Save this quiz.`}</span>
+                <span className="qe-note">{libMine && teacher ? "You haven't saved any quizzes yet." : stripShowAll ? "Nothing saved yet. Build a quiz and press Save this quiz." : `Nothing saved for ${classCode} yet. Build a quiz and press Save this quiz.`}</span>
               ) : (
                 stripItems.map((item) => (
                   <button
@@ -13427,9 +13539,9 @@ export default function QuizEngine() {
                     type="button"
                     className={cx("qe-chip", libActiveId === item.id && "is-active")}
                     onClick={() => { libDoOpen(item); setLibActiveId(item.id); }}
-                    title={`${item.author ? item.author + " · " : ""}${new Date(item.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}`}
+                    title={`${ownerName(item) ? ownerName(item) + " · " : ""}${new Date(item.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}`}
                   >
-                    {item.name}{stripShowAll && item.class_code ? <small> · {item.class_code}</small> : null}
+                    {item.name}{(stripShowAll || libMine) && item.class_code ? <small> · {item.class_code}</small> : null}
                   </button>
                 ))
               )}
@@ -13437,9 +13549,15 @@ export default function QuizEngine() {
           )}
           {libSignedIn && libActiveItem && (
             <div className="qe-row" style={{ marginTop: 8 }}>
-              <span className="qe-note">Open: <strong>{libActiveItem.name}</strong></span>
-              <button type="button" onClick={() => libDoUpdate(libActiveItem)} disabled={libBusy || !currentCode} className={btnCls({ sm: true })} title="Replace this saved quiz with the one you have open now">Update with current quiz</button>
-              <button type="button" onClick={() => libDoDelete(libActiveItem)} disabled={libBusy} className={btnCls({ sm: true, tone: "warn" })}>Delete</button>
+              <span className="qe-note">Open: <strong>{libActiveItem.name}</strong>{ownerName(libActiveItem) ? ` · by ${ownerName(libActiveItem)}` : ""}</span>
+              {canEditItem(libActiveItem) ? (
+                <>
+                  <button type="button" onClick={() => libDoUpdate(libActiveItem)} disabled={libBusy || !currentCode} className={btnCls({ sm: true })} title="Replace this saved quiz with the one you have open now">Update with current quiz</button>
+                  <button type="button" onClick={() => libDoDelete(libActiveItem)} disabled={libBusy} className={btnCls({ sm: true, tone: "warn" })}>Delete</button>
+                </>
+              ) : (
+                <span className="qe-note">Only {ownerName(libActiveItem) || "its owner"} can change or delete this one.</span>
+              )}
             </div>
           )}
           {libMsg.text && (
@@ -13802,10 +13920,7 @@ export default function QuizEngine() {
                       <button onClick={makeShort} disabled={shortBusy || !currentCode} className={btnCls({ primary: true })}>{shortBusy ? "Working…" : "Make short code"}</button>
                     </div>
                   ) : (
-                    <form onSubmit={libDoSignIn} className="qe-row" style={{ flexWrap: "nowrap" }}>
-                      <input type="password" className="qe-field" value={libPassword} onChange={(e) => { setLibPassword(e.target.value); setLibMsg({ tone: "ok", text: "" }); }} placeholder="Library password, to make short codes" aria-label="Library password" autoComplete="current-password" />
-                      <button type="submit" disabled={libBusy} className={btnCls({ primary: true })}>Sign in</button>
-                    </form>
+                    <div className="qe-row"><button type="button" onClick={() => setGateBypass(false)} className={btnCls({ primary: true })}>Sign in to make short codes</button></div>
                   )}
                   {(shortMsg.text || (!libSignedIn && libMsg.text)) && (
                     <div className={(shortMsg.text ? shortMsg.tone : libMsg.tone) === "ok" ? "qe-ok-text" : "qe-danger-text"} style={{ fontSize: ".78rem", marginTop: 6 }} role="status">{shortMsg.text || libMsg.text}</div>
@@ -13933,6 +14048,8 @@ html,body{background:var(--bg)}
 .qe-lib-item{border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:var(--panel)}
 .qe-lib-name{font-weight:700;overflow-wrap:anywhere}
 .qe-ok-text{color:var(--ok);font-weight:700}
+.qe-gate{min-height:80vh;display:flex;align-items:center;justify-content:center;padding:20px 0}
+.qe-gate-card{width:min(420px,100%);background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:26px}
 .qe-weekrow{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:6px;align-items:stretch}
 .qe-fold{padding:0}
 .qe-fold-head{display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;text-align:left;background:none;border:0;color:var(--ink);padding:12px 16px;cursor:pointer;border-radius:12px}
