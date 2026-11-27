@@ -361,7 +361,7 @@ function CoordinateGridSVG({ points, xMin = -6, xMax = 6, yMin = -6, yMax = 6, l
       {points.map((p, i) => (
         <g key={i}>
           <circle cx={px(p.x)} cy={py(p.y)} r={3.4} fill="#000" />
-          <text x={px(p.x) + 7} y={py(p.y) - 6} fontSize="13" fontFamily="Arial, sans-serif" fontWeight="700" fill="#000" stroke="#fff" strokeWidth="3" paintOrder="stroke">{p.label}</text>
+          <text x={px(p.x) + (p.dx ?? 7)} y={py(p.y) + (p.dy ?? -6)} textAnchor={p.anchor || "start"} fontSize="13" fontFamily="Arial, sans-serif" fontWeight="700" fill="#000" stroke="#fff" strokeWidth="3" paintOrder="stroke">{p.label}</text>
         </g>
       ))}
     </svg>
@@ -405,60 +405,30 @@ function BarChartSVG({ categories, values, yLabel = "Frequency", yStart = 0 }) {
 }
 
 function PieChartSVG({ sectors, markIndex }) {
-  const cx = 110, cy = 100, r = 82;
+  const named = sectors.some((q) => q.name);
+  const cx = named ? 160 : 110, cy = named ? 118 : 100, r = 82;
   let cum = 90;
-  const paths = sectors.map((s) => {
+  const paths = sectors.map((q) => {
     const start = cum;
-    const end = cum - s.angle;
+    const end = cum - q.angle;
     const [x1, y1] = polarPt(cx, cy, r, start);
     const [x2, y2] = polarPt(cx, cy, r, end);
-    const large = s.angle > 180 ? 1 : 0;
-    const mid = start - s.angle / 2;
+    const large = q.angle > 180 ? 1 : 0;
+    const mid = start - q.angle / 2;
     cum = end;
-    return { d: `M${cx},${cy} L${x1},${y1} A${r},${r} 0 ${large} 1 ${x2},${y2} Z`, mid, angle: s.angle };
+    return { d: `M${cx},${cy} L${x1},${y1} A${r},${r} 0 ${large} 1 ${x2},${y2} Z`, mid, angle: q.angle, name: q.name };
   });
   return (
-    <svg viewBox="0 0 220 200" width="100%" style={{ maxWidth: 240, display: "block" }}>
-      {paths.map((p, i) => <path key={i} d={p.d} fill={i === markIndex ? "#d9d9d9" : "#fff"} stroke="#000" strokeWidth="1.3" />)}
-      {paths.map((p, i) => i === markIndex && (
-        <text key={`l${i}`} x={cx + Math.cos((p.mid * Math.PI) / 180) * r * 0.55} y={cy - Math.sin((p.mid * Math.PI) / 180) * r * 0.55 + 4} fontSize="12" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#000">{p.angle}°</text>
+    <svg viewBox={named ? "0 0 320 236" : "0 0 220 200"} width={named ? 330 : "100%"} style={{ maxWidth: named ? "100%" : 240, height: "auto", display: "block" }}>
+      {paths.map((q, i) => <path key={i} d={q.d} fill={i === markIndex ? "#d9d9d9" : "#fff"} stroke="#000" strokeWidth="1.3" />)}
+      {paths.map((q, i) => i === markIndex && (
+        <text key={`l${i}`} x={cx + Math.cos((q.mid * Math.PI) / 180) * r * 0.55} y={cy - Math.sin((q.mid * Math.PI) / 180) * r * 0.55 + 4} fontSize="13" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#000">{q.angle}°</text>
       ))}
-      <circle cx={cx} cy={cy} r={1.6} fill="#000" />
-    </svg>
-  );
-}
-
-function FrequencyTreeSVG({ labelsStage1, labelsStage2, freqs, unknownIndex }) {
-  const boxW = 300, boxH = 190;
-  const rootX = 20, rootY = 95;
-  const s1X = 130;
-  const s1Ys = [55, 135];
-  const s2X = 250;
-  const s2Ys = [30, 80, 110, 160];
-  return (
-    <svg viewBox={`0 0 ${boxW} ${boxH}`} width="100%" style={{ maxWidth: 320, display: "block" }}>
-      {s1Ys.map((y, i) => <line key={`l1-${i}`} x1={rootX} y1={rootY} x2={s1X} y2={y} stroke="#000" strokeWidth="1.2" />)}
-      {s1Ys.map((y1, i) => [0, 1].map((j) => (
-        <line key={`l2-${i}-${j}`} x1={s1X} y1={y1} x2={s2X} y2={s2Ys[i * 2 + j]} stroke="#000" strokeWidth="1.2" />
-      )))}
-      <circle cx={rootX} cy={rootY} r={2.4} fill="#000" />
-      {s1Ys.map((y, i) => (
-        <g key={`n1-${i}`}>
-          <circle cx={s1X} cy={y} r={2.4} fill="#000" />
-          <text x={(rootX + s1X) / 2} y={(rootY + y) / 2 - 5} fontSize="11" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#000">{labelsStage1[i]}</text>
-        </g>
-      ))}
-      {s2Ys.map((y, idx) => {
-        const i = Math.floor(idx / 2), j = idx % 2;
-        const midx = (s1X + s2X) / 2, midy = (s1Ys[i] + y) / 2;
-        return (
-          <g key={`n2-${idx}`}>
-            <text x={midx} y={midy - 5} fontSize="11" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#000">{labelsStage2[j]}</text>
-            <rect x={s2X + 4} y={y - 9} width={34} height={18} fill="#fff" stroke="#000" strokeWidth="1" />
-            <text x={s2X + 21} y={y + 4} fontSize="12" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#000">{idx === unknownIndex ? "?" : freqs[idx]}</text>
-          </g>
-        );
+      {named && paths.map((q, i) => {
+        const c = Math.cos((q.mid * Math.PI) / 180), sn = Math.sin((q.mid * Math.PI) / 180);
+        return <text key={`n${i}`} x={cx + c * (r + 10)} y={cy - sn * (r + 10) + 5} fontSize="14" fontFamily="Arial, sans-serif" textAnchor={c > 0.25 ? "start" : c < -0.25 ? "end" : "middle"} fill="#000">{q.name}</text>;
       })}
+      <circle cx={cx} cy={cy} r={1.6} fill="#000" />
     </svg>
   );
 }
@@ -718,27 +688,28 @@ function LineGraphSVG({ points, xMax, yMax, xLabel, yLabel, readX, readY }) {
    face plus a foreshortened receding direction for depth, hidden edges
    dashed. Proportions follow the real l/w/h passed in, not just decorative. ---------- */
 function CuboidSVG({ l, w, h, showL, showW, showH }) {
-  const boxW = 260, boxH = 200;
   const maxDim = Math.max(l, w, h);
   const scale = 100 / maxDim;
   const fl = Math.max(l * scale, 30), fh = Math.max(h * scale, 30);
   const dep = Math.max(w * scale * 0.55, 22);
-  const padL = 44, padT = 26;
+  const dx = dep * 0.75, dy = -dep * 0.6;
+  // Everything is positioned from these, so the back edges and labels always fit.
+  const padL = 46, padT = -dy + 18;
+  const boxW = Math.round(padL + fl + dx + 56), boxH = Math.round(padT + fh + 30);
   const x0 = padL, y0 = padT + fh;
   const A = [x0, y0], B = [x0 + fl, y0], C = [x0 + fl, y0 - fh], D = [x0, y0 - fh];
-  const dx = dep * 0.75, dy = -dep * 0.6;
   const A2 = [A[0] + dx, A[1] + dy], B2 = [B[0] + dx, B[1] + dy], C2 = [C[0] + dx, C[1] + dy], D2 = [D[0] + dx, D[1] + dy];
   return (
-    <svg viewBox={`0 0 ${boxW} ${boxH}`} width="100%" style={{ maxWidth: 260, display: "block" }}>
+    <svg viewBox={`0 0 ${boxW} ${boxH}`} width={boxW} style={{ maxWidth: "100%", height: "auto", display: "block" }}>
       <line x1={A[0]} y1={A[1]} x2={A2[0]} y2={A2[1]} stroke="#000" strokeWidth="1.1" strokeDasharray="3,3" />
       <line x1={D2[0]} y1={D2[1]} x2={A2[0]} y2={A2[1]} stroke="#000" strokeWidth="1.1" strokeDasharray="3,3" />
       <line x1={D2[0]} y1={D2[1]} x2={D[0]} y2={D[1]} stroke="#000" strokeWidth="1.1" strokeDasharray="3,3" />
-      <polygon points={`${A[0]},${A[1]} ${B[0]},${B[1]} ${C[0]},${C[1]} ${D[0]},${D[1]}`} fill="none" stroke="#000" strokeWidth="1.6" />
-      <polygon points={`${D[0]},${D[1]} ${C[0]},${C[1]} ${C2[0]},${C2[1]} ${D2[0]},${D2[1]}`} fill="none" stroke="#000" strokeWidth="1.6" />
-      <polygon points={`${B[0]},${B[1]} ${C[0]},${C[1]} ${C2[0]},${C2[1]} ${B2[0]},${B2[1]}`} fill="none" stroke="#000" strokeWidth="1.6" />
-      <text x={(A[0] + B[0]) / 2} y={y0 + 16} fontSize="13" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#000">{showL}</text>
+      <polygon points={`${A[0]},${A[1]} ${B[0]},${B[1]} ${C[0]},${C[1]} ${D[0]},${D[1]}`} fill="none" stroke="#000" strokeWidth="1.6" strokeLinejoin="round" />
+      <polygon points={`${D[0]},${D[1]} ${C[0]},${C[1]} ${C2[0]},${C2[1]} ${D2[0]},${D2[1]}`} fill="none" stroke="#000" strokeWidth="1.6" strokeLinejoin="round" />
+      <polygon points={`${B[0]},${B[1]} ${C[0]},${C[1]} ${C2[0]},${C2[1]} ${B2[0]},${B2[1]}`} fill="none" stroke="#000" strokeWidth="1.6" strokeLinejoin="round" />
+      <text x={(A[0] + B[0]) / 2} y={y0 + 17} fontSize="13" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#000">{showL}</text>
       <text x={A[0] - 10} y={(A[1] + D[1]) / 2} fontSize="13" fontFamily="Arial, sans-serif" textAnchor="end" fill="#000">{showH}</text>
-      <text x={(B[0] + B2[0]) / 2 + 8} y={(B[1] + B2[1]) / 2} fontSize="13" fontFamily="Arial, sans-serif" fill="#000">{showW}</text>
+      <text x={(B[0] + B2[0]) / 2 + 15} y={(B[1] + B2[1]) / 2 + 4} fontSize="13" fontFamily="Arial, sans-serif" fill="#000">{showW}</text>
     </svg>
   );
 }
@@ -792,7 +763,7 @@ function TriangularPrismSVG({ base, height, length, showBase, showHeight, showLe
 /* ---------- scatter graph for Correlation & Regression: caller supplies
    already-scaled points plus explicit xMax/yMax (like LineGraphSVG) so a
    line of best fit and the data always share the same axes. ---------- */
-function ScatterSVG({ points, xMax, yMax, showLine }) {
+function ScatterSVG({ points, xMax, yMax, showLine, minorGrid }) {
   const boxW = 300, boxH = 250, padL = 40, padR = 16, padT = 14, padB = 38;
   const px = (x) => padL + (x / xMax) * (boxW - padL - padR);
   const py = (y) => boxH - padB - (y / yMax) * (boxH - padT - padB);
@@ -803,6 +774,8 @@ function ScatterSVG({ points, xMax, yMax, showLine }) {
   for (let v = 0; v <= yMax; v += ys) yt.push(v);
   return (
     <svg viewBox={`0 0 ${boxW} ${boxH}`} width={360} style={{ maxWidth: "100%", height: "auto", display: "block", margin: "0 auto" }}>
+      {minorGrid && Array.from({ length: Math.floor(xMax) + 1 }, (_, v) => <line key={`mx${v}`} x1={px(v)} y1={padT} x2={px(v)} y2={boxH - padB} stroke="#f0f0f0" strokeWidth="0.8" />)}
+      {minorGrid && Array.from({ length: Math.floor(yMax / (yMax > 30 ? 2 : 1)) + 1 }, (_, k) => { const v = k * (yMax > 30 ? 2 : 1); return <line key={`my${v}`} x1={padL} y1={py(v)} x2={boxW - padR} y2={py(v)} stroke="#f0f0f0" strokeWidth="0.8" />; })}
       {xt.map((v) => <line key={`gx${v}`} x1={px(v)} y1={padT} x2={px(v)} y2={boxH - padB} stroke="#e3e3e3" strokeWidth="1" />)}
       {yt.map((v) => <line key={`gy${v}`} x1={padL} y1={py(v)} x2={boxW - padR} y2={py(v)} stroke="#e3e3e3" strokeWidth="1" />)}
       <line x1={padL} y1={padT} x2={padL} y2={boxH - padB} stroke="#000" strokeWidth="1.4" />
@@ -903,11 +876,37 @@ function NotationAngleSVG({ labels }) {
 // Three non-collinear lattice points (a valid triangle) inside the given
 // bounds, for Transformations of Shapes questions.
 function randomTriangle(rng, xMin, xMax, yMin, yMax) {
-  let pts;
-  do {
-    pts = [0, 1, 2].map(() => ({ x: seededInt(rng, xMin, xMax), y: seededInt(rng, yMin, yMax) }));
-  } while ((pts[1].x - pts[0].x) * (pts[2].y - pts[0].y) - (pts[1].y - pts[0].y) * (pts[2].x - pts[0].x) === 0);
-  return pts;
+  // Roomy triangles only: a decent area, no short edges, no tiny angles, and no
+  // vertex sitting on an axis (so labels never crowd the axis numbers). A sliver
+  // such as A, B and C squashed together is rejected.
+  const rx = xMax - xMin, ry = yMax - yMin;
+  const minArea = Math.max(3.5, 0.14 * rx * ry);
+  const minEdge = Math.max(2.2, 0.28 * Math.max(rx, ry));
+  const dist = (p, q) => Math.hypot(p.x - q.x, p.y - q.y);
+  for (let t = 0; t < 500; t++) {
+    const pts = [0, 1, 2].map(() => ({ x: seededInt(rng, xMin, xMax), y: seededInt(rng, yMin, yMax) }));
+    const cross = (pts[1].x - pts[0].x) * (pts[2].y - pts[0].y) - (pts[1].y - pts[0].y) * (pts[2].x - pts[0].x);
+    if (Math.abs(cross) / 2 < minArea) continue;
+    const e = [dist(pts[0], pts[1]), dist(pts[1], pts[2]), dist(pts[2], pts[0])];
+    if (Math.min(...e) < minEdge) continue;
+    const ang = (i) => { const [u, v, w] = [pts[i], pts[(i + 1) % 3], pts[(i + 2) % 3]]; const a1 = Math.atan2(v.y - u.y, v.x - u.x), a2 = Math.atan2(w.y - u.y, w.x - u.x); let d = Math.abs(a1 - a2); if (d > Math.PI) d = 2 * Math.PI - d; return (d * 180) / Math.PI; };
+    if (Math.min(ang(0), ang(1), ang(2)) < 28) continue;
+    if (pts.some((q) => q.x === 0 || q.y === 0 || q.x === -1 || q.y === -1)) continue;
+    return pts;
+  }
+  // The random search found nothing (a small grid): list every roomy triangle on the grid and pick one.
+  const grid = [];
+  for (let x = xMin; x <= xMax; x++) for (let y = yMin; y <= yMax; y++) if (x !== 0 && y !== 0 && x !== -1 && y !== -1) grid.push({ x, y });
+  const good = [];
+  for (let i = 0; i < grid.length; i++) for (let j = i + 1; j < grid.length; j++) for (let k = j + 1; k < grid.length; k++) {
+    const t = [grid[i], grid[j], grid[k]];
+    const cr = (t[1].x - t[0].x) * (t[2].y - t[0].y) - (t[1].y - t[0].y) * (t[2].x - t[0].x);
+    if (Math.abs(cr) / 2 < minArea) continue;
+    if (Math.min(dist(t[0], t[1]), dist(t[1], t[2]), dist(t[2], t[0])) < minEdge) continue;
+    good.push(t);
+  }
+  if (good.length) return good[Math.floor(rng() * good.length)];
+  return [{ x: xMin + 1, y: yMin + 1 }, { x: xMax - 1, y: yMin + 1 }, { x: Math.round((xMin + xMax) / 2) || 1, y: yMax - 1 }];
 }
 
 // Inline stacked fraction: numerator over a horizontal vinculum over the
@@ -939,6 +938,16 @@ function Mixed({ w, n, d }) {
 // multiplication sign. Walks strings, arrays, fragments and plain DOM
 // elements; custom components and SVG are left alone.
 function mathify(node) {
+  if (typeof node === "string" && /[0-9A-Za-z)]\^-?\d/.test(node)) {
+    // "8^2" -> a real superscript, never a caret
+    const parts = node.split(/([0-9A-Za-z)])\^(-?\d+)/);
+    const out = [];
+    for (let i = 0; i < parts.length; i += 3) {
+      if (parts[i]) { const r = mathify(parts[i]); out.push(<React.Fragment key={`t${i}`}>{r}</React.Fragment>); }
+      if (i + 2 < parts.length) out.push(<React.Fragment key={`p${i}`}>{parts[i + 1]}<sup style={{ fontSize: "0.72em", lineHeight: 0 }}>{parts[i + 2].replace("-", "\u2212")}</sup></React.Fragment>);
+    }
+    return out;
+  }
   if (typeof node === "string") {
     const re = /(^|[^A-Za-z])([xyzn]+)(?![A-Za-z])/g;
     const out = [];
@@ -1062,7 +1071,8 @@ const SUBTOPIC_BANK = {
       const shadeChoice = pick(rng, ["aOnly", "bOnly"]);
       return {
         prompt: `On the diagram, shade the region that represents A ${shadeChoice === "aOnly" ? "∩ B′" : "′ ∩ B"}.`,
-        render: <VennSVG labelA="A" labelB="B" shade={shadeChoice} />,
+        render: <VennSVG labelA="A" labelB="B" />,
+        answerRender: <VennSVG labelA="A" labelB="B" shade={shadeChoice} />,
         answer: `Region inside ${shadeChoice === "aOnly" ? "A only" : "B only"} shaded.`,
       };
     },
@@ -2683,19 +2693,6 @@ SUBTOPIC_BANK["congruence-criteria"] = {
     };
   },
 };
-SUBTOPIC_BANK["similar-shapes-find-length"] = {
-  topic: "Similar Shapes", title: "Find a missing length using similar triangles", marks: 2,
-  build(rng) {
-    const k = pick(rng, [2, 3, 4]);
-    const AB = seededInt(rng, 3, 8);
-    const BC = seededInt(rng, 3, 9);
-    const PQ = AB * k;
-    return {
-      prompt: `Triangle ABC is similar to triangle PQR, with AB corresponding to PQ. AB = ${AB} cm, PQ = ${PQ} cm, and BC = ${BC} cm. Find the length of QR.`,
-      answer: <>Scale factor = <Frac n={PQ} d={AB} /> = {k}; QR = {BC} × {k} = {BC * k} cm</>,
-    };
-  },
-};
 SUBTOPIC_BANK["similar-shapes-identify"] = {
   topic: "Similar Shapes", title: "Determine whether two shapes are similar", marks: 2,
   build(rng) {
@@ -2714,23 +2711,6 @@ SUBTOPIC_BANK["similar-shapes-identify"] = {
 };
 
 /* --- HT4 Week 3: Similar Shapes (Area & Volume), Iterations --- */
-SUBTOPIC_BANK["similar-shapes-area-scale"] = {
-  topic: "Similar Shapes", title: "Area of a similar shape using scale factor squared", marks: 2,
-  build(rng) {
-    const k = pick(rng, [2, 3, 4]);
-    const areaSmall = seededInt(rng, 4, 20);
-    const areaLarge = areaSmall * k * k;
-    const askLarge = pick(rng, [true, false]);
-    return {
-      prompt: askLarge
-        ? `Two similar shapes have a linear scale factor of ${k}. The smaller shape has an area of ${areaSmall} cm². Find the area of the larger shape.`
-        : `Two similar shapes have a linear scale factor of ${k}. The larger shape has an area of ${areaLarge} cm². Find the area of the smaller shape.`,
-      answer: askLarge
-        ? `Area scale factor = ${k}² = ${k * k}; Area = ${areaSmall} × ${k * k} = ${areaLarge} cm²`
-        : `Area scale factor = ${k}² = ${k * k}; Area = ${areaLarge} ÷ ${k * k} = ${areaSmall} cm²`,
-    };
-  },
-};
 SUBTOPIC_BANK["similar-shapes-volume-scale"] = {
   topic: "Similar Shapes", title: "Volume of a similar shape using scale factor cubed", marks: 2,
   build(rng) {
@@ -3189,7 +3169,7 @@ SUBTOPIC_BANK["calculator-powers-roots"] = {
     const base = seededInt(rng, 2, 15);
     if (pick(rng, [true, false])) {
       const exp = seededInt(rng, 2, 4);
-      return { prompt: `Use a calculator to work out ${base}^${exp}`, answer: `${Math.pow(base, exp)}` };
+      return { prompt: <>Use a calculator to work out <Pow b={base} e={exp} /></>, answer: `${Math.pow(base, exp)}` };
     }
     return { prompt: `Use a calculator to work out √${base * base}`, answer: `${base}` };
   },
@@ -3490,12 +3470,12 @@ SUBTOPIC_BANK["ungrouped-frequency-table-mean"] = {
       prompt: `The table shows the number of siblings for a group of students. Calculate the mean number of siblings. Give your answer to 2 decimal places.`,
       render: (
         <table style={{ borderCollapse: "collapse", fontSize: 12, fontFamily: "Arial, sans-serif" }}>
-          <thead><tr><th style={cellStyle}>Siblings (x)</th><th style={cellStyle}>Frequency (f)</th><th style={cellStyle}>f × x</th></tr></thead>
+          <thead><tr><th style={cellStyle}>Siblings (x)</th><th style={cellStyle}>Frequency (f)</th></tr></thead>
           <tbody>
             {values.map((v, i) => (
-              <tr key={i}><td style={cellStyle}>{v}</td><td style={cellStyle}>{freqs[i]}</td><td style={cellStyle}>&nbsp;</td></tr>
+              <tr key={i}><td style={cellStyle}>{v}</td><td style={cellStyle}>{freqs[i]}</td></tr>
             ))}
-            <tr><td style={cellStyle}><strong>Total</strong></td><td style={cellStyle}><strong>{totalF}</strong></td><td style={cellStyle}></td></tr>
+            <tr><td style={cellStyle}><strong>Total</strong></td><td style={cellStyle}><strong>{totalF}</strong></td></tr>
           </tbody>
         </table>
       ),
@@ -3629,29 +3609,6 @@ SUBTOPIC_BANK["two-way-table-complete"] = {
     };
   },
 };
-SUBTOPIC_BANK["frequency-tree-complete"] = {
-  topic: "Frequency Trees", title: "Complete a frequency tree", marks: 3,
-  build(rng) {
-    const total = seededInt(rng, 40, 80);
-    const stage1A = seededInt(rng, Math.round(total * 0.3), Math.round(total * 0.6));
-    const stage1B = total - stage1A;
-    const stage2AA = Math.min(stage1A - 1, Math.max(1, seededInt(rng, Math.round(stage1A * 0.3), Math.round(stage1A * 0.7))));
-    const stage2AB = stage1A - stage2AA;
-    const stage2BA = Math.min(stage1B - 1, Math.max(1, seededInt(rng, Math.round(stage1B * 0.3), Math.round(stage1B * 0.7))));
-    const stage2BB = stage1B - stage2BA;
-    const freqs = [stage2AA, stage2AB, stage2BA, stage2BB];
-    const unknownIndex = seededInt(rng, 0, 3);
-    const ctx = pick(rng, [
-      { root: "own a pet", s1: ["Yes", "No"], s2: ["Cat", "Dog"] },
-      { root: "play an instrument", s1: ["Yes", "No"], s2: ["Piano", "Guitar"] },
-    ]);
-    return {
-      prompt: `${total} students were asked whether they ${ctx.root}. The frequency tree shows the results. Find the missing value marked "?".`,
-      render: <FrequencyTreeSVG labelsStage1={ctx.s1} labelsStage2={ctx.s2} freqs={freqs} unknownIndex={unknownIndex} />,
-      answer: `${freqs[unknownIndex]}`,
-    };
-  },
-};
 SUBTOPIC_BANK["bar-chart-read-frequency"] = {
   topic: "Bar Charts", title: "Read a frequency from a bar chart", marks: 1,
   build(rng) {
@@ -3685,10 +3642,16 @@ SUBTOPIC_BANK["pie-chart-angle-to-frequency"] = {
     } while (f4 < 2);
     const freqs = [f1, f2, f3, f4];
     const markIndex = seededInt(rng, 0, 3);
-    const sectors = freqs.map((f) => ({ angle: f * unitAngle }));
+    // Every sector is named with a way of getting to work; the shaded one is the one to find.
+    const modes = [["Car", "travel by car"], ["Bus", "travel by bus"], ["Train", "travel by train"], ["Bike", "cycle"], ["Walk", "walk"], ["Tram", "travel by tram"]];
+    const chosen = [];
+    while (chosen.length < 4) { const m = pick(rng, modes); if (!chosen.includes(m)) chosen.push(m); }
+    const sectors = freqs.map((f, i) => ({ angle: f * unitAngle, name: chosen[i][0] }));
+    const phrase = chosen[markIndex][1];
     return {
-      prompt: `The pie chart shows how ${total} people travel to work. The angle of one sector is marked. Find the number of people represented by that sector.`,
+      prompt: `The pie chart shows how ${total} people get to work. The angle for the shaded sector, ${chosen[markIndex][0]}, is marked. Work out how many of the ${total} people ${phrase}.`,
       render: <PieChartSVG sectors={sectors} markIndex={markIndex} />,
+      accurateDiagram: true,
       answer: `${sectors[markIndex].angle}° ÷ 360° × ${total} = ${freqs[markIndex]} people`,
     };
   },
@@ -3976,25 +3939,6 @@ SUBTOPIC_BANK["suitable-unit-estimate"] = {
     return { prompt: `State a suitable metric unit for measuring ${it.item}.`, answer: it.unit };
   },
 };
-SUBTOPIC_BANK["conversion-graph-read"] = {
-  topic: "Units of Measurement", title: "Use a conversion graph", marks: 2,
-  build(rng) {
-    const pairs = [
-      { xLabel: "Miles", yLabel: "Kilometres", xMax: 50, factor: 1.6 },
-      { xLabel: "Pounds (£)", yLabel: "Euros (€)", xMax: 100, factor: 1.15 },
-      { xLabel: "Gallons", yLabel: "Litres", xMax: 20, factor: 4.5 },
-    ];
-    const p = pick(rng, pairs);
-    const yMax = Math.round(p.xMax * p.factor);
-    const readX = seededInt(rng, 2, p.xMax - 2);
-    const readY = Math.round(readX * p.factor);
-    return {
-      prompt: `The graph can be used to convert between ${p.xLabel} and ${p.yLabel}. Use the graph to convert ${readX} ${p.xLabel} into ${p.yLabel}.`,
-      render: <LineGraphSVG points={[{ x: 0, y: 0 }, { x: p.xMax, y: yMax }]} xMax={p.xMax} yMax={yMax} xLabel={p.xLabel} yLabel={p.yLabel} readX={readX} readY={readY} />,
-      answer: `≈ ${readY} ${p.yLabel} (reading from the graph at ${readX} ${p.xLabel})`,
-    };
-  },
-};
 SUBTOPIC_BANK["compound-measures-calc"] = {
   topic: "Compound Measures", title: "Calculate using density, speed or pressure", marks: 3,
   build(rng) {
@@ -4018,36 +3962,6 @@ SUBTOPIC_BANK["compound-measures-calc"] = {
     return find === "force"
       ? { prompt: `A force acts on an area of ${area} m² with a pressure of ${pressure} N/m². Calculate the force.`, answer: `Force = pressure × area = ${pressure} × ${area} = ${force} N` }
       : { prompt: `A force of ${force} N acts on an area of ${area} m². Calculate the pressure.`, answer: `Pressure = force ÷ area = ${force} ÷ ${area} = ${pressure} N/m²` };
-  },
-};
-SUBTOPIC_BANK["distance-time-graph-read"] = {
-  topic: "Compound Measures", title: "Interpret a distance-time graph", marks: 3,
-  build(rng) {
-    const outDist = seededInt(rng, 10, 30);
-    const outTime = seededInt(rng, 1, 3);
-    const stopTime = seededInt(rng, 1, 2);
-    const backTime = seededInt(rng, 1, 3);
-    const t1 = outTime, t2 = t1 + stopTime, t3 = t2 + backTime;
-    const points = [{ x: 0, y: 0 }, { x: t1, y: outDist }, { x: t2, y: outDist }, { x: t3, y: 0 }];
-    const mode = pick(rng, ["returnSpeed", "stopDuration", "outSpeed"]);
-    let question, answer;
-    if (mode === "returnSpeed") {
-      const speed = outDist / backTime;
-      question = "Calculate the average speed of the return journey.";
-      answer = `${outDist} ÷ ${backTime} = ${speed.toFixed(1)} km/h`;
-    } else if (mode === "stopDuration") {
-      question = "How long did the journey stop for?";
-      answer = `${stopTime} hour${stopTime > 1 ? "s" : ""}`;
-    } else {
-      const speed = outDist / outTime;
-      question = "Calculate the average speed of the outward journey.";
-      answer = `${outDist} ÷ ${outTime} = ${speed.toFixed(1)} km/h`;
-    }
-    return {
-      prompt: `The graph shows a car's journey. ${question}`,
-      render: <LineGraphSVG points={points} xMax={t3} yMax={outDist} xLabel="Time (hours)" yLabel="Distance (km)" />,
-      answer,
-    };
   },
 };
 SUBTOPIC_BANK["multiplicative-best-value"] = {
@@ -4529,50 +4443,69 @@ SUBTOPIC_BANK["geometric-notation-naming"] = {
 SUBTOPIC_BANK["scatter-correlation-type"] = {
   topic: "Correlation", title: "Identify the type of correlation from a scatter graph", marks: 1,
   build(rng) {
+    // Unmistakable patterns: a tight rising or falling band, or a genuinely random
+    // spread with points in every part of the graph and no trend at all.
     const type = pick(rng, ["positive", "negative", "none"]);
-    const n = 9;
-    let points;
-    if (type === "none") {
-      points = Array.from({ length: n }, () => ({ x: seededInt(rng, 1, 20), y: seededInt(rng, 1, 20) }));
-    } else {
-      points = Array.from({ length: n }, (_, i) => {
-        const noise = seededInt(rng, -2, 2);
-        const x = 2 + i * 2;
-        let y = type === "positive" ? x + noise : (22 - x) + noise;
-        y = Math.max(1, Math.min(21, y));
-        return { x, y };
-      });
+    const n = 10;
+    const corr = (pts) => {
+      const mx = pts.reduce((t, q) => t + q.x, 0) / pts.length, my = pts.reduce((t, q) => t + q.y, 0) / pts.length;
+      let sxy = 0, sxx = 0, syy = 0;
+      pts.forEach((q) => { sxy += (q.x - mx) * (q.y - my); sxx += (q.x - mx) ** 2; syy += (q.y - my) ** 2; });
+      return sxy / Math.sqrt((sxx * syy) || 1);
+    };
+    let points = null;
+    for (let t = 0; t < 800 && !points; t++) {
+      let pts;
+      if (type === "none") {
+        // one point in every ninth of the graph plus one more: an even, trendless spread
+        pts = [];
+        for (let cx = 0; cx < 3; cx++) for (let cy = 0; cy < 3; cy++) pts.push({ x: cx * 7 + seededInt(rng, 1, 7), y: cy * 7 + seededInt(rng, 1, 7) });
+        pts.push({ x: seededInt(rng, 1, 21), y: seededInt(rng, 1, 21) });
+        if (Math.abs(corr(pts)) > 0.05) continue;
+      } else {
+        pts = Array.from({ length: n }, (_, i) => {
+          const x = 2 + i * 2, noise = seededInt(rng, -1, 1);
+          const y = Math.max(1, Math.min(21, type === "positive" ? x + noise : 22 - x + noise));
+          return { x, y };
+        });
+        if (Math.abs(corr(pts)) < 0.97) continue;
+      }
+      points = pts;
     }
+    if (!points) points = type === "none" ? [[3, 17], [6, 4], [9, 12], [12, 19], [14, 6], [16, 14], [18, 3], [20, 17], [5, 9], [10, 2]].map(([x, y]) => ({ x, y })) : Array.from({ length: n }, (_, i) => ({ x: 2 + i * 2, y: type === "positive" ? 2 + i * 2 : 20 - i * 2 }));
     return {
-      prompt: `The scatter graph shows 9 pairs of values, plotting x against y. Describe the type of correlation shown.`,
+      prompt: `The scatter graph shows ${n} pairs of values, plotting x against y. Describe the type of correlation shown.`,
       accurateDiagram: true,
       render: <ScatterSVG points={points} xMax={22} yMax={22} />,
-      answer: type === "none" ? "No correlation" : `${type === "positive" ? "Positive" : "Negative"} correlation`,
+      answer: type === "none" ? "No correlation (the points are scattered with no pattern)" : `${type === "positive" ? "Positive" : "Negative"} correlation (as x increases, y ${type === "positive" ? "increases" : "decreases"})`,
     };
   },
 };
 SUBTOPIC_BANK["line-of-best-fit-estimate"] = {
   topic: "Correlation", title: "Use a line of best fit to estimate a value", marks: 2,
   build(rng) {
+    // The line passes through whole-number points and the grid has a line for every
+    // whole number, so the value to read off can be found exactly (e.g. y = 9 when x = 3).
     const m = pick(rng, [1, 2]);
-    const c = seededInt(rng, 0, 6);
-    const xMaxLine = 15;
+    const c = seededInt(rng, 2, 6);
+    const xMaxLine = m === 2 ? Math.min(15, Math.floor((24 - c) / 2)) : 15;
     const yAtX = (x) => m * x + c;
     const n = 8;
+    const gap = (xMaxLine - 2) / (n - 1);
     const points = Array.from({ length: n }, (_, i) => {
-      const x = Math.round((1 + i * 1.8) * 10) / 10;
+      const x = Math.round((1 + i * gap) * 10) / 10;
       const noise = seededInt(rng, -2, 2);
       return { x, y: Math.max(0, yAtX(x) + noise) };
     });
-    const readX = seededInt(rng, 3, 12);
+    const readX = seededInt(rng, 3, xMaxLine - 3);
     const readY = yAtX(readX);
     const y1 = yAtX(0), y2 = yAtX(xMaxLine);
     const yMax = Math.ceil((y2 + 4) / 5) * 5;
     return {
       prompt: `The scatter graph shows a set of data with a line of best fit drawn. Use the line of best fit to estimate the value of y when x = ${readX}.`,
       accurateDiagram: true,
-      render: <ScatterSVG points={points} xMax={xMaxLine + 2} yMax={yMax} showLine={{ x1: 0, y1, x2: xMaxLine, y2 }} />,
-      answer: `y ≈ ${readY}`,
+      render: <ScatterSVG points={points} xMax={xMaxLine + 2} yMax={yMax} minorGrid showLine={{ x1: 0, y1, x2: xMaxLine, y2 }} />,
+      answer: `y = ${readY} (read up from x = ${readX} to the line, then across)`,
     };
   },
 };
@@ -5152,105 +5085,6 @@ const Y10_SET3_WEEKS = {
   ],
 };
 
-const Y10_SET4_WEEKS = {
-  "HT1 · Week 1 (W/B 07/09/26) — Integers & place value (W1)": [
-    "place-value-digit-value", "number-properties-next-even-odd", "addsub-word-problem", "multiply-two-two-digit",
-  ],
-  "HT1 · Week 2 (W/B 14/09/26) — Integers & place value (W2)": [
-    "divide-with-remainder-decimal", "bidmas-two-operations", "neg-order", "neg-difference",
-  ],
-  "HT1 · Week 3 (W/B 21/09/26) — Integers & place value (W3), Decimals (W1)": [
-    "neg-multiply", "neg-divide", "order-decimals",
-  ],
-  "HT1 · Week 4 (W/B 28/09/26) — Decimals (W2)": [
-    "decimal-add-different-dp", "decimal-subtract-different-dp", "decimal-multiply-by-integer",
-  ],
-  "HT1 · Week 5 (W/B 05/10/26) — Decimals (W3), Indices, powers & roots (W1)": [
-    "decimal-multiply-decimal-by-decimal", "decimal-divide-by-decimal", "number-properties-square-or-cube", "decimal-divide-integer-by-decimal",
-  ],
-  "HT1 · Week 6 (W/B 12/10/26) — Indices, powers & roots (W2)": [
-    "powers-laws-multiply", "indices-divide-same-base", "indices-power-of-power-numeric", "bidmas-with-powers",
-  ],
-  "HT1 · Week 7 (W/B 19/10/26) — Indices, powers & roots (W3), Factors, multiples & primes (W1)": [
-    "calculator-powers-roots", "fmp-list-factors", "fmp-list-multiples",
-  ],
-  "HT2 · Week 1 (W/B 09/11/26) — Factors, multiples & primes (W2)": [
-    "fmp-common-factors", "fmp-prime-factorisation", "fmp-hcf-lcm", "number-properties-prime-or-composite", "fmp-lcm",
-  ],
-  "HT2 · Week 2 (W/B 16/11/26) — Fractions (W1)": [
-    "frac-simplify", "frac-improper-mixed-convert", "frac-add-different-denom", "frac-add-mixed-numbers", "frac-compare-different-denom", "frac-add-same-denom",
-  ],
-  "HT2 · Week 3 (W/B 23/11/26) — Fractions (W2), Fractions, decimals & percentages (W1)": [
-    "frac-divide-fraction-by-fraction", "fdp-percent-to-decimal", "frac-of-amount",
-  ],
-  "HT2 · Week 4 (W/B 30/11/26) — Fractions, decimals & percentages (W2)": [
-    "fdp-order-mixed", "fdp-fraction-to-recurring",
-  ],
-  "HT3 · Week 1 (W/B 04/01/27) — Percentages (W1)": [
-    "percent-of-amount", "percent-one-of-another",
-  ],
-  "HT3 · Week 2 (W/B 11/01/27) — Percentages (W2)": [
-    "percent-simple-interest", "percent-compound-increase", "percent-reverse", "percent-reverse-after-increase",
-  ],
-  "HT3 · Week 3 (W/B 18/01/27) — Ratio (W1)": [
-    "ratio-simplify", "ratio-total-parts", "ratio-quantity-difference-given", "fraction-to-ratio", "ratio-share-amount", "ratio-quantity-one-part-given",
-  ],
-  "HT3 · Week 4 (W/B 25/01/27) — Ratio (W2), Proportion (W1)": [
-    "ratio-to-percentage", "multiplicative-recipe-scaling", "direct-proportion", "multiplicative-best-value", "percentage-to-ratio", "conversion-graph-read",
-  ],
-  "HT3 · Week 5 (W/B 01/02/27) — Proportion (W2), Simple algebra (W1)": [
-    "inverse-proportion", "applied-proportion-graph", "algebraic-notation-write", "compound-measures-calc",
-  ],
-  "HT3 · Week 6 (W/B 08/02/27) — Simple algebra (W2)": [
-    "collect-like-terms-multi", "divide-algebraic-terms-basic", "substitution-one-variable", "eb-single-neg", "multiply-algebraic-terms", "eb-single-pos",
-  ],
-  "HT4 · Week 1 (W/B 22/02/27) — Substitution & equations (W1)": [
-    "substitution-one-variable", "substitution-formula-negatives", "solve-two-step-equation",
-  ],
-  "HT4 · Week 2 (W/B 01/03/27) — Substitution & equations (W2), Sequences (W1)": [
-    "solve-equation-both-sides-brackets", "form-solve-perimeter-equation", "generate-terms-from-nth-term", "arithmetic-sequence-nth-term-value", "form-equation-angles",
-  ],
-  "HT4 · Week 3 (W/B 08/03/27) — Sequences (W2), Averages (W1)": [
-    "find-nth-term-linear", "quadratic-sequences", "averages-range-listed",
-  ],
-  "HT4 · Week 4 (W/B 15/03/27) — Averages (W2)": [
-    "averages-missing-value-given-mean", "ungrouped-frequency-table-mean", "grouped-table-modal-median-class", "mean-from-grouped-table",
-  ],
-  "HT4 · Week 5 (W/B 22/03/27) — Tables & data collection (W1)": [
-    "ungrouped-freq-table-form", "two-way-table-complete", "timetable-read", "bar-chart-read-frequency",
-  ],
-  "HT5 · Week 1 (W/B 12/04/27) — Tables & data collection (W2)": [
-    "pie-chart-angle-to-frequency", "scatter-correlation-type", "line-of-best-fit-estimate", "stratified-sample-one-category",
-  ],
-  "HT5 · Week 2 (W/B 19/04/27) — Tables & data collection (W3), Measurements & units (W1)": [
-    "frequency-tree-complete", "suitable-unit-estimate", "metric-conversion",
-  ],
-  "HT5 · Week 3 (W/B 26/04/27) — Measurements & units (W2)": [
-    "clock-reading", "time-duration-calc", "conversion-graph-read", "compound-measures-calc",
-  ],
-  "HT5 · Week 4 (W/B 03/05/27) — 2D shapes (W1)": [
-    "shape-naming-polygon-by-sides", "shape-properties-quadrilateral-name",
-  ],
-  "HT5 · Week 5 (W/B 10/05/27) — 2D shapes (W2), Angles (W1)": [
-    "shape-properties-quadrilateral-name", "shape-properties-symmetry", "angles-on-a-line", "angles-about-a-point",
-  ],
-  "HT5 · Week 6 (W/B 17/05/27) — Angles (W2)": [
-    "angles-vertically-opposite", "angles-isosceles-triangle", "angles-corresponding", "angles-interior-polygon-sum", "angles-triangle-sum", "angles-quadrilateral-sum",
-  ],
-  "HT5 · Week 7 (W/B 24/05/27) — Perimeter & area (W1)": [
-    "area-rectangle-triangle", "composite-rectilinear-area-perimeter",
-  ],
-  "HT6 · Week 1 (W/B 07/06/27) — Perimeter & area (W2), 3D forms": [
-    "circle-facts-parts", "circle-facts-circumference-area", "three-d-faces-edges-vertices", "volume-cuboid", "three-d-name-from-properties", "surface-area-cuboid",
-  ],
-  "HT6 · Week 2 (W/B 14/06/27) — Probability (W1)": [
-    "probability-scale-words", "probability-scale-compare", "theoretical-probability-single", "theoretical-probability-not-event",
-  ],
-  "HT6 · Week 3 (W/B 21/06/27) — Probability (W2)": [
-    "mutually-exclusive-missing-probability", "relative-frequency-from-data", "expected-value-biased",
-  ],
-};
-
 /* Year 7 scheme of work — follows the White Rose Year 7 overview (12 weeks per
    term) and the Year 7 booklets. The timeline gives week numbers, not dates, so
    keys are labelled by term and week, with W/B dates taken from the school calendar in order (Spring has 11 calendar weeks, so Spring week 12 says "date TBC"). A few extension steps from the overview
@@ -5446,39 +5280,44 @@ const Y9_SET1_WEEKS = {
 };
 const Y9_SET2_WEEKS = {
   "HT1 · Week 1 (W/B 07/09/26) — Two-Way Tables & Frequency Trees, Rounding & Estimation (W1)": ["two-way-table-complete", "round-decimal-places", "frequency-tree-complete", "round-significant-figures", "two-way-table-probability"],
-  "HT1 · Week 2 (W/B 14/09/26) — Rounding & Estimation (W2), Factors, Multiples & Primes": ["round-error-interval", "fmp-prime-factorisation", "estimation-calculation", "number-properties-classify", "bounds-intro", "number-properties-square-or-cube"],
+  "HT1 · Week 2 (W/B 14/09/26) — Rounding & Estimation (W2), Factors, Multiples & Primes": ["round-error-interval", "fmp-prime-factorisation", "estimation-calculation", "number-properties-classify", "number-properties-square-or-cube"],
   "HT1 · Week 3 (W/B 21/09/26) — HCF & LCM, Fractions (W1)": ["fmp-list-factors", "frac-simplify", "fmp-hcf-lcm", "frac-of-amount", "fmp-common-factors", "frac-compare-different-denom"],
   "HT1 · Week 4 (W/B 28/09/26) — Fractions (W2)": ["frac-add-different-denom", "frac-multiply-two", "frac-subtract-different-denom", "frac-multiply-mixed", "frac-add-mixed-numbers", "frac-divide-fraction-by-fraction"],
   "HT1 · Week 5 (W/B 05/10/26) — Ratio": ["ratio-simplify", "ratio-share-amount", "ratio-combine-two", "ratio-to-fraction", "ratio-one-to-n", "ratio-quantity-one-part-given"],
-  "HT1 · Week 6 (W/B 12/10/26) — Proportion": ["direct-proportion", "multiplicative-recipe-scaling", "currency-convert", "inverse-proportion", "multiplicative-best-value"],
+  "HT1 · Week 6 (W/B 12/10/26) — Proportion": ["proportion-direct-word", "multiplicative-recipe-scaling", "currency-convert", "multiplicative-best-value"],
   "HT1 · Week 7 (W/B 19/10/26) — Calculator Skills, Percentages (W1)": ["bidmas-two-operations", "percent-one-of-another", "calculator-fractions", "percent-reverse", "percent-of-amount-mental", "percent-find-whole"],
   "HT2 · Week 1 (W/B 09/11/26) — Percentages (W2)": ["percent-increase-decrease", "percent-simple-interest", "percent-change-find", "percent-multiplier"],
   "HT2 · Week 2 (W/B 16/11/26) — Algebra (W1)": ["collect-like-terms-multi", "multiply-algebraic-terms", "eb-single-pos", "eb-double-pos", "like-terms-identify", "divide-algebraic-terms-basic"],
-  "HT2 · Week 3 (W/B 23/11/26) — Algebra (W2)": ["fac-common", "fac-quadratic", "substitution-one-variable", "fac-common-algebraic", "fac-quadratic-agt1", "substitution-two-variables"],
+  "HT2 · Week 3 (W/B 23/11/26) — Algebra (W2)": ["fac-common", "fac-quadratic", "substitution-one-variable", "fac-common-algebraic", "substitution-two-variables"],
   "HT2 · Week 4 (W/B 30/11/26) — Equations": ["solve-one-step-equation", "solve-two-step-equation", "solve-linear-brackets", "solve-equation-both-sides-brackets"],
-  "HT2 · Week 5 (W/B 07/12/26) — Quadratic Equations": ["solve-quadratic-factorise", "solve-quadratic-factorise-agt1"],
-  "HT3 · Week 1 (W/B 04/01/27) — Changing the Subject": ["changing-subject-expand", "rearrange-square-root", "rearrange-square", "changing-subject-factorise"],
+  "HT2 · Week 5 (W/B 07/12/26) — Quadratic Equations": ["solve-quadratic-factorise"],
+  "HT3 · Week 1 (W/B 04/01/27) — Changing the Subject": ["changing-subject-one-step", "changing-subject-two-step", "rearrange-square-root", "rearrange-square"],
   "HT3 · Week 2 (W/B 11/01/27) — Sequences (W1)": ["seq-continue-linear", "find-nth-term-linear", "generate-terms-from-nth-term", "seq-term-to-term-rule", "arithmetic-sequence-nth-term-value", "seq-missing-terms-linear"],
   "HT3 · Week 3 (W/B 18/01/27) — Sequences (W2), Indices & Standard Form (W1)": ["seq-pattern-draw-next", "powers-laws-multiply", "seq-pattern-count-terms", "indices-negative", "seq-pattern-nth-term", "sf-large-to-sf"],
-  "HT3 · Week 4 (W/B 25/01/27) — Indices & Standard Form (W2), Averages (W1)": ["sf-multiply", "averages-range-listed", "sf-add-subtract", "averages-missing-value-given-mean", "sf-divide", "averages-four-measures"],
-  "HT3 · Week 5 (W/B 01/02/27) — Averages (W2), Frequency Polygons": ["ungrouped-frequency-table-mean", "histogram-read-bar", "mean-from-grouped-table", "cf-table-complete", "ungrouped-freq-table-form", "grouped-table-modal-median-class"],
-  "HT3 · Week 6 (W/B 08/02/27) — Scatter Graphs, Pie Charts": ["scatter-correlation-type", "pie-chart-angle-from-frequency", "line-of-best-fit-estimate", "pie-chart-angle-to-frequency"],
+  "HT3 · Week 4 (W/B 25/01/27) — Indices & Standard Form (W2), Averages (W1)": ["sf-multiply", "sf-add-subtract", "sf-divide", "averages-mean-only", "averages-mode-only", "averages-median-only"],
+  "HT3 · Week 5 (W/B 01/02/27) — Averages (W2), Frequency Polygons": ["averages-range-only", "averages-five-numbers", "ungrouped-frequency-table-mean", "mean-from-grouped-table", "cf-table-complete", "grouped-table-modal-median-class"],
+  "HT3 · Week 6 (W/B 08/02/27) — Scatter Graphs, Pie Charts": ["scatter-correlation-type", "pie-chart-angle-from-frequency", "line-of-best-fit-estimate", "pie-chart-angle-to-frequency", "histogram-read-bar", "averages-missing-value-given-mean"],
   "HT4 · Week 1 (W/B 22/02/27) — Angles (W1)": ["angles-on-a-line", "angles-alternate", "angles-about-a-point", "angles-corresponding", "angles-vertically-opposite", "angles-co-interior"],
   "HT4 · Week 2 (W/B 01/03/27) — Angles (W2), Maps & Scales": ["angles-alternate", "scale-map-distance", "angles-interior-polygon-sum", "angles-corresponding", "angles-exterior-regular-polygon", "angles-co-interior"],
   "HT4 · Week 3 (W/B 08/03/27) — Bearings, Plans & Elevations, Constructions & Loci (W1)": ["bearings-find", "three-d-faces-edges-vertices", "bearings-back-bearing", "solid-name-identify", "scale-map-distance"],
   "HT4 · Week 4 (W/B 15/03/27) — Constructions & Loci (W2), Pythagoras, Trigonometry (W1)": ["bearings-find", "pythagoras-hypotenuse", "trig-find-side", "scale-map-distance", "pythagoras-shorter-side", "trig-exact-values"],
-  "HT4 · Week 5 (W/B 22/03/27) — Trigonometry (W2)": ["trig-find-side", "trig-find-angle", "trig-exact-values", "trig-elevation-depression"],
+  "HT4 · Week 5 (W/B 22/03/27) — Trigonometry (W2)": ["trig-find-side", "trig-find-angle", "trig-exact-values"],
   "HT5 · Week 1 (W/B 12/04/27) — Circles (W1)": ["circle-facts-parts", "circle-arc-sector", "circle-facts-circumference-area"],
   "HT5 · Week 2 (W/B 19/04/27) — Circles (W2), Area": ["circle-compound", "area-rectangle-triangle", "circle-arc-sector", "area-trapezium", "composite-rectilinear-area-perimeter", "area-parallelogram"],
-  "HT5 · Week 3 (W/B 26/04/27) — Surface Area & Volume": ["surface-area-cuboid", "volume-triangular-prism", "volume-sphere", "volume-cuboid", "volume-cylinder", "volume-cone"],
+  "HT5 · Week 3 (W/B 26/04/27) — Surface Area & Volume": ["surface-area-cuboid", "volume-triangular-prism", "volume-cuboid", "volume-cylinder"],
   "HT5 · Week 4 (W/B 03/05/27) — Compound Measures": ["speed-calc", "density-calc", "compound-measures-calc", "distance-calc", "density-find-mass-volume", "time-calc"],
   "HT5 · Week 5 (W/B 10/05/27) — Coordinates & Straight Lines (W1)": ["coordinates-identify-point", "coordinates-midpoint-calc", "line-gradient-intercept-read", "coord-fourth-vertex", "pythagoras-distance-between-points", "line-equation-from-graph"],
   "HT5 · Week 6 (W/B 17/05/27) — Coordinates & Straight Lines (W2)": ["equation-from-gradient-and-point", "linear-graph-two-points", "linear-graph-parallel", "line-table-of-values", "line-equation-from-graph", "parallel-or-perpendicular-classify"],
-  "HT5 · Week 7 (W/B 24/05/27) — Quadratic Graphs": ["plot-nonlinear-graph", "significant-points", "plot-cubic-graph", "quadratic-roots-and-intercept", "cubic-graph-features", "sketch-quadratic-a1"],
-  "HT6 · Week 1 (W/B 07/06/27) — Real-Life Graphs, Congruence & Similarity (W1)": ["conversion-graph-read", "congruence-criteria", "distance-time-graph-read", "similar-shapes-identify", "similar-shapes-find-length", "similar-shapes-area-scale"],
+  "HT5 · Week 7 (W/B 24/05/27) — Quadratic Graphs": ["plot-nonlinear-graph", "significant-points", "plot-cubic-graph", "quadratic-roots-and-intercept", "sketch-quadratic-a1"],
+  "HT6 · Week 1 (W/B 07/06/27) — Real-Life Graphs, Congruence & Similarity (W1)": ["conversion-graph-read", "congruence-criteria", "distance-time-waiting-time", "distance-time-return-speed", "similar-shapes-find-length", "similar-shapes-area-scale"],
   "HT6 · Week 2 (W/B 14/06/27) — Congruence & Similarity (W2), Transformations (W1)": ["similar-shapes-find-length", "transform-translate-shape", "similar-shapes-identify", "transform-reflect-shape", "transform-rotate-shape", "describe-reflection"],
   "HT6 · Week 3 (W/B 21/06/27) — Transformations (W2)": ["transform-enlarge-shape", "transform-reflect-shape", "transform-rotate-shape"],
 };
+// Year 9 Set 3 and Year 10 Set 4 follow the same scheme (one table, shared by both).
+// Left out on purpose: the four operations with fractions, finding a percentage change or profit,
+// simple interest, algebraic and inverse proportion, averages from a table, two-way tables, frequency
+// trees, scatter graphs, sampling, pie charts, area-unit conversion and angles in
+// parallel lines.
 const Y9_SET34_WEEKS = {
   "HT1 · Week 1 (W/B 07/09/26) — Integers and place value (W1)": ["place-value-digit-value", "place-value-write-in-words", "number-line-interval-value", "order-decimals", "addsub-word-problem"],
   "HT1 · Week 2 (W/B 14/09/26) — Integers and place value (W2)": ["addsub-word-problem", "multiply-two-two-digit", "divide-integer-written", "neg-order", "neg-add-subtract", "neg-multiply"],
@@ -5488,26 +5327,26 @@ const Y9_SET34_WEEKS = {
   "HT1 · Week 6 (W/B 12/10/26) — Indices, Powers and Roots (W2)": ["number-properties-square-or-cube", "roots-evaluate", "powers-laws-multiply", "indices-divide-same-base", "bidmas-with-powers"],
   "HT1 · Week 7 (W/B 19/10/26) — Indices, Powers and Roots (W3), Factors, Multiples and Primes (W1)": ["bidmas-with-powers", "fmp-list-factors", "calculator-powers-roots", "fmp-list-multiples", "fmp-prime-factorisation"],
   "HT2 · Week 1 (W/B 09/11/26) — Factors, Multiples and Primes (W2)": ["fmp-prime-factorisation", "fmp-common-factors", "fmp-hcf-lcm", "fmp-lcm", "number-properties-prime-or-composite"],
-  "HT2 · Week 2 (W/B 16/11/26) — Fractions (W1)": ["frac-simplify", "equivalent-fraction-missing", "frac-compare-different-denom", "frac-improper-mixed-convert", "frac-of-amount", "frac-add-different-denom"],
-  "HT2 · Week 3 (W/B 23/11/26) — Fractions (W2), FDP (W1)": ["frac-divide-fraction-by-fraction", "fdp-percent-to-decimal", "frac-add-mixed-numbers", "fdp-convert-fraction-decimal-percentage", "frac-multiply-mixed"],
-  "HT2 · Week 4 (W/B 30/11/26) — FDP (W2)": ["fraction-as-division", "fdp-order-mixed"],
-  "HT3 · Week 1 (W/B 04/01/27) — Percentages (W1)": ["percent-of-amount-mental", "percent-of-amount", "percent-one-of-another"],
-  "HT3 · Week 2 (W/B 11/01/27) — Percentages (W2)": ["percent-one-of-another", "percent-increase-decrease", "percent-change-find", "percent-multiplier"],
+  "HT2 · Week 2 (W/B 16/11/26) — Fractions (W1)": ["frac-simplify", "equivalent-fraction-missing", "frac-compare-same-denom", "frac-compare-make-same-denom", "frac-improper-mixed-convert", "frac-of-amount"],
+  "HT2 · Week 3 (W/B 23/11/26) — Fractions (W2), FDP (W1)": ["frac-to-decimal-convert", "fdp-percent-to-decimal", "fdp-convert-fraction-decimal-percentage"],
+  "HT2 · Week 4 (W/B 30/11/26) — FDP (W2)": ["frac-to-decimal-convert", "fdp-order-mixed"],
+  "HT3 · Week 1 (W/B 04/01/27) — Percentages (W1)": ["percent-of-amount-mental", "percent-of-amount", "percent-express-factor-100"],
+  "HT3 · Week 2 (W/B 11/01/27) — Percentages (W2)": ["percent-increase-decrease-easy", "percent-express-simplify", "percent-express-factor-100"],
   "HT3 · Week 3 (W/B 18/01/27) — Ratio (W1)": ["ratio-simplify", "ratio-one-to-n", "ratio-share-amount", "ratio-total-parts", "ratio-quantity-one-part-given", "ratio-to-fraction"],
-  "HT3 · Week 4 (W/B 25/01/27) — Ratio (W2), Proportion (W1)": ["ratio-to-fraction", "direct-proportion", "ratio-combine-two", "multiplicative-recipe-scaling", "currency-convert"],
-  "HT3 · Week 5 (W/B 01/02/27) — Proportion (W2), Simple Algebra (W1)": ["multiplicative-best-value", "algebraic-notation-write", "inverse-proportion", "like-terms-identify"],
+  "HT3 · Week 4 (W/B 25/01/27) — Ratio (W2), Proportion (W1)": ["ratio-to-fraction", "proportion-direct-word", "ratio-combine-two", "multiplicative-recipe-scaling", "currency-convert"],
+  "HT3 · Week 5 (W/B 01/02/27) — Proportion (W2), Simple Algebra (W1)": ["multiplicative-best-value", "proportion-direct-word", "algebraic-notation-write", "like-terms-identify"],
   "HT3 · Week 6 (W/B 08/02/27) — Simple Algebra (W2)": ["like-terms-identify", "collect-like-terms-multi", "multiply-algebraic-terms", "divide-algebraic-terms-basic", "eb-single-pos", "eb-single-neg"],
-  "HT4 · Week 1 (W/B 22/02/27) — Substitution and Equations (W1)": ["substitution-one-variable", "substitution-two-variables", "solve-one-step-equation", "solve-two-step-equation"],
+  "HT4 · Week 1 (W/B 22/02/27) — Substitution and Equations (W1)": ["substitution-positive-values", "substitution-negative-values", "solve-one-step-equation", "solve-two-step-equation"],
   "HT4 · Week 2 (W/B 01/03/27) — Substitution and Equations (W2), Sequences (W1)": ["solve-two-step-equation", "seq-continue-linear", "solve-linear-brackets", "seq-term-to-term-rule", "solve-equation-both-sides-brackets", "find-nth-term-linear"],
-  "HT4 · Week 3 (W/B 08/03/27) — Sequences (W2), Averages (W1)": ["find-nth-term-linear", "averages-range-listed", "generate-terms-from-nth-term", "seq-pattern-nth-term"],
-  "HT4 · Week 4 (W/B 15/03/27) — Averages (W2)": ["averages-four-measures", "averages-missing-value-given-mean", "ungrouped-frequency-table-mean"],
-  "HT4 · Week 5 (W/B 22/03/27) — Tables and Data Collection (W1)": ["two-way-table-complete", "frequency-tree-complete", "ungrouped-freq-table-form", "timetable-read"],
-  "HT5 · Week 1 (W/B 12/04/27) — Tables and Data Collection (W2)": ["bar-chart-read-frequency", "pie-chart-angle-from-frequency", "stratified-sample-one-category", "scatter-correlation-type"],
-  "HT5 · Week 2 (W/B 19/04/27) — Tables and Data Collection (W3), Measurements and Units (W1)": ["line-of-best-fit-estimate", "metric-conversion", "suitable-unit-estimate", "capacity-mass-convert"],
-  "HT5 · Week 3 (W/B 26/04/27) — Measurements and Units (W2)": ["capacity-mass-convert", "time-units-convert", "time-duration-calc", "clock-reading", "measures-convert-area-units"],
-  "HT5 · Week 4 (W/B 03/05/27) — 2D Shapes (W1)": ["shape-naming-polygon-by-sides", "shape-properties-quadrilateral-name", "triangle-classify"],
-  "HT5 · Week 5 (W/B 10/05/27) — 2D Shapes (W2), Angles (W1)": ["shape-properties-symmetry", "angle-type-name", "symmetry-lines-rotation", "angles-on-a-line"],
-  "HT5 · Week 6 (W/B 17/05/27) — Angles (W2)": ["angles-about-a-point", "angles-vertically-opposite", "angles-triangle-sum", "angles-isosceles-triangle", "angles-quadrilateral-sum", "angles-alternate"],
+  "HT4 · Week 3 (W/B 08/03/27) — Sequences (W2), Averages (W1)": ["find-nth-term-linear", "averages-five-numbers", "generate-terms-from-nth-term", "seq-pattern-draw-next-only", "seq-pattern-count-next"],
+  "HT4 · Week 4 (W/B 15/03/27) — Averages (W2)": ["averages-five-numbers", "averages-missing-value-given-mean"],
+  "HT4 · Week 5 (W/B 22/03/27) — Tables and Data Collection (W1)": ["ungrouped-freq-table-form", "timetable-read", "bar-chart-read-frequency", "bar-chart-interpret"],
+  "HT5 · Week 1 (W/B 12/04/27) — Tables and Data Collection (W2)": ["dual-bar-chart-read", "pictogram-read", "stem-and-leaf-read", "bar-chart-interpret"],
+  "HT5 · Week 2 (W/B 19/04/27) — Tables and Data Collection (W3), Measurements and Units (W1)": ["stem-and-leaf-read", "metric-conversion", "suitable-unit-estimate", "capacity-mass-convert"],
+  "HT5 · Week 3 (W/B 26/04/27) — Measurements and Units (W2)": ["capacity-mass-convert", "time-units-convert", "time-duration-calc", "clock-reading"],
+  "HT5 · Week 4 (W/B 03/05/27) — 2D Shapes (W1)": ["shape-naming-polygon-by-sides", "shape-properties-quadrilateral-name", "triangle-classify", "circle-facts-parts"],
+  "HT5 · Week 5 (W/B 10/05/27) — 2D Shapes (W2), Angles (W1)": ["symmetry-lines-only", "shape-properties-symmetry", "angle-type-name", "symmetry-lines-rotation", "angles-on-a-line"],
+  "HT5 · Week 6 (W/B 17/05/27) — Angles (W2)": ["angles-about-a-point", "angles-vertically-opposite", "angles-triangle-sum", "angles-isosceles-triangle", "angles-quadrilateral-sum"],
   "HT5 · Week 7 (W/B 24/05/27) — Perimeter and Area (W1)": ["perimeter-polygon-calc", "area-rectangle-triangle", "area-parallelogram", "area-triangle-base-height"],
   "HT6 · Week 1 (W/B 07/06/27) — Perimeter and Area (W2), 3D Forms": ["area-triangle-base-height", "three-d-faces-edges-vertices", "area-trapezium", "solid-name-identify", "composite-rectilinear-area-perimeter", "volume-cuboid"],
   "HT6 · Week 2 (W/B 14/06/27) — Probability (W1)": ["probability-scale-words", "theoretical-probability-single", "theoretical-probability-not-event", "mutually-exclusive-missing-probability", "sample-space-spinners"],
@@ -5521,7 +5360,7 @@ const SCHEMES = {
   "Year 10 · Set 1 (2026/27)": Y10_SET1_WEEKS,
   "Year 10 · Set 2 (2026/27)": Y10_SET2_WEEKS,
   "Year 10 · Set 3 (2026/27)": Y10_SET3_WEEKS,
-  "Year 10 · Set 4 (2026/27)": Y10_SET4_WEEKS,
+  "Year 10 · Set 4 (2026/27)": Y9_SET34_WEEKS, // Year 10 Set 4 follows the same scheme as Year 9 Set 3
   "Year 7 (2026/27)": Y7_WEEKS,
   "Year 8 (2026/27)": Y8_WEEKS,
   "Year 9 · Set 1 (2026/27)": Y9_SET1_WEEKS,
@@ -8513,21 +8352,28 @@ function ProbabilityScaleSVG({ marks = [] }) {
 }
 
 // Sample-space / two-way grid. cell(r, c) returns the text in each cell.
-function SampleSpaceSVG({ corner = "", rows, cols, cell, totals }) {
-  const cw = 54, ch = 32, W = (cols.length + 1 + (totals ? 1 : 0)) * cw + 8, H = (rows.length + 1 + (totals ? 1 : 0)) * ch + 8;
+function SampleSpaceSVG({ corner = "", rows, cols, cell, totals, rowTitle, colTitle }) {
+  const cw = 54, ch = 32, titleH = colTitle ? 26 : 0, titleW = rowTitle ? 28 : 0;
   const allCols = totals ? cols.concat(["Total"]) : cols;
   const allRows = totals ? rows.concat(["Total"]) : rows;
+  const x0 = 4 + titleW, y0 = 4 + titleH;
+  const W = x0 + (allCols.length + 1) * cw + 4, H = y0 + (allRows.length + 1) * ch + 4;
+  const head = "#dde4ef";
   return (
     <svg viewBox={`0 0 ${W} ${H}`} width={Math.min(W * 1.15, 520)} style={{ maxWidth: "100%", height: "auto", display: "block", margin: "0 auto" }}>
-      {Array.from({ length: allRows.length + 2 }, (_, i) => <line key={`h${i}`} x1={4} y1={4 + i * ch} x2={4 + (allCols.length + 1) * cw} y2={4 + i * ch} stroke="#000" strokeWidth="1.2" />)}
-      {Array.from({ length: allCols.length + 2 }, (_, i) => <line key={`v${i}`} x1={4 + i * cw} y1={4} x2={4 + i * cw} y2={4 + (allRows.length + 1) * ch} stroke="#000" strokeWidth="1.2" />)}
-      <rect x={4} y={4} width={cw} height={ch} fill="#eee" stroke="#000" strokeWidth="1.2" />
-      <text x={4 + cw / 2} y={4 + ch / 2 + 5} fontSize="12" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#000">{corner}</text>
-      {allCols.map((c, j) => <text key={`c${j}`} x={4 + (j + 1) * cw + cw / 2} y={4 + ch / 2 + 5} fontSize="13.5" fontWeight="700" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#000">{c}</text>)}
-      {allRows.map((r, i) => <text key={`r${i}`} x={4 + cw / 2} y={4 + (i + 1) * ch + ch / 2 + 5} fontSize="13.5" fontWeight="700" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#000">{r}</text>)}
+      {/* shaded heading row and column, so the spinner numbers stand apart from the results */}
+      <rect x={x0} y={y0} width={(allCols.length + 1) * cw} height={ch} fill={head} />
+      <rect x={x0} y={y0} width={cw} height={(allRows.length + 1) * ch} fill={head} />
+      {Array.from({ length: allRows.length + 2 }, (_, i) => <line key={`h${i}`} x1={x0} y1={y0 + i * ch} x2={x0 + (allCols.length + 1) * cw} y2={y0 + i * ch} stroke="#000" strokeWidth="1.2" />)}
+      {Array.from({ length: allCols.length + 2 }, (_, i) => <line key={`v${i}`} x1={x0 + i * cw} y1={y0} x2={x0 + i * cw} y2={y0 + (allRows.length + 1) * ch} stroke="#000" strokeWidth="1.2" />)}
+      <text x={x0 + cw / 2} y={y0 + ch / 2 + 6} fontSize="17" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#000">{corner}</text>
+      {allCols.map((c, j) => <text key={`c${j}`} x={x0 + (j + 1) * cw + cw / 2} y={y0 + ch / 2 + 5} fontSize="14" fontWeight="700" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#000">{c}</text>)}
+      {allRows.map((r, i) => <text key={`r${i}`} x={x0 + cw / 2} y={y0 + (i + 1) * ch + ch / 2 + 5} fontSize="14" fontWeight="700" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#000">{r}</text>)}
       {allRows.map((r, i) => allCols.map((c, j) => (
-        <text key={`x${i}-${j}`} x={4 + (j + 1) * cw + cw / 2} y={4 + (i + 1) * ch + ch / 2 + 5} fontSize="13.5" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#000">{cell(i, j)}</text>
+        <text key={`x${i}-${j}`} x={x0 + (j + 1) * cw + cw / 2} y={y0 + (i + 1) * ch + ch / 2 + 5} fontSize="14" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#000">{cell(i, j)}</text>
       )))}
+      {colTitle && <text x={x0 + cw + (allCols.length * cw) / 2} y={4 + 16} fontSize="14" fontWeight="700" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#000">{colTitle}</text>}
+      {rowTitle && <text x={4 + 15} y={y0 + ch + (allRows.length * ch) / 2} fontSize="14" fontWeight="700" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#000" transform={`rotate(-90 ${4 + 15} ${y0 + ch + (allRows.length * ch) / 2})`}>{rowTitle}</text>}
     </svg>
   );
 }
@@ -8811,8 +8657,10 @@ function AngleTypeSVG({ angle, label }) {
       <line x1={V[0]} y1={V[1]} x2={T[0]} y2={T[1]} stroke="#000" strokeWidth="1.7" />
       {angle === 90
         ? <polyline points={`${V[0] + 16},${V[1]} ${V[0] + 16},${V[1] - 16} ${V[0]},${V[1] - 16}`} fill="none" stroke="#000" strokeWidth="1.2" />
-        : <path d={`M${a1[0]},${a1[1]} A${arcR},${arcR} 0 ${large} 0 ${a2[0]},${a2[1]}`} fill="none" stroke="#000" strokeWidth="1.2" />}
-      {angle !== 90 && <text x={lp[0]} y={lp[1] + 4} fontSize="14.3" fontFamily={SERIF} fontStyle="italic" textAnchor="middle" fill="#000" stroke="#fff" strokeWidth="3" paintOrder="stroke">{label}</text>}
+        : angle < 180
+          ? <AngleMark V={V} P={E} Q={T} label={label} arcR={arcR} />
+          : <path d={`M${a1[0]},${a1[1]} A${arcR},${arcR} 0 ${large} 0 ${a2[0]},${a2[1]}`} fill="none" stroke="#000" strokeWidth="1.2" />}
+      {angle >= 180 && <text x={lp[0]} y={lp[1] + 4} fontSize="14.3" fontFamily={SERIF} fontStyle="italic" textAnchor="middle" fill="#000" stroke="#fff" strokeWidth="3" paintOrder="stroke">{label}</text>}
       {angle === 90 && <text x={V[0] + 32} y={V[1] - 22} fontSize="14.3" fontFamily={SERIF} fontStyle="italic" fill="#000">{label}</text>}
       <circle cx={V[0]} cy={V[1]} r="2.4" fill="#000" />
     </svg>
@@ -8835,9 +8683,8 @@ function QuadSidesSVG({ sides }) {
 
 // Helper: line-graph on the coordinate grid for y = mx + c with lattice points marked.
 function y8LineOnGrid(m, c, extra = []) {
-  const pts = [];
-  for (let x = -5; x <= 5; x++) { const y = m * x + c; if (Math.abs(y) <= 6) pts.push({ x, y, label: "" }); }
-  return <CoordinateGridSVG points={pts.concat(extra)} lines={[{ x1: 0, y1: c, x2: 1, y2: m + c }]} />;
+  // Just the line, with no dots on it: students read the gradient and intercept from the grid.
+  return <CoordinateGridSVG points={extra} lines={[{ x1: 0, y1: c, x2: 1, y2: m + c }]} />;
 }
 // Solution of x ? t drawn on a number line centred on t.
 function y8SolutionLine(t, symbol) {
@@ -9003,7 +8850,7 @@ SUBTOPIC_BANK["line-equation-axis-parallel"] = {
     const pts = [-2, 0, 2].map((t) => (horizontal ? { x: t * 2, y: k, label: "" } : { x: k, y: t * 2, label: "" }));
     return {
       prompt: `Write down the equation of the line shown on the grid.`,
-      render: <CoordinateGridSVG points={pts} lines={[line]} />,
+      render: <CoordinateGridSVG points={[]} lines={[line]} />,
       accurateDiagram: true,
       answer: horizontal ? `y = ${k} (every point on the line has y-coordinate ${k})` : `x = ${k} (every point on the line has x-coordinate ${k})`,
     };
@@ -10384,8 +10231,12 @@ SUBTOPIC_BANK["pythagoras-distance-between-points"] = {
     const lab = (v) => (v < 0 ? "−" + Math.abs(v) : String(v));
     return {
       prompt: `Find the distance between the points (${x1}, ${y1}) and (${x2}, ${y2}). Give your answer to 1 decimal place.`,
+      // The two points and the line joining them; students draw the right-angled triangle themselves.
       render: <CoordinateGridSVG xMin={gMin} xMax={gMax} yMin={gMin} yMax={gMax} step={step}
-        points={[{ x: x1, y: y1, label: `(${lab(x1)}, ${lab(y1)})` }, { x: x2, y: y2, label: `(${lab(x2)}, ${lab(y2)})` }]}
+        points={[{ x: x1, y: y1, label: `(${lab(x1)}, ${lab(y1)})`, dx: 8, dy: 20 }, { x: x2, y: y2, label: `(${lab(x2)}, ${lab(y2)})`, dx: 8, dy: -8 }]}
+        segments={[{ x1, y1, x2, y2 }]} />,
+      answerRender: <CoordinateGridSVG xMin={gMin} xMax={gMax} yMin={gMin} yMax={gMax} step={step}
+        points={[{ x: x1, y: y1, label: `(${lab(x1)}, ${lab(y1)})`, dx: 8, dy: 20 }, { x: x2, y: y2, label: `(${lab(x2)}, ${lab(y2)})`, dx: 8, dy: -8 }]}
         segments={[{ x1, y1, x2, y2 }, { x1, y1, x2: x2, y2: y1, dash: true, color: "#777" }, { x1: x2, y1, x2, y2, dash: true, color: "#777" }]} />,
       accurateDiagram: true,
       answer: `√(${dx}² + ${dy}²) = √(${dx * dx} + ${dy * dy}) = ${dist.toFixed(1)}`,
@@ -10706,6 +10557,906 @@ SUBTOPIC_BANK["solve-inequality-fraction"] = {
       prompt: <>Solve <Frac n="x" d={p} /> {b !== 0 && pm(b)} {symbol} {rhs}</>,
       answer: `x ${symbol} ${xThreshold}`,
       answerRender: y8SolutionLine(xThreshold, symbol),
+    };
+  },
+};
+
+/* ---------- Year 9 Set 3 / Year 10 Set 4 refinements ----------
+   These two classes follow the same scheme. New question types here are used
+   by that scheme only (so other classes keep their own questions); a few
+   shared question types are improved for everyone: the recipe and probability
+   tables, the prime numbers capped under 70, and the clearer sample space. */
+const lcm2 = (a, b) => (a / gcd(a, b)) * b;
+const moneyGBP = (v) => `£${(Math.round(v * 100) / 100).toFixed(2)}`;
+
+// A small ruled table that prints cleanly: bold shaded headings, black borders.
+function PaperTable({ head, rows }) {
+  const base = { border: "1.2px solid #000", padding: "4px 12px", textAlign: "center", fontSize: 14, fontFamily: "Arial, sans-serif", color: "#000" };
+  return (
+    <table style={{ borderCollapse: "collapse", background: "#fff" }}>
+      {head && <thead><tr>{head.map((h, i) => <th key={i} style={{ ...base, background: "#e9edf3", fontWeight: 700 }}>{h}</th>)}</tr></thead>}
+      <tbody>{rows.map((r, i) => (
+        <tr key={i}>{r.map((c, j) => <td key={j} style={{ ...base, height: 30, minWidth: 54, background: j === 0 && head ? "#e9edf3" : "#fff", fontWeight: j === 0 ? 700 : 400 }}>{c}</td>)}</tr>
+      ))}</tbody>
+    </table>
+  );
+}
+
+// Two bars per category, with a key.
+function DualBarChartSVG({ categories, a, b, labelA, labelB, yLabel = "Frequency" }) {
+  const boxW = 380, boxH = 262, padL = 46, padR = 12, padT = 40, padB = 44;
+  const maxV = Math.max(...a, ...b);
+  const step = maxV <= 10 ? 1 : maxV <= 20 ? 2 : 5;
+  const axisMax = (Math.floor(maxV / step) + 1) * step;
+  const gap = (boxW - padL - padR) / categories.length;
+  const barW = gap * 0.34;
+  const yOf = (v) => padT + (boxH - padT - padB) * (1 - v / axisMax);
+  const ticks = [];
+  for (let t = 0; t <= axisMax; t += step) ticks.push(t);
+  return (
+    <svg viewBox={`0 0 ${boxW} ${boxH}`} width={boxW} style={{ maxWidth: "100%", height: "auto", display: "block" }}>
+      {ticks.map((t) => (
+        <g key={t}>
+          <line x1={padL} y1={yOf(t)} x2={boxW - padR} y2={yOf(t)} stroke="#d5d5d5" strokeWidth="1" />
+          <text x={padL - 6} y={yOf(t) + 3.5} fontSize="10.5" fontFamily="Arial, sans-serif" textAnchor="end" fill="#333">{t}</text>
+        </g>
+      ))}
+      <line x1={padL} y1={padT} x2={padL} y2={boxH - padB} stroke="#000" strokeWidth="1.4" />
+      <line x1={padL} y1={boxH - padB} x2={boxW - padR} y2={boxH - padB} stroke="#000" strokeWidth="1.4" />
+      {categories.map((c, i) => {
+        const x = padL + gap * i + (gap - 2 * barW) / 2;
+        return (
+          <g key={i}>
+            <rect x={x} y={yOf(a[i])} width={barW} height={boxH - padB - yOf(a[i])} fill="#fff" stroke="#000" strokeWidth="1.3" />
+            <rect x={x + barW} y={yOf(b[i])} width={barW} height={boxH - padB - yOf(b[i])} fill="#9aa6b8" stroke="#000" strokeWidth="1.3" />
+            <text x={x + barW} y={boxH - padB + 15} fontSize="11.5" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#000">{c}</text>
+          </g>
+        );
+      })}
+      <text x={12} y={(padT + boxH - padB) / 2} fontSize="11" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#333" transform={`rotate(-90 12 ${(padT + boxH - padB) / 2})`}>{yLabel}</text>
+      <rect x={padL + 6} y={10} width={14} height={14} fill="#fff" stroke="#000" strokeWidth="1.3" />
+      <text x={padL + 26} y={22} fontSize="12" fontFamily="Arial, sans-serif" fill="#000">{labelA}</text>
+      <rect x={padL + 110} y={10} width={14} height={14} fill="#9aa6b8" stroke="#000" strokeWidth="1.3" />
+      <text x={padL + 130} y={22} fontSize="12" fontFamily="Arial, sans-serif" fill="#000">{labelB}</text>
+    </svg>
+  );
+}
+
+// Pictogram: each symbol stands for `per`; a half symbol stands for half of it.
+function PictogramSVG({ rows, per, noun }) {
+  const R = 10, stepX = 26, labelW = 92, rowH = 32;
+  const maxSym = Math.max(...rows.map((r) => Math.ceil(r.n / per)));
+  const W = labelW + maxSym * stepX + 16, H = rows.length * rowH + 52;
+  const full = (cx, cy, k) => <circle key={k} cx={cx} cy={cy} r={R} fill="#dce6f5" stroke="#1f3d66" strokeWidth="1.5" />;
+  const half = (cx, cy, k) => <path key={k} d={`M${cx},${cy - R} A${R},${R} 0 0 0 ${cx},${cy + R} Z`} fill="#dce6f5" stroke="#1f3d66" strokeWidth="1.5" />;
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} width={W} style={{ maxWidth: "100%", height: "auto", display: "block" }}>
+      {rows.map((r, i) => {
+        const cy = 20 + i * rowH, fullN = Math.floor(r.n / per), hasHalf = r.n % per !== 0;
+        return (
+          <g key={i}>
+            <line x1={4} y1={cy + rowH / 2} x2={W - 4} y2={cy + rowH / 2} stroke="#d5d5d5" strokeWidth="1" />
+            <text x={4} y={cy + 5} fontSize="14" fontFamily="Arial, sans-serif" fill="#000">{r.label}</text>
+            {Array.from({ length: fullN }, (_, k) => full(labelW + k * stepX + R, cy, k))}
+            {hasHalf && half(labelW + fullN * stepX + R, cy, "h")}
+          </g>
+        );
+      })}
+      {full(14, H - 18, "key")}
+      <text x={30} y={H - 13} fontSize="13" fontFamily="Arial, sans-serif" fill="#000">{`Key:  = ${per} ${noun}`}</text>
+    </svg>
+  );
+}
+
+// Stem and leaf diagram. `stems` is [{ stem, leaves: [digits] }].
+function StemLeafSVG({ stems, keyText }) {
+  const rowH = 24, stemX = 38, lineX = 48, leafX = 60, leafStep = 17;
+  const maxLeaves = Math.max(...stems.map((s0) => s0.leaves.length));
+  const W = leafX + maxLeaves * leafStep + 14, H = (stems.length + 1) * rowH + 40;
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} width={W} style={{ maxWidth: "100%", height: "auto", display: "block" }}>
+      <text x={stemX} y={18} fontSize="13" fontWeight="700" fontFamily="Arial, sans-serif" textAnchor="end" fill="#000">Stem</text>
+      <text x={leafX} y={18} fontSize="13" fontWeight="700" fontFamily="Arial, sans-serif" fill="#000">Leaf</text>
+      <line x1={4} y1={24} x2={W - 6} y2={24} stroke="#000" strokeWidth="1.2" />
+      <line x1={lineX} y1={6} x2={lineX} y2={24 + stems.length * rowH + 4} stroke="#000" strokeWidth="1.4" />
+      {stems.map((st, i) => (
+        <g key={i}>
+          <text x={stemX} y={24 + (i + 1) * rowH - 6} fontSize="14" fontFamily="Arial, sans-serif" textAnchor="end" fill="#000">{st.stem}</text>
+          {st.leaves.map((lf, k) => <text key={k} x={leafX + k * leafStep} y={24 + (i + 1) * rowH - 6} fontSize="14" fontFamily="Arial, sans-serif" fill="#000">{lf}</text>)}
+        </g>
+      ))}
+      <text x={4} y={H - 8} fontSize="12" fontFamily="Arial, sans-serif" fill="#000">{keyText}</text>
+    </svg>
+  );
+}
+
+/* --- shared question types, improved --- */
+SUBTOPIC_BANK["number-properties-prime-or-composite"] = {
+  topic: "Number Properties", title: "Determine whether a number is prime, giving a reason", marks: 2,
+  build(rng) {
+    // Every number is under 70, so students only test 2, 3, 5 and 7.
+    const primes = [11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67];
+    const composites = [{ n: 33, f: 3 }, { n: 39, f: 3 }, { n: 49, f: 7 }, { n: 51, f: 3 }, { n: 55, f: 5 }, { n: 57, f: 3 }, { n: 63, f: 7 }, { n: 65, f: 5 }, { n: 69, f: 3 }];
+    if (pick(rng, [true, false])) {
+      const p = pick(rng, primes);
+      return { prompt: `Is ${p} a prime number? Explain your answer.`, answer: `Yes — ${p} is not divisible by 2, 3, 5 or 7, so its only factors are 1 and itself.` };
+    }
+    const c = pick(rng, composites);
+    return { prompt: `Is ${c.n} a prime number? Explain your answer.`, answer: `No — ${c.n} = ${c.f} × ${c.n / c.f}, so it has factors other than 1 and itself.` };
+  },
+};
+
+SUBTOPIC_BANK["multiplicative-recipe-scaling"] = {
+  topic: "Multiplicative Reasoning", title: "Scale a recipe using ratios", marks: 3,
+  build(rng) {
+    const ingredients = pick(rng, [
+      [{ name: "flour", unit: "g", amt: 200 }, { name: "sugar", unit: "g", amt: 100 }, { name: "butter", unit: "g", amt: 150 }],
+      [{ name: "rice", unit: "g", amt: 250 }, { name: "stock", unit: "ml", amt: 500 }, { name: "peas", unit: "g", amt: 80 }],
+      [{ name: "pasta", unit: "g", amt: 300 }, { name: "tomatoes", unit: "g", amt: 400 }, { name: "cheese", unit: "g", amt: 60 }],
+    ]);
+    const baseServings = pick(rng, [4, 6, 8]);
+    const multiplier = pick(rng, [1.5, 2, 2.5, 3]);
+    const newServings = Math.round(baseServings * multiplier);
+    const askIdx = seededInt(rng, 0, ingredients.length - 1);
+    const scaledAmt = ingredients[askIdx].amt * multiplier;
+    const cap = (t) => t.charAt(0).toUpperCase() + t.slice(1);
+    return {
+      prompt: `The table shows the ingredients for a recipe for ${baseServings} people. What quantity of ${ingredients[askIdx].name} is needed for ${newServings} people?`,
+      render: <PaperTable head={["Ingredient", `Amount for ${baseServings} people`]} rows={ingredients.map((i) => [cap(i.name), `${i.amt} ${i.unit}`])} />,
+      accurateDiagram: true,
+      answer: <>{ingredients[askIdx].amt} × (<Frac n={newServings} d={baseServings} />) = {scaledAmt}{ingredients[askIdx].unit}</>,
+    };
+  },
+};
+
+SUBTOPIC_BANK["mutually-exclusive-missing-probability"] = {
+  topic: "Theoretical Probabilities & Mutually Exclusive Events", title: "Find a missing probability for mutually exclusive events", marks: 2,
+  build(rng) {
+    const denom = pick(rng, [10, 12, 20, 25]);
+    const colours = pick(rng, [["red", "blue", "green"], ["red", "blue", "yellow"], ["red", "green", "yellow"], ["blue", "green", "yellow"]]);
+    const a = seededInt(rng, 1, denom - 3);
+    const b = seededInt(rng, 1, denom - a - 2);
+    const vals = [a, b, denom - a - b];
+    const blank = seededInt(rng, 0, 2);
+    const known = vals.map((v, i) => ({ v, i })).filter((x) => x.i !== blank);
+    const cap = (t) => t.charAt(0).toUpperCase() + t.slice(1);
+    return {
+      prompt: `A spinner can land on ${colours[0]}, ${colours[1]} or ${colours[2]}. The table shows the probability of each outcome. Work out the missing probability.`,
+      render: <PaperTable head={["Colour", ...colours.map(cap)]} rows={[["Probability", ...vals.map((v, i) => (i === blank ? "" : <Frac n={v} d={denom} />))]]} />,
+      accurateDiagram: true,
+      answer: <>1 − <Frac n={known[0].v} d={denom} /> − <Frac n={known[1].v} d={denom} /> = <Frac n={vals[blank]} d={denom} /></>,
+    };
+  },
+};
+
+SUBTOPIC_BANK["sample-space-spinners"] = {
+  topic: "Probability", title: "Use a sample space for two spinners", marks: 3,
+  build(rng) {
+    const s1 = [1, 2, 3], s2 = [1, 2, 3, 4];
+    const op = pick(rng, ["+", "×"]);
+    const word = op === "+" ? "total" : "product";
+    const val = (a, b) => (op === "+" ? a + b : a * b);
+    const all = [];
+    s1.forEach((a) => s2.forEach((b) => all.push(val(a, b))));
+    const askKind = pick(rng, ["equal", "greater", "even"]);
+    const uniq = [...new Set(all)];
+    const target = pick(rng, uniq.filter((v) => (askKind === "equal" ? true : askKind === "greater" ? v < Math.max(...all) && v > Math.min(...all) : true)));
+    let count, text;
+    if (askKind === "equal") { count = all.filter((v) => v === target).length; text = `the ${word} is ${target}`; }
+    else if (askKind === "greater") { count = all.filter((v) => v > target).length; text = `the ${word} is greater than ${target}`; }
+    else { count = all.filter((v) => v % 2 === 0).length; text = `the ${word} is even`; }
+    const g = gcd(count || 1, 12);
+    return {
+      prompt: `Spinner A has the numbers 1, 2, 3 and Spinner B has the numbers 1, 2, 3, 4. Both spinners are spun and the scores are ${op === "+" ? "added" : "multiplied"}. The sample space shows the ${word} for each pair of scores. Find the probability that ${text}.`,
+      render: <SampleSpaceSVG corner={op} rows={s1} cols={s2} rowTitle="Spinner A" colTitle="Spinner B" cell={(i, j) => String(val(s1[i], s2[j]))} />,
+      accurateDiagram: true,
+      answer: count === 0 ? "0" : <><Frac n={count} d={12} />{g > 1 && <> = <Frac n={count / g} d={12 / g} /></>} ({count} of the 12 outcomes)</>,
+    };
+  },
+};
+
+/* --- fractions --- */
+SUBTOPIC_BANK["frac-compare-same-denom"] = {
+  topic: "Fractions", title: "Compare fractions with the same denominator", marks: 1,
+  build(rng) {
+    const d = pick(rng, [5, 6, 7, 8, 9, 10, 11, 12]);
+    const mode = pick(rng, ["greater", "insert", "order"]);
+    if (mode === "order") {
+      const ns = [];
+      while (ns.length < 3) { const v = seededInt(rng, 1, d - 1); if (!ns.includes(v)) ns.push(v); }
+      const sorted = ns.slice().sort((x, y) => x - y);
+      const list = (arr) => arr.map((n, i) => <React.Fragment key={i}>{i ? ",  " : ""}<Frac n={n} d={d} /></React.Fragment>);
+      return {
+        prompt: <>Write these fractions in order, smallest first: {list(ns)}</>,
+        answer: <>{list(sorted)} (the denominators are the same, so order the numerators)</>,
+      };
+    }
+    const a = seededInt(rng, 1, d - 1);
+    let b = seededInt(rng, 1, d - 1);
+    while (b === a) b = seededInt(rng, 1, d - 1);
+    if (mode === "greater") {
+      return {
+        prompt: <>Which is greater, <Frac n={a} d={d} /> or <Frac n={b} d={d} />?</>,
+        answer: <><Frac n={Math.max(a, b)} d={d} /> (the denominators are the same, so compare the numerators {a} and {b})</>,
+      };
+    }
+    return {
+      prompt: <>Insert &lt; or &gt; to compare <Frac n={a} d={d} /> and <Frac n={b} d={d} /></>,
+      answer: <><Frac n={a} d={d} /> {a > b ? ">" : "<"} <Frac n={b} d={d} /> (same denominator, so compare {a} and {b})</>,
+    };
+  },
+};
+
+SUBTOPIC_BANK["frac-compare-make-same-denom"] = {
+  topic: "Fractions", title: "Compare fractions by making the denominators the same", marks: 2,
+  build(rng) {
+    const multiples = [[2, 4], [2, 6], [3, 6], [3, 9], [4, 8], [5, 10], [4, 12], [6, 12], [3, 12], [2, 8], [5, 15], [2, 10]];
+    const coprime = [[2, 3], [3, 4], [2, 5], [3, 5], [4, 5], [3, 7]];
+    let out = null;
+    for (let t = 0; t < 60 && !out; t++) {
+      let [d1, d2] = pick(rng, rng() < 0.7 ? multiples : coprime);
+      if (rng() < 0.5) [d1, d2] = [d2, d1];
+      const n1 = seededInt(rng, 1, d1 - 1), n2 = seededInt(rng, 1, d2 - 1);
+      const L = lcm2(d1, d2), c1 = (n1 * L) / d1, c2 = (n2 * L) / d2;
+      if (c1 !== c2) out = { d1, d2, n1, n2, L, c1, c2 };
+    }
+    if (!out) out = { d1: 3, d2: 6, n1: 2, n2: 5, L: 6, c1: 4, c2: 5 };
+    const { d1, d2, n1, n2, L, c1, c2 } = out;
+    const mode = pick(rng, ["greater", "insert"]);
+    const working = <>With denominator {L}: <Frac n={c1} d={L} /> and <Frac n={c2} d={L} />, so </>;
+    if (mode === "greater") {
+      const bigger = c1 > c2 ? [n1, d1] : [n2, d2];
+      return {
+        prompt: <>Which is greater, <Frac n={n1} d={d1} /> or <Frac n={n2} d={d2} />? Write both fractions with the same denominator to help you.</>,
+        answer: <>{working}<Frac n={bigger[0]} d={bigger[1]} /> is greater</>,
+      };
+    }
+    return {
+      prompt: <>Insert &lt; or &gt; to compare <Frac n={n1} d={d1} /> and <Frac n={n2} d={d2} />. Write both fractions with the same denominator first.</>,
+      answer: <>{working}<Frac n={n1} d={d1} /> {c1 > c2 ? ">" : "<"} <Frac n={n2} d={d2} /></>,
+    };
+  },
+};
+
+SUBTOPIC_BANK["frac-to-decimal-convert"] = {
+  topic: "Fractions, Decimals & Percentages", title: "Convert a fraction to a decimal", marks: 2,
+  build(rng) {
+    const pool = [[1, 2], [1, 4], [3, 4], [1, 5], [2, 5], [3, 5], [4, 5], [1, 8], [3, 8], [5, 8], [7, 8], [3, 10], [7, 10], [9, 10], [3, 20], [7, 20], [9, 20], [11, 20], [13, 20], [17, 20], [3, 25], [7, 25], [9, 25], [11, 25], [3, 40], [7, 50], [9, 50]];
+    const [n, d] = pick(rng, pool);
+    return {
+      prompt: pick(rng, [true, false]) ? <>Convert <Frac n={n} d={d} /> to a decimal.</> : <>Write <Frac n={n} d={d} /> as a decimal.</>,
+      answer: <>{n} ÷ {d} = {y7num(n / d)}</>,
+    };
+  },
+};
+
+/* --- percentages --- */
+SUBTOPIC_BANK["percent-express-factor-100"] = {
+  topic: "Percentages", title: "Write one number as a percentage of another (denominator a factor of 100)", marks: 2,
+  build(rng) {
+    const den = pick(rng, [4, 5, 10, 20, 25, 50]);
+    const mult = 100 / den;
+    const num = seededInt(rng, 1, den - 1);
+    const text = pick(rng, [`Express ${num} as a percentage of ${den}.`, `Write ${num} out of ${den} as a percentage.`, `In a test, Sam scored ${num} out of ${den}. Write his score as a percentage.`]);
+    return { prompt: text, answer: <><Frac n={num} d={den} /> = <Frac n={num * mult} d={100} /> = {num * mult}% (multiply top and bottom by {mult})</> };
+  },
+};
+SUBTOPIC_BANK["percent-express-simplify"] = {
+  topic: "Percentages", title: "Write one number as a percentage of another (simplify first)", marks: 3,
+  build(rng) {
+    let out = null;
+    for (let t = 0; t < 80 && !out; t++) {
+      const q = pick(rng, [2, 4, 5, 10, 20, 25]);
+      const p = seededInt(rng, 1, q - 1);
+      const k = pick(rng, [3, 4, 6, 7, 8, 9, 11, 12, 15]);
+      if (gcd(p, q) !== 1 || 100 % (q * k) === 0 || q * k > 100) continue;
+      out = { p, q, num: p * k, den: q * k };
+    }
+    if (!out) out = { p: 3, q: 4, num: 21, den: 28 };
+    const { p, q, num, den } = out;
+    return {
+      prompt: pick(rng, [`Express ${num} as a percentage of ${den}.`, `Write ${num} out of ${den} as a percentage.`]),
+      answer: <><Frac n={num} d={den} /> = <Frac n={p} d={q} /> = {(p * 100) / q}% (simplify first)</>,
+    };
+  },
+};
+
+SUBTOPIC_BANK["percent-increase-decrease-easy"] = {
+  topic: "Percentages", title: "Increase or decrease an amount by an easy percentage (no calculator)", marks: 2,
+  build(rng) {
+    // Easy percentages only, with amounts picked so every step can be done in your head.
+    const pool = {
+      10: [30, 40, 60, 80, 90, 120, 150, 200, 250], 20: [20, 40, 60, 80, 100, 120, 150, 200],
+      25: [8, 12, 16, 20, 24, 32, 40, 60, 80, 100, 120, 160], 30: [20, 30, 40, 50, 60, 80, 100, 200],
+      40: [20, 30, 40, 50, 60, 80, 100, 150, 200], 50: [10, 24, 36, 50, 70, 90, 120, 150, 200],
+      75: [8, 12, 16, 20, 24, 40, 60, 80, 100, 120, 160],
+    };
+    const p = pick(rng, Object.keys(pool).map(Number));
+    const amt = pick(rng, pool[p]);
+    const change = (amt * p) / 100;
+    const up = rng() < 0.5;
+    const res = up ? amt + change : amt - change;
+    const form = pick(rng, ["plain", "shop"]);
+    const item = pick(rng, ["jacket", "bike", "games console", "pair of trainers", "coat", "watch"]);
+    let prompt;
+    if (form === "plain") prompt = `${up ? "Increase" : "Decrease"} £${amt} by ${p}%.`;
+    else prompt = up ? `A ${item} costs £${amt}. The price goes up by ${p}%. Work out the new price.` : `A ${item} costs £${amt}. In a sale the price is reduced by ${p}%. Work out the sale price.`;
+    const how = p === 10 ? "10% = £" + y7num(amt / 10) : p === 50 ? "50% = half = £" + y7num(change) : p === 25 ? "25% = a quarter = £" + y7num(change) : p === 75 ? "75% = three quarters = £" + y7num(change) : `${p}% of £${amt} = £${y7num(change)}`;
+    return { prompt, answer: `${how}; £${amt} ${up ? "+" : "−"} £${y7num(change)} = £${y7num(res)}` };
+  },
+};
+
+/* --- proportion: basic direct proportion word problems only --- */
+SUBTOPIC_BANK["proportion-direct-word"] = {
+  topic: "Proportion", title: "Direct proportion word problem (unitary method)", marks: 2,
+  build(rng) {
+    const family = pick(rng, ["cost", "wages", "coverage"]);
+    if (family === "cost") {
+      const item = pick(rng, ["notebooks", "pens", "bottles of water", "sandwiches", "tickets"]);
+      const price = pick(rng, [0.4, 0.5, 0.6, 0.75, 0.8, 1.2, 1.5, 2.5, 3.5]);
+      const n1 = pick(rng, [3, 4, 5, 6, 8]);
+      let n2 = pick(rng, [7, 9, 10, 12, 15]);
+      if (n2 === n1) n2 += 1;
+      return {
+        prompt: `${n1} ${item} cost ${moneyGBP(n1 * price)}. Work out the cost of ${n2} ${item}.`,
+        answer: `1 → ${moneyGBP(n1 * price)} ÷ ${n1} = ${moneyGBP(price)}; ${n2} → ${n2} × ${moneyGBP(price)} = ${moneyGBP(n2 * price)}`,
+      };
+    }
+    if (family === "wages") {
+      const name = pick(rng, ["Priya", "Tom", "Aisha", "Callum"]);
+      const rate = pick(rng, [8, 9, 10, 12, 15]);
+      const h1 = pick(rng, [3, 4, 5, 6]);
+      const h2 = pick(rng, [7, 8, 9, 10]);
+      return {
+        prompt: `${name} is paid ${moneyGBP(h1 * rate)} for ${h1} hours of work. How much is ${name} paid for ${h2} hours at the same rate?`,
+        answer: `1 hour → ${moneyGBP(h1 * rate)} ÷ ${h1} = ${moneyGBP(rate)}; ${h2} hours → ${h2} × ${moneyGBP(rate)} = ${moneyGBP(h2 * rate)}`,
+      };
+    }
+    const perTin = pick(rng, [4, 6, 8, 9, 12]);
+    const t1 = pick(rng, [2, 3, 4, 5]);
+    const t2 = pick(rng, [6, 7, 8, 9]);
+    return {
+      prompt: `${t1} tins of paint cover ${t1 * perTin} m² of wall. How many square metres will ${t2} tins cover?`,
+      answer: `1 tin → ${t1 * perTin} ÷ ${t1} = ${perTin} m²; ${t2} tins → ${t2} × ${perTin} = ${t2 * perTin} m²`,
+    };
+  },
+};
+
+/* --- substitution: positive values, and negative values --- */
+SUBTOPIC_BANK["substitution-positive-values"] = {
+  topic: "Substitution", title: "Substitute positive numbers into an expression", marks: 2,
+  build(rng) {
+    const form = pick(rng, ["ax+b", "ax-b", "x2+b", "a(x+b)", "ax+by"]);
+    const a = seededInt(rng, 2, 8), b = seededInt(rng, 2, 9), x = seededInt(rng, 1, 9);
+    if (form === "ax+b") return { prompt: `Work out the value of ${a}x + ${b} when x = ${x}`, answer: `${a}×${x} + ${b} = ${a * x} + ${b} = ${a * x + b}` };
+    if (form === "ax-b") { const xx = Math.max(x, Math.ceil(b / a) + 1); return { prompt: `Work out the value of ${a}x − ${b} when x = ${xx}`, answer: `${a}×${xx} − ${b} = ${a * xx} − ${b} = ${a * xx - b}` }; }
+    if (form === "x2+b") { const xx = seededInt(rng, 2, 7); return { prompt: `Work out the value of x² + ${b} when x = ${xx}`, answer: `${xx}² + ${b} = ${xx * xx} + ${b} = ${xx * xx + b}` }; }
+    if (form === "a(x+b)") return { prompt: `Work out the value of ${a}(x + ${b}) when x = ${x}`, answer: `${a}×(${x} + ${b}) = ${a}×${x + b} = ${a * (x + b)}` };
+    const y = seededInt(rng, 1, 8);
+    return { prompt: `Work out the value of ${a}x + ${b}y when x = ${x} and y = ${y}`, answer: `${a}×${x} + ${b}×${y} = ${a * x} + ${b * y} = ${a * x + b * y}` };
+  },
+};
+SUBTOPIC_BANK["substitution-negative-values"] = {
+  topic: "Substitution", title: "Substitute negative numbers into an expression", marks: 3,
+  build(rng) {
+    const form = pick(rng, ["ax+b", "b-ax", "x2+b", "ax-b", "ax+by"]);
+    const a = seededInt(rng, 2, 7), b = seededInt(rng, 2, 9), x = -seededInt(rng, 1, 8);
+    if (form === "ax+b") return { prompt: `Work out the value of ${a}x + ${b} when x = ${x}`, answer: `${a}×(${x}) + ${b} = ${a * x} + ${b} = ${a * x + b}` };
+    if (form === "b-ax") return { prompt: `Work out the value of ${b} − ${a}x when x = ${x}`, answer: `${b} − ${a}×(${x}) = ${b} − (${a * x}) = ${b} + ${-a * x} = ${b - a * x}` };
+    if (form === "x2+b") return { prompt: `Work out the value of x² + ${b} when x = ${x}`, answer: `(${x})² + ${b} = ${x * x} + ${b} = ${x * x + b}` };
+    if (form === "ax-b") return { prompt: `Work out the value of ${a}x − ${b} when x = ${x}`, answer: `${a}×(${x}) − ${b} = ${a * x} − ${b} = ${a * x - b}` };
+    const y = pick(rng, [-1, 1]) * seededInt(rng, 1, 6);
+    return { prompt: `Work out the value of ${a}x + ${b}y when x = ${x} and y = ${y}`, answer: `${a}×(${x}) + ${b}×(${y}) = ${a * x} ${y < 0 ? "−" : "+"} ${Math.abs(b * y)} = ${a * x + b * y}` };
+  },
+};
+
+/* --- sequences: pattern questions that are drawn or counted --- */
+SUBTOPIC_BANK["seq-pattern-draw-next-only"] = {
+  topic: "Sequences", title: "Draw the next pattern in a sequence", marks: 2,
+  build(rng) {
+    const { kind, p, unit, count } = y7PatternSpec(rng);
+    return {
+      prompt: `Here are the first three patterns in a sequence. Draw Pattern 4 in the dashed box.`,
+      render: <PatternSVG kind={kind} p={p} indices={[1, 2, 3]} blankIndex={4} />,
+      accurateDiagram: true,
+      answer: `Pattern 4 uses ${count(4)} ${unit} (drawn below).`,
+      answerRender: <PatternSVG kind={kind} p={p} indices={[4]} />,
+    };
+  },
+};
+SUBTOPIC_BANK["seq-pattern-count-next"] = {
+  topic: "Sequences", title: "Count the shapes in a later pattern", marks: 2,
+  build(rng) {
+    const { kind, p, unit, count } = y7PatternSpec(rng);
+    const n = pick(rng, [4, 5]);
+    const d = count(2) - count(1);
+    return {
+      prompt: `The diagram shows the first three patterns in a sequence. How many ${unit} are in Pattern ${n}?`,
+      render: <PatternSVG kind={kind} p={p} indices={[1, 2, 3]} />,
+      accurateDiagram: true,
+      answer: `${[1, 2, 3].map(count).join(", ")}, … goes up by ${d} each time, so Pattern ${n} has ${count(n)} ${unit}.`,
+      answerRender: <PatternSVG kind={kind} p={p} indices={[n]} />,
+    };
+  },
+};
+
+/* --- averages from a list of five numbers; mean, mode, median and range all differ --- */
+SUBTOPIC_BANK["averages-five-numbers"] = {
+  topic: "Averages & Range", title: "Find the mode, median, mean and range of five numbers", marks: 4,
+  build(rng) {
+    let data = null;
+    for (let t = 0; t < 600 && !data; t++) {
+      const m = seededInt(rng, 2, 9);
+      const set = [m, m];
+      while (set.length < 5) {
+        const v = seededInt(rng, 1, 15);
+        if (v !== m && !set.includes(v)) set.push(v);
+      }
+      const sum = set.reduce((a, v) => a + v, 0);
+      if (sum % 5 !== 0) continue;
+      const sorted = set.slice().sort((x, y) => x - y);
+      const mean = sum / 5, median = sorted[2], range = sorted[4] - sorted[0];
+      if (new Set([m, mean, median, range]).size === 4) data = { m, mean, median, range, sorted, list: y7shuffle(rng, set) };
+    }
+    if (!data) data = { m: 4, mean: 6, median: 5, range: 9, sorted: [4, 4, 5, 8, 9], list: [4, 9, 4, 8, 5] };
+    return {
+      prompt: `Here are five numbers: ${data.list.join(", ")}. Work out the mode, median, mean and range.`,
+      answer: `Mode ${data.m}; median ${data.median} (ordered: ${data.sorted.join(", ")}); mean ${data.sorted.reduce((a, v) => a + v, 0)} ÷ 5 = ${data.mean}; range ${data.sorted[4]} − ${data.sorted[0]} = ${data.range}`,
+    };
+  },
+};
+
+/* --- reading charts: bar charts, dual bar charts, pictograms, stem and leaf --- */
+SUBTOPIC_BANK["bar-chart-interpret"] = {
+  topic: "Bar Charts", title: "Interpret a bar chart", marks: 2,
+  build(rng) {
+    const opt = pick(rng, [
+      { label: "pet", cats: ["Cat", "Dog", "Fish", "Bird", "Rabbit"] },
+      { label: "way to travel to school", cats: ["Bus", "Car", "Bike", "Walk", "Train"] },
+      { label: "colour", cats: ["Red", "Blue", "Green", "Yellow", "Pink"] },
+    ]);
+    let values;
+    do { values = opt.cats.map(() => seededInt(rng, 3, 18)); } while (new Set(values).size < values.length);
+    const total = values.reduce((s, v) => s + v, 0);
+    const i = seededInt(rng, 0, opt.cats.length - 1);
+    let j = seededInt(rng, 0, opt.cats.length - 1);
+    while (j === i) j = seededInt(rng, 0, opt.cats.length - 1);
+    const kind = pick(rng, ["most", "difference", "total", "fewest"]);
+    const top = values.indexOf(Math.max(...values)), low = values.indexOf(Math.min(...values));
+    let prompt, answer;
+    if (kind === "most") { prompt = `The bar chart shows the favourite ${opt.label} of some students. Which was the most popular?`; answer = `${opt.cats[top]} (${values[top]} students)`; }
+    else if (kind === "fewest") { prompt = `The bar chart shows the favourite ${opt.label} of some students. Which was the least popular?`; answer = `${opt.cats[low]} (${values[low]} students)`; }
+    else if (kind === "difference") { prompt = `The bar chart shows the favourite ${opt.label} of some students. How many more students chose ${opt.cats[i]} than ${opt.cats[j]}? (If ${opt.cats[i]} was chosen by fewer students, work out how many fewer.)`; answer = `${Math.abs(values[i] - values[j])} (${values[i]} and ${values[j]})`; }
+    else { prompt = `The bar chart shows the favourite ${opt.label} of some students. How many students were asked altogether?`; answer = `${values.join(" + ")} = ${total}`; }
+    return { prompt, accurateDiagram: true, render: <BarChartSVG categories={opt.cats} values={values} />, answer };
+  },
+};
+
+SUBTOPIC_BANK["dual-bar-chart-read"] = {
+  topic: "Bar Charts", title: "Interpret a dual bar chart", marks: 2,
+  build(rng) {
+    const set = pick(rng, [
+      { cats: ["Football", "Netball", "Tennis", "Swimming"], a: "Year 8", b: "Year 9", what: "favourite sport" },
+      { cats: ["Pizza", "Pasta", "Curry", "Salad"], a: "Boys", b: "Girls", what: "favourite food" },
+      { cats: ["Cats", "Dogs", "Fish", "Birds"], a: "Class 8A", b: "Class 8B", what: "favourite pet" },
+    ]);
+    const A = set.cats.map(() => seededInt(rng, 3, 18));
+    let B = set.cats.map((_, k) => { let v; do { v = seededInt(rng, 3, 18); } while (v === A[k]); return v; });
+    const k = seededInt(rng, 0, set.cats.length - 1);
+    const kind = pick(rng, ["read", "difference", "total"]);
+    let prompt, answer;
+    if (kind === "read") { const g = pick(rng, [0, 1]); prompt = `The dual bar chart shows the ${set.what} of ${set.a} and ${set.b} students. How many ${g ? set.b : set.a} students chose ${set.cats[k]}?`; answer = `${g ? B[k] : A[k]}`; }
+    else if (kind === "difference") { prompt = `The dual bar chart shows the ${set.what} of ${set.a} and ${set.b} students. How many more ${A[k] > B[k] ? set.a : set.b} students than ${A[k] > B[k] ? set.b : set.a} students chose ${set.cats[k]}?`; answer = `${Math.abs(A[k] - B[k])} (${Math.max(A[k], B[k])} − ${Math.min(A[k], B[k])})`; }
+    else { prompt = `The dual bar chart shows the ${set.what} of ${set.a} and ${set.b} students. How many students chose ${set.cats[k]} altogether?`; answer = `${A[k]} + ${B[k]} = ${A[k] + B[k]}`; }
+    return { prompt, accurateDiagram: true, render: <DualBarChartSVG categories={set.cats} a={A} b={B} labelA={set.a} labelB={set.b} />, answer };
+  },
+};
+
+SUBTOPIC_BANK["pictogram-read"] = {
+  topic: "Pictograms", title: "Read a pictogram", marks: 2,
+  build(rng) {
+    const set = pick(rng, [
+      { noun: "books", labels: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"], what: "books read in a week" },
+      { noun: "pupils", labels: ["Bus", "Car", "Bike", "Walk"], what: "ways pupils travel to school" },
+      { noun: "ice creams", labels: ["Vanilla", "Chocolate", "Strawberry", "Mint"], what: "ice creams sold" },
+    ]);
+    const per = pick(rng, [2, 4, 10]);
+    const rows = set.labels.map((label) => ({ label, n: seededInt(rng, 1, 7) * (per / 2) }));
+    const i = seededInt(rng, 0, rows.length - 1);
+    let j = seededInt(rng, 0, rows.length - 1);
+    while (j === i) j = seededInt(rng, 0, rows.length - 1);
+    const kind = pick(rng, ["read", "difference", "total"]);
+    let prompt, answer;
+    if (kind === "read") { prompt = `The pictogram shows the ${set.what}. How many ${set.noun} are shown for ${rows[i].label}?`; answer = `${rows[i].n}`; }
+    else if (kind === "difference") { prompt = `The pictogram shows the ${set.what}. How many more ${set.noun} are shown for ${rows[i].label} than for ${rows[j].label}? (If it is fewer, say how many fewer.)`; answer = `${Math.abs(rows[i].n - rows[j].n)} (${rows[i].n} and ${rows[j].n})`; }
+    else { prompt = `The pictogram shows the ${set.what}. How many ${set.noun} are shown altogether?`; answer = `${rows.map((r) => r.n).join(" + ")} = ${rows.reduce((s, r) => s + r.n, 0)}`; }
+    return { prompt, accurateDiagram: true, render: <PictogramSVG rows={rows} per={per} noun={set.noun} />, answer };
+  },
+};
+
+SUBTOPIC_BANK["stem-and-leaf-read"] = {
+  topic: "Stem and Leaf", title: "Read a stem and leaf diagram", marks: 2,
+  build(rng) {
+    const n = pick(rng, [9, 11, 13]);
+    const vals = [];
+    while (vals.length < n) vals.push(seededInt(rng, 10, 59));
+    // one repeated value so the mode is meaningful
+    vals[1] = vals[0];
+    const sorted = vals.slice().sort((x, y) => x - y);
+    const stems = [1, 2, 3, 4, 5].map((st) => ({ stem: st, leaves: sorted.filter((v) => Math.floor(v / 10) === st).map((v) => v % 10) })).filter((s0) => s0.leaves.length);
+    const unit = pick(rng, ["minutes", "cm", "marks"]);
+    const sample = sorted[Math.floor(n / 2)];
+    const kind = pick(rng, ["median", "range", "count", "mode"]);
+    const thr = pick(rng, [20, 30, 40]);
+    const counts = new Map(); sorted.forEach((v) => counts.set(v, (counts.get(v) || 0) + 1));
+    const modeVal = [...counts.entries()].sort((x, y) => y[1] - x[1])[0];
+    const modeUnique = [...counts.values()].filter((c) => c === modeVal[1]).length === 1;
+    let prompt, answer;
+    const key = `Key: 2 | 3 means 23 ${unit}`;
+    if (kind === "mode" && modeUnique) { prompt = `The stem and leaf diagram shows ${n} measurements. Write down the mode.`; answer = `${modeVal[0]} ${unit} (it appears ${modeVal[1]} times)`; }
+    else if (kind === "count") { prompt = `The stem and leaf diagram shows ${n} measurements. How many of the measurements are greater than ${thr} ${unit}?`; answer = `${sorted.filter((v) => v > thr).length}`; }
+    else if (kind === "range") { prompt = `The stem and leaf diagram shows ${n} measurements. Work out the range.`; answer = `${sorted[n - 1]} − ${sorted[0]} = ${sorted[n - 1] - sorted[0]} ${unit}`; }
+    else { prompt = `The stem and leaf diagram shows ${n} measurements. Find the median.`; answer = `The middle value (number ${Math.floor(n / 2) + 1} of ${n}) is ${sample} ${unit}`; }
+    return { prompt, accurateDiagram: true, render: <StemLeafSVG stems={stems} keyText={key} />, answer };
+  },
+};
+
+/* --- lines of symmetry --- */
+SUBTOPIC_BANK["symmetry-lines-only"] = {
+  topic: "2D Shapes", title: "How many lines of symmetry does the shape have?", marks: 2,
+  build(rng) {
+    const s = pick(rng, Y8_SYM);
+    return {
+      prompt: `The diagram shows a shape. Write down the number of lines of symmetry.`,
+      render: <SymmetryShapeSVG kind={s.kind} sides={s.sides} />,
+      accurateDiagram: true,
+      answer: s.lines === 0 ? "0 (it has no lines of symmetry)" : `${s.lines} line${s.lines === 1 ? "" : "s"} of symmetry`,
+      answerRender: s.lines > 0 ? <SymmetryShapeSVG kind={s.kind} sides={s.sides} showLines /> : undefined,
+    };
+  },
+};
+
+/* ---------- Year 9 Set 2 refinements ---------- */
+SUBTOPIC_BANK["changing-subject-one-step"] = {
+  topic: "Changing the Subject", title: "Change the subject (one step)", marks: 1,
+  build(rng) {
+    const sub = pick(rng, ["x", "t", "w", "n"]);
+    const r = pick(rng, ["y", "v", "P", "A"]);
+    const a = seededInt(rng, 2, 9);
+    const form = pick(rng, ["add", "sub", "mul", "div"]);
+    if (form === "add") return { prompt: `Make ${sub} the subject of the formula ${r} = ${sub} + ${a}`, answer: `${sub} = ${r} − ${a}` };
+    if (form === "sub") return { prompt: `Make ${sub} the subject of the formula ${r} = ${sub} − ${a}`, answer: `${sub} = ${r} + ${a}` };
+    if (form === "mul") return { prompt: `Make ${sub} the subject of the formula ${r} = ${a}${sub}`, answer: <>{sub} = <Frac n={r} d={a} /></> };
+    return { prompt: <>Make {sub} the subject of the formula {r} = <Frac n={sub} d={a} /></>, answer: `${sub} = ${a}${r}` };
+  },
+};
+SUBTOPIC_BANK["changing-subject-two-step"] = {
+  topic: "Changing the Subject", title: "Change the subject (two steps, the subject appears once)", marks: 2,
+  build(rng) {
+    const form = pick(rng, ["ax+b", "ax-b", "b-ax", "x/a+b", "v=u+at", "P=2l+2w"]);
+    const a = seededInt(rng, 2, 9), b = seededInt(rng, 1, 12);
+    if (form === "ax+b") return { prompt: `Make x the subject of the formula y = ${a}x + ${b}`, answer: <>x = <Frac n={`y − ${b}`} d={a} /></> };
+    if (form === "ax-b") return { prompt: `Make x the subject of the formula y = ${a}x − ${b}`, answer: <>x = <Frac n={`y + ${b}`} d={a} /></> };
+    if (form === "b-ax") return { prompt: `Make x the subject of the formula y = ${b} − ${a}x`, answer: <>x = <Frac n={`${b} − y`} d={a} /></> };
+    if (form === "x/a+b") return { prompt: <>Make x the subject of the formula y = <Frac n="x" d={a} /> + {b}</>, answer: `x = ${a}(y − ${b})` };
+    if (form === "v=u+at") return { prompt: `Make t the subject of the formula v = u + ${a}t`, answer: <>t = <Frac n="v − u" d={a} /></> };
+    return { prompt: `Make l the subject of the formula P = 2l + 2w`, answer: <>l = <Frac n="P − 2w" d={2} /></> };
+  },
+};
+
+/* --- the four averages, each as its own question --- */
+SUBTOPIC_BANK["averages-mean-only"] = {
+  topic: "Averages & Range", title: "Find the mean of a list of numbers", marks: 2,
+  build(rng) {
+    let list = null;
+    for (let t = 0; t < 500 && !list; t++) {
+      const n = pick(rng, [5, 6, 7, 8]);
+      const l = Array.from({ length: n }, () => seededInt(rng, 1, 20));
+      if (l.reduce((a, v) => a + v, 0) % n === 0) list = l;
+    }
+    if (!list) list = [3, 9, 6, 8, 4];
+    const sum = list.reduce((a, v) => a + v, 0);
+    return { prompt: `Work out the mean of these numbers: ${list.join(", ")}`, answer: `${list.join(" + ")} = ${sum}; ${sum} ÷ ${list.length} = ${sum / list.length}` };
+  },
+};
+SUBTOPIC_BANK["averages-mode-only"] = {
+  topic: "Averages & Range", title: "Find the mode of a list of numbers", marks: 1,
+  build(rng) {
+    let out = null;
+    for (let t = 0; t < 500 && !out; t++) {
+      const n = pick(rng, [7, 8, 9]);
+      const l = Array.from({ length: n }, () => seededInt(rng, 1, 9));
+      const counts = {};
+      l.forEach((v) => { counts[v] = (counts[v] || 0) + 1; });
+      const mx = Math.max(...Object.values(counts));
+      const modes = Object.keys(counts).filter((k) => counts[k] === mx);
+      if (modes.length === 1 && mx >= 2) out = { l, mode: +modes[0], mx };
+    }
+    if (!out) out = { l: [4, 7, 2, 7, 9, 3, 7], mode: 7, mx: 3 };
+    return { prompt: `Write down the mode of these numbers: ${out.l.join(", ")}`, answer: `${out.mode} (it appears ${out.mx} times)` };
+  },
+};
+SUBTOPIC_BANK["averages-median-only"] = {
+  topic: "Averages & Range", title: "Find the median of a list of numbers", marks: 2,
+  build(rng) {
+    const n = pick(rng, [5, 6, 7, 8, 9]);
+    const l = Array.from({ length: n }, () => seededInt(rng, 1, 30));
+    const sorted = l.slice().sort((x, y) => x - y);
+    const med = n % 2 ? sorted[(n - 1) / 2] : (sorted[n / 2 - 1] + sorted[n / 2]) / 2;
+    return {
+      prompt: `Find the median of these numbers: ${l.join(", ")}`,
+      answer: n % 2 ? `In order: ${sorted.join(", ")}; the middle number is ${med}` : `In order: ${sorted.join(", ")}; the middle two are ${sorted[n / 2 - 1]} and ${sorted[n / 2]}, so the median is ${med}`,
+    };
+  },
+};
+SUBTOPIC_BANK["averages-range-only"] = {
+  topic: "Averages & Range", title: "Find the range of a list of numbers", marks: 1,
+  build(rng) {
+    const n = pick(rng, [5, 6, 7, 8]);
+    const l = Array.from({ length: n }, () => seededInt(rng, 1, 40));
+    const mx = Math.max(...l), mn = Math.min(...l);
+    return { prompt: `Work out the range of these numbers: ${l.join(", ")}`, answer: `${mx} − ${mn} = ${mx - mn}` };
+  },
+};
+
+/* ---------- Year 9 Set 2: diagrams ---------- */
+
+// Horizontal frequency tree with oval boxes. A box whose value is null is left blank
+// for the student to fill in; labels may contain "\n" for a second line, and the word
+// "not" is set in bold.
+function FrequencyTreeHSVG({ root, l1, l2 }) {
+  const W = 520, H = 292;
+  const R = [62, 146];
+  const P1 = [[236, 72], [236, 220]];
+  const P2 = [[462, 36], [462, 110], [462, 182], [462, 256]];
+  const boldNot = (t) => t.split(/\b(not)\b/).map((part, i) => (part === "not" ? <tspan key={i} fontWeight="700">not</tspan> : part));
+  const label = (x, y, text, anchor = "middle") => {
+    const lines = String(text).split("\n");
+    return (
+      <text x={x} y={y - (lines.length - 1) * 9} fontSize="15" fontFamily={SERIF} textAnchor={anchor} fill="#000">
+        {lines.map((ln, i) => <tspan key={i} x={x} dy={i === 0 ? 0 : 18}>{boldNot(ln)}</tspan>)}
+      </text>
+    );
+  };
+  const oval = (c, rx, ry, v, k) => (
+    <g key={k}>
+      <ellipse cx={c[0]} cy={c[1]} rx={rx} ry={ry} fill="#fff" stroke="#000" strokeWidth="1.3" />
+      {v !== null && v !== undefined && v !== "" && <text x={c[0]} y={c[1] + 6} fontSize="18" fontFamily={SERIF} textAnchor="middle" fill="#000">{v}</text>}
+    </g>
+  );
+  const mid = (a, b) => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+  const lines = [];
+  P1.forEach((q, i) => { lines.push([R, q]); lines.push([q, P2[2 * i]]); lines.push([q, P2[2 * i + 1]]); });
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} width={W} style={{ maxWidth: "100%", height: "auto", display: "block" }}>
+      {lines.map(([a, b], i) => <line key={i} x1={a[0]} y1={a[1]} x2={b[0]} y2={b[1]} stroke="#000" strokeWidth="1.3" />)}
+      {oval(R, 30, 19, root, "r")}
+      {P1.map((q, i) => oval(q, 36, 21, l1[i].value, "a" + i))}
+      {P2.map((q, i) => oval(q, 38, 21, l2[Math.floor(i / 2)][i % 2].value, "b" + i))}
+      {label(mid(R, P1[0])[0] - 14, mid(R, P1[0])[1] - 10, l1[0].label)}
+      {label(mid(R, P1[1])[0] - 14, mid(R, P1[1])[1] + 24, l1[1].label)}
+      {P2.map((q, i) => {
+        const m = mid(P1[Math.floor(i / 2)], q);
+        const top = i % 2 === 0;
+        const txt = l2[Math.floor(i / 2)][i % 2].label;
+        return <g key={"l" + i}>{label(m[0] + 8, m[1] + (top ? -10 : 26), txt)}</g>;
+      })}
+    </svg>
+  );
+}
+
+// A graph with a real scale: light gridlines every `xMinor`/`yMinor`, darker ones
+// and the numbers every `xStep`/`yStep`, so values can be read off the axes.
+function ScaledLineGraphSVG({ points, xMax, yMax, xStep, yStep, xMinor, yMinor, xLabel, yLabel }) {
+  const boxW = 360, boxH = 280, padL = 58, padR = 18, padT = 18, padB = 52;
+  const sx = (boxW - padL - padR) / xMax, sy = (boxH - padT - padB) / yMax;
+  const px = (x) => padL + x * sx, py = (y) => boxH - padB - y * sy;
+  const seq = (max, step) => { const a = []; for (let v = 0; v <= max + 1e-9; v += step) a.push(Math.round(v * 1000) / 1000); return a; };
+  const xs = seq(xMax, xMinor), ys = seq(yMax, yMinor), xm = seq(xMax, xStep), ym = seq(yMax, yStep);
+  return (
+    <svg viewBox={`0 0 ${boxW} ${boxH}`} width={boxW} style={{ maxWidth: "100%", height: "auto", display: "block" }}>
+      {xs.map((v) => <line key={"x" + v} x1={px(v)} y1={py(0)} x2={px(v)} y2={py(yMax)} stroke="#e2e2e2" strokeWidth="0.9" />)}
+      {ys.map((v) => <line key={"y" + v} x1={px(0)} y1={py(v)} x2={px(xMax)} y2={py(v)} stroke="#e2e2e2" strokeWidth="0.9" />)}
+      {xm.map((v) => <g key={"xm" + v}><line x1={px(v)} y1={py(0)} x2={px(v)} y2={py(yMax)} stroke="#b3b3b3" strokeWidth="1.1" /><text x={px(v)} y={py(0) + 16} fontSize="12" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#000">{v}</text></g>)}
+      {ym.map((v) => <g key={"ym" + v}><line x1={px(0)} y1={py(v)} x2={px(xMax)} y2={py(v)} stroke="#b3b3b3" strokeWidth="1.1" /><text x={px(0) - 7} y={py(v) + 4} fontSize="12" fontFamily="Arial, sans-serif" textAnchor="end" fill="#000">{v}</text></g>)}
+      <line x1={px(0)} y1={py(yMax)} x2={px(0)} y2={py(0)} stroke="#000" strokeWidth="1.5" />
+      <line x1={px(0)} y1={py(0)} x2={px(xMax)} y2={py(0)} stroke="#000" strokeWidth="1.5" />
+      <polyline points={points.map((q) => `${px(q.x)},${py(q.y)}`).join(" ")} fill="none" stroke="#000" strokeWidth="2" strokeLinejoin="round" />
+      <text x={(px(0) + px(xMax)) / 2} y={boxH - 8} fontSize="13" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#000">{xLabel}</text>
+      <text x={13} y={(py(0) + py(yMax)) / 2} fontSize="13" fontFamily="Arial, sans-serif" textAnchor="middle" fill="#000" transform={`rotate(-90 13 ${(py(0) + py(yMax)) / 2})`}>{yLabel}</text>
+    </svg>
+  );
+}
+
+// Two similar triangles side by side, drawn to scale, with matching angle arcs.
+// `labA` / `labB` give the side labels to show ("AB", "BC", "AC" keys); `areaA` /
+// `areaB` put an area inside a triangle.
+function SimilarTrianglesSVG({ ab, bc, angleB, k: kTrue, labA, labB, areaA, areaB, arcs = true }) {
+  const k = Math.min(kTrue, 2.4); // drawn at most 2.4 times larger, so the small triangle stays roomy
+  const rad = (d) => (d * Math.PI) / 180;
+  const base = [[0, 0], [ab, 0], [ab - bc * Math.cos(rad(angleB)), -bc * Math.sin(rad(angleB))]];
+  const ext = Math.max(...base.map((q) => q[0])) - Math.min(...base.map((q) => q[0]));
+  const hgt = Math.max(...base.map((q) => -q[1]));
+  const u = Math.min(300 / ((1 + k) * ext), 150 / (k * hgt));
+  const gap = 60, padL = 44, padT = 38, padB = 50;
+  const minX = Math.min(...base.map((q) => q[0]));
+  const build = (sc, x0) => base.map(([x, y]) => [x0 + (x - minX) * u * sc, padT + k * hgt * u - 0 + y * u * sc]);
+  const w1 = ext * u, w2 = ext * u * k;
+  const T1 = build(1, padL), T2 = build(k, padL + w1 + gap);
+  const W = padL + w1 + gap + w2 + 50, H = padT + k * hgt * u + padB;
+  const cen = (T) => [(T[0][0] + T[1][0] + T[2][0]) / 3, (T[0][1] + T[1][1] + T[2][1]) / 3];
+  const G1 = cen(T1), G2 = cen(T2);
+  const tri = (T, G, letters, lab, key) => (
+    <g key={key}>
+      <polygon points={T.map((q) => q.join(",")).join(" ")} fill="none" stroke="#000" strokeWidth="1.5" strokeLinejoin="round" />
+      {vertexLabel(T[0], G, letters[0], key + "a")}{vertexLabel(T[1], G, letters[1], key + "b")}{vertexLabel(T[2], G, letters[2], key + "c")}
+      {lab.AB ? edgeLabel(T[0], T[1], G, lab.AB, key + "ab") : null}
+      {lab.BC ? edgeLabel(T[1], T[2], G, lab.BC, key + "bc") : null}
+      {lab.AC ? edgeLabel(T[0], T[2], G, lab.AC, key + "ac") : null}
+      {arcs && <AngleMark V={T[0]} P={T[1]} Q={T[2]} label="" arcR={16} />}
+      {arcs && <AngleMark V={T[1]} P={T[0]} Q={T[2]} label="" arcR={14} />}
+      {arcs && <AngleMark V={T[1]} P={T[0]} Q={T[2]} label="" arcR={20} />}
+    </g>
+  );
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} width={W} style={{ maxWidth: "100%", height: "auto", display: "block" }}>
+      {tri(T1, G1, ["A", "B", "C"], labA, "s")}
+      {tri(T2, G2, ["P", "Q", "R"], labB, "t")}
+      {areaA && <TriLabel x={G1[0]} y={G1[1] + 6} size={14} plain>{areaA}</TriLabel>}
+      {areaB && <TriLabel x={G2[0]} y={G2[1] + 6} size={15} plain>{areaB}</TriLabel>}
+    </svg>
+  );
+}
+
+/* ---------- Year 9 Set 2: questions ---------- */
+SUBTOPIC_BANK["frequency-tree-complete"] = {
+  topic: "Frequency Trees", title: "Complete a frequency tree", marks: 3,
+  build(rng) {
+    const ctx = pick(rng, [
+      { who: "adults", ask: "whether they like coffee", g: ["men", "women"], yes: "like coffee", no: "do not like coffee" },
+      { who: "students", ask: "how they travel to school", g: ["boys", "girls"], yes: "walk to school", no: "do not walk to school" },
+      { who: "people", ask: "whether they own a pet", g: ["adults", "children"], yes: "own a pet", no: "do not own a pet" },
+      { who: "members of a gym", ask: "whether they use the pool", g: ["men", "women"], yes: "use the pool", no: "do not use the pool" },
+    ]);
+    const total = pick(rng, [60, 70, 80, 90, 100]);
+    const a = seededInt(rng, Math.round(total * 0.4), Math.round(total * 0.6)), b = total - a;
+    const a1 = seededInt(rng, Math.round(a * 0.3), Math.round(a * 0.7)), a2 = a - a1;
+    const b1 = seededInt(rng, Math.round(b * 0.3), Math.round(b * 0.7)), b2 = b - b1;
+    const useNo = rng() < 0.4;
+    const givenA = useNo ? a2 : a1, givenB = useNo ? b2 : b1, phrase = useNo ? ctx.no : ctx.yes;
+    const lab = (t) => (t.startsWith("do not ") ? "do not\n" + t.slice(7) : t);
+    const mk = (vals) => ({
+      root: total,
+      l1: [{ label: ctx.g[0], value: vals ? a : null }, { label: ctx.g[1], value: vals ? b : null }],
+      l2: [[{ label: lab(ctx.yes), value: vals ? a1 : null }, { label: lab(ctx.no), value: vals ? a2 : null }], [{ label: lab(ctx.yes), value: vals ? b1 : null }, { label: lab(ctx.no), value: vals ? b2 : null }]],
+    });
+    const blank = mk(false), full = mk(true);
+    return {
+      prompt: `${total} ${ctx.who} were asked ${ctx.ask}. ${a} of them were ${ctx.g[0]}. ${givenA} of the ${ctx.g[0]} ${phrase} and ${givenB} of the ${ctx.g[1]} ${phrase}. Complete the frequency tree.`,
+      accurateDiagram: true,
+      render: <FrequencyTreeHSVG root={blank.root} l1={blank.l1} l2={blank.l2} />,
+      answer: `${ctx.g[0]} ${a}, ${ctx.g[1]} ${b}; ${ctx.g[0]}: ${a1} ${ctx.yes}, ${a2} ${ctx.no}; ${ctx.g[1]}: ${b1} ${ctx.yes}, ${b2} ${ctx.no}`,
+      answerRender: <FrequencyTreeHSVG root={full.root} l1={full.l1} l2={full.l2} />,
+    };
+  },
+};
+
+
+SUBTOPIC_BANK["conversion-graph-read"] = {
+  topic: "Units of Measurement", title: "Use a conversion graph", marks: 2,
+  build(rng) {
+    // A proper scale (gridlines and numbers on both axes) and no dashed answer line:
+    // students draw their own lines to read the graph.
+    const pairs = [
+      { xLabel: "Miles", yLabel: "Kilometres", unitX: "miles", unitY: "kilometres", xMax: 50, yMax: 80, xStep: 10, xMinor: 2, yStep: 10, yMinor: 2, factor: 1.6 },
+      { xLabel: "Pounds (£)", yLabel: "Euros (€)", unitX: "pounds", unitY: "euros", xMax: 100, yMax: 120, xStep: 20, xMinor: 5, yStep: 20, yMinor: 5, factor: 1.15 },
+      { xLabel: "Gallons", yLabel: "Litres", unitX: "gallons", unitY: "litres", xMax: 20, yMax: 100, xStep: 5, xMinor: 1, yStep: 20, yMinor: 5, factor: 4.5 },
+    ];
+    const pr = pick(rng, pairs);
+    const forward = rng() < 0.7;
+    const graph = <ScaledLineGraphSVG points={[{ x: 0, y: 0 }, { x: pr.xMax, y: pr.xMax * pr.factor }]} xMax={pr.xMax} yMax={pr.yMax} xStep={pr.xStep} yStep={pr.yStep} xMinor={pr.xMinor} yMinor={pr.yMinor} xLabel={pr.xLabel} yLabel={pr.yLabel} />;
+    if (forward) {
+      const readX = seededInt(rng, 2, Math.floor(pr.xMax / pr.xMinor) - 2) * pr.xMinor;
+      const y = Math.round(readX * pr.factor * 10) / 10;
+      return { prompt: `The graph can be used to convert between ${pr.unitX} and ${pr.unitY}. Use the graph to convert ${readX} ${pr.unitX} into ${pr.unitY}.`, accurateDiagram: true, render: graph, answer: `About ${y} ${pr.unitY} (accept ±${pr.yMinor})` };
+    }
+    const readY = seededInt(rng, 3, Math.floor((pr.xMax * pr.factor) / pr.yStep) - 1) * pr.yStep;
+    const x = Math.round((readY / pr.factor) * 10) / 10;
+    return { prompt: `The graph can be used to convert between ${pr.unitX} and ${pr.unitY}. Use the graph to convert ${readY} ${pr.unitY} into ${pr.unitX}.`, accurateDiagram: true, render: graph, answer: `About ${x} ${pr.unitX} (accept ±${pr.xMinor})` };
+  },
+};
+
+// A journey out, a wait, and the journey home, with whole-number speeds and times that
+// land on the gridlines so every value can be read from the axes.
+function y9JourneySpec(rng) {
+  const backTime = pick(rng, [1, 2, 3]);
+  const speed = pick(rng, [10, 15, 20]);
+  const D = speed * backTime;
+  const outTime = pick(rng, [1, 2, 3]);
+  const stop = pick(rng, [0.5, 1, 1.5, 2]);
+  const t1 = outTime, t2 = outTime + stop, t3 = outTime + stop + backTime;
+  const yStep = D <= 30 ? 5 : 10;
+  const name = pick(rng, ["Maya", "Tom", "Aisha", "Callum", "Priya", "Leo"]);
+  const graph = <ScaledLineGraphSVG points={[{ x: 0, y: 0 }, { x: t1, y: D }, { x: t2, y: D }, { x: t3, y: 0 }]} xMax={Math.ceil(t3)} yMax={Math.ceil((D + 0.001) / yStep) * yStep} xStep={1} xMinor={0.5} yStep={yStep} yMinor={yStep / 5} xLabel="Time (hours)" yLabel="Distance from home (km)" />;
+  return { D, speed, backTime, outTime, stop, t1, t2, t3, name, graph };
+}
+const y9HoursText = (h) => (h === 0.5 ? "30 minutes" : h === 1 ? "1 hour" : h === 1.5 ? "1 hour 30 minutes" : `${h} hours`);
+SUBTOPIC_BANK["distance-time-waiting-time"] = {
+  topic: "Compound Measures", title: "Read a distance-time graph: how long did they wait?", marks: 2,
+  build(rng) {
+    const j = y9JourneySpec(rng);
+    return {
+      prompt: `${j.name} cycles from home to a friend's house, waits there, and then cycles home. The graph shows the journey. How long did ${j.name} wait at the friend's house?`,
+      accurateDiagram: true,
+      render: j.graph,
+      answer: `The line is flat from ${j.t1} to ${j.t2} hours, so ${j.t2} − ${j.t1} = ${j.stop} hours (${y9HoursText(j.stop)})`,
+    };
+  },
+};
+SUBTOPIC_BANK["distance-time-return-speed"] = {
+  topic: "Compound Measures", title: "Read a distance-time graph: average speed of the return journey", marks: 3,
+  build(rng) {
+    const j = y9JourneySpec(rng);
+    return {
+      prompt: `${j.name} cycles from home to a friend's house, waits there, and then cycles home. The graph shows the journey. Work out ${j.name}'s average speed on the journey home.`,
+      accurateDiagram: true,
+      render: j.graph,
+      answer: `The journey home covers ${j.D} km and takes ${j.t3} − ${j.t2} = ${j.backTime} hour${j.backTime > 1 ? "s" : ""}. Speed = ${j.D} ÷ ${j.backTime} = ${j.speed} km/h`,
+    };
+  },
+};
+SUBTOPIC_BANK["distance-time-graph-read"] = {
+  topic: "Compound Measures", title: "Interpret a distance-time graph", marks: 3,
+  build(rng) {
+    const j = y9JourneySpec(rng);
+    const outSpeed = j.D / j.outTime;
+    return {
+      prompt: `${j.name} cycles from home to a friend's house, waits there, and then cycles home. The graph shows the journey. Work out ${j.name}'s average speed on the way to the friend's house.`,
+      accurateDiagram: true,
+      render: j.graph,
+      answer: `${j.D} km in ${j.outTime} hour${j.outTime > 1 ? "s" : ""}: ${j.D} ÷ ${j.outTime} = ${Math.round(outSpeed * 10) / 10} km/h`,
+    };
+  },
+};
+
+SUBTOPIC_BANK["similar-shapes-find-length"] = {
+  topic: "Similar Shapes", title: "Find a missing length using similar triangles", marks: 2,
+  build(rng) {
+    const k = pick(rng, [2, 3, 4]);
+    const AB = seededInt(rng, 4, 8);
+    const BC = Math.max(3, Math.round(AB * pick(rng, [0.75, 1, 1.25, 1.5])));
+    const PQ = AB * k, QR = BC * k;
+    const findLarge = rng() < 0.6;
+    const ang = pick(rng, [62, 70, 78, 86]);
+    return {
+      prompt: findLarge
+        ? `Triangle ABC is similar to triangle PQR, with AB corresponding to PQ. Find the length of QR.`
+        : `Triangle ABC is similar to triangle PQR, with AB corresponding to PQ. Find the length of BC.`,
+      accurateDiagram: k <= 2,
+      render: <SimilarTrianglesSVG ab={AB} bc={BC} angleB={ang} k={k} labA={findLarge ? { AB: `${AB} cm`, BC: `${BC} cm` } : { AB: `${AB} cm`, BC: "?" }} labB={findLarge ? { AB: `${PQ} cm`, BC: "?" } : { AB: `${PQ} cm`, BC: `${QR} cm` }} />,
+      answer: findLarge
+        ? <>Scale factor = <Frac n={PQ} d={AB} /> = {k}; QR = {BC} × {k} = {QR} cm</>
+        : <>Scale factor = <Frac n={PQ} d={AB} /> = {k}; BC = {QR} ÷ {k} = {BC} cm</>,
+    };
+  },
+};
+SUBTOPIC_BANK["similar-shapes-area-scale"] = {
+  topic: "Similar Shapes", title: "Area of a similar shape using scale factor squared", marks: 2,
+  build(rng) {
+    const k = pick(rng, [2, 3, 4]);
+    const areaSmall = seededInt(rng, 4, 20);
+    const areaLarge = areaSmall * k * k;
+    const askLarge = rng() < 0.5;
+    const ang = pick(rng, [62, 70, 78]);
+    return {
+      prompt: askLarge
+        ? `The two triangles are similar. Each side of the larger triangle is ${k} times as long as the matching side of the smaller triangle. The smaller triangle has an area of ${areaSmall} cm². Find the area of the larger triangle.`
+        : `The two triangles are similar. Each side of the larger triangle is ${k} times as long as the matching side of the smaller triangle. The larger triangle has an area of ${areaLarge} cm². Find the area of the smaller triangle.`,
+      accurateDiagram: k <= 2,
+      render: <SimilarTrianglesSVG ab={5} bc={4} angleB={ang} k={k} arcs={false} labA={{}} labB={{}} areaA={askLarge ? `${areaSmall} cm²` : "? cm²"} areaB={askLarge ? "? cm²" : `${areaLarge} cm²`} />,
+      answer: askLarge
+        ? `Area scale factor = ${k}² = ${k * k}; area = ${areaSmall} × ${k * k} = ${areaLarge} cm²`
+        : `Area scale factor = ${k}² = ${k * k}; area = ${areaLarge} ÷ ${k * k} = ${areaSmall} cm²`,
     };
   },
 };
@@ -11242,6 +11993,49 @@ const SUBTOPIC_TO_SPEC = {
   "triangle-classify": "Geometry & Measures → Properties of 2D Shapes → Naming & Identifying",
 };
 
+// Year 9 Set 3 / Year 10 Set 4 question types: filed in the same spec group as a similar question.
+SUBTOPIC_TO_SPEC["frac-compare-same-denom"] = SUBTOPIC_TO_SPEC["frac-compare-different-denom"];
+SUBTOPIC_TO_SPEC["frac-compare-make-same-denom"] = SUBTOPIC_TO_SPEC["frac-compare-different-denom"];
+SUBTOPIC_TO_SPEC["frac-to-decimal-convert"] = SUBTOPIC_TO_SPEC["fdp-convert-fraction-decimal-percentage"];
+SUBTOPIC_TO_SPEC["percent-express-factor-100"] = SUBTOPIC_TO_SPEC["percent-one-of-another"];
+SUBTOPIC_TO_SPEC["percent-express-simplify"] = SUBTOPIC_TO_SPEC["percent-one-of-another"];
+SUBTOPIC_TO_SPEC["proportion-direct-word"] = SUBTOPIC_TO_SPEC["direct-proportion"];
+SUBTOPIC_TO_SPEC["substitution-positive-values"] = SUBTOPIC_TO_SPEC["substitution-one-variable"];
+SUBTOPIC_TO_SPEC["substitution-negative-values"] = SUBTOPIC_TO_SPEC["substitution-one-variable"];
+SUBTOPIC_TO_SPEC["seq-pattern-draw-next-only"] = SUBTOPIC_TO_SPEC["seq-pattern-draw-next"];
+SUBTOPIC_TO_SPEC["seq-pattern-count-next"] = SUBTOPIC_TO_SPEC["seq-pattern-draw-next"];
+SUBTOPIC_TO_SPEC["averages-five-numbers"] = SUBTOPIC_TO_SPEC["averages-four-measures"];
+SUBTOPIC_TO_SPEC["bar-chart-interpret"] = SUBTOPIC_TO_SPEC["bar-chart-read-frequency"];
+SUBTOPIC_TO_SPEC["dual-bar-chart-read"] = SUBTOPIC_TO_SPEC["bar-chart-read-frequency"];
+SUBTOPIC_TO_SPEC["pictogram-read"] = SUBTOPIC_TO_SPEC["bar-chart-read-frequency"];
+SUBTOPIC_TO_SPEC["stem-and-leaf-read"] = SUBTOPIC_TO_SPEC["bar-chart-read-frequency"];
+SUBTOPIC_TO_SPEC["symmetry-lines-only"] = SUBTOPIC_TO_SPEC["symmetry-lines-rotation"];
+SUBTOPIC_TO_SPEC["percent-increase-decrease-easy"] = SUBTOPIC_TO_SPEC["percent-increase-decrease"];
+SUBTOPIC_TO_SPEC["changing-subject-one-step"] = SUBTOPIC_TO_SPEC["rearrange-square-root"];
+SUBTOPIC_TO_SPEC["changing-subject-two-step"] = SUBTOPIC_TO_SPEC["rearrange-square-root"];
+SUBTOPIC_TO_SPEC["averages-mean-only"] = SUBTOPIC_TO_SPEC["averages-four-measures"];
+SUBTOPIC_TO_SPEC["averages-mode-only"] = SUBTOPIC_TO_SPEC["averages-four-measures"];
+SUBTOPIC_TO_SPEC["averages-median-only"] = SUBTOPIC_TO_SPEC["averages-four-measures"];
+SUBTOPIC_TO_SPEC["averages-range-only"] = SUBTOPIC_TO_SPEC["averages-four-measures"];
+SUBTOPIC_TO_SPEC["distance-time-waiting-time"] = SUBTOPIC_TO_SPEC["distance-time-graph-read"];
+SUBTOPIC_TO_SPEC["distance-time-return-speed"] = SUBTOPIC_TO_SPEC["distance-time-graph-read"];
+
+// A question's seed is  seedFor(...) + position*104729 + nonce*999983  (mod 2^32).
+// The multiplier is odd, so it has an inverse mod 2^32, which lets us pick the
+// nonce that keeps a question's seed (and so its numbers) exactly the same when
+// its position or the ticked-topic list changes, e.g. when another question
+// is deleted. Uses BigInt so the 32-bit arithmetic is exact.
+const SEED_MOD = BigInt("4294967296");
+const NONCE_MUL = BigInt("999983");
+const NONCE_INV = (() => {
+  let inv = NONCE_MUL;
+  for (let k = 0; k < 6; k++) inv = (inv * (((BigInt(2) - NONCE_MUL * inv) % SEED_MOD) + SEED_MOD)) % SEED_MOD;
+  return inv;
+})();
+function nonceToHoldSeed(target, base, pos) {
+  const diff = (((BigInt(target) - BigInt(base) - BigInt(pos) * BigInt(104729)) % SEED_MOD) + SEED_MOD) % SEED_MOD;
+  return Number((diff * NONCE_INV) % SEED_MOD);
+}
 function seedFor(idsKey, version, salt) {
   let s = salt;
   for (const ch of idsKey + version) s = (s * 31 + ch.charCodeAt(0)) | 0;
@@ -12255,6 +13049,35 @@ function weekShort(k) {
 const weekFull = (k) => k.replace(/\s*\(W\/B[^)]*\)/, "");
 
 // A collapsed-by-default card, so the sidebar stays short.
+// A question's diagram, hard against the LEFT edge of its card so the right-hand
+// side is free for working. Each drawing is cropped to the shapes actually
+// drawn (plus a small margin) because the drawings carry blank padding inside
+// their own frames, which would otherwise push the shape away from the edge.
+// The crop keeps the drawing the same size; it only removes empty space.
+function DiagramBox({ children }) {
+  const ref = React.useRef(null);
+  React.useLayoutEffect(() => {
+    const root = ref.current;
+    if (!root) return;
+    root.querySelectorAll("svg").forEach((svg) => {
+      try {
+        const vb = svg.viewBox && svg.viewBox.baseVal;
+        const r = svg.getBoundingClientRect();
+        if (!vb || !vb.width || !r.width) return;
+        const bb = svg.getBBox();
+        if (!bb.width || !bb.height) return;
+        const pad = 6;
+        const scale = r.width / vb.width; // pixels per drawing unit, as drawn now
+        const x = bb.x - pad, y = bb.y - pad, w = bb.width + 2 * pad, h = bb.height + 2 * pad;
+        svg.setAttribute("viewBox", `${x} ${y} ${w} ${h}`);
+        svg.setAttribute("width", String(Math.round(w * scale * 10) / 10));
+        svg.style.overflow = "visible";
+      } catch (e) { /* leave the drawing as it was */ }
+    });
+  });
+  return <div ref={ref} className="qe-diagram" style={{ margin: "6px 0 2px 0", maxWidth: "100%", textAlign: "left" }}>{children}</div>;
+}
+
 function QeFold({ title, hint, open, onToggle, wide, children }) {
   return (
     <section className={cx("qe-card qe-fold", wide && "wide")}>
@@ -12532,7 +13355,8 @@ export default function QuizEngine() {
   // didn't actually reproduce the quiz it was saved from. Mirror
   // encodeQuizCode's own "effective length" here so the two can never drift
   // apart from each other.
-  const idsKey = selected.join(",") + "|" + practiceMode + "|" + (lengthMode === "custom" ? selected.length : quizLength ?? "custom");
+  const idsKeyOf = (sel) => sel.join(",") + "|" + practiceMode + "|" + (lengthMode === "custom" ? sel.length : quizLength ?? "custom");
+  const idsKey = idsKeyOf(selected);
 
   // Feature 2/3 combined: for Do Now/Weekly Quiz, the selected (unique)
   // subtopics are cycled — with fresh numbers each pass — to exactly fill
@@ -12885,32 +13709,52 @@ export default function QuizEngine() {
   const visibleQuestions = active.questions.map((q, index) => ({ q, index }));
   const deleteQuestion = (index) => {
     if (locked) return;
-    // Deleting a question always keeps the topic picker in sync with what's
-    // actually still in the quiz, rather than leaving a checkbox ticked (or
-    // a stepper count) for a question that's no longer on screen.
-    // (An earlier version of this instead hid just the one clicked question
-    // behind a separate `removedIndices` set — but that hidden state got
-    // silently wiped, resurrecting "deleted" questions, the moment any other
-    // subtopic was ticked/unticked afterwards. Driving everything off
-    // `selected` alone removes that failure mode entirely.)
-    setQuestionNonces({});
+    // Deleting a question keeps the topic picker in sync with what is still in
+    // the quiz (driving everything off `selected` means a "deleted" question can
+    // never come back). It also leaves every OTHER question exactly as it was:
+    // same numbers, same order. A question's numbers come from a seed that
+    // depends on its position and on the whole ticked-topic list, both of which
+    // a delete changes, so for each survivor we compute the nonce that holds its
+    // old seed steady (see nonceToHoldSeed). Questions the teacher regenerated
+    // individually keep that too, and the nonces travel inside the quiz code.
     setCustomLabel(null);
+    const oldIds = effectiveIds;
+    const allOld = oldIds.map((_, j) => j);
+    let nextSelected, survivors;
     if (lengthMode === "custom" || lengthMode === "weekly") {
-      // Custom and Weekly Quiz: effectiveIds is `selected` itself with no
-      // cycling (see above), so `index` is a real position in `selected` —
-      // drop just that one entry. If that subtopic only had a count of 1,
-      // this naturally unticks its checkbox too; if it had 3, this leaves 2,
-      // exactly matching the +/− stepper's per-copy counting instead of
-      // wiping every copy of that topic out for a single delete.
-      setSelected((prev) => prev.filter((_, i) => i !== index));
-      return;
+      // Custom and Weekly: effectiveIds is `selected` itself, so `index` is a
+      // real position in `selected`; drop just that one entry (the +/- stepper's
+      // per-copy counting is kept: one copy of three leaves two).
+      nextSelected = selected.filter((_, i) => i !== index);
+      survivors = allOld.filter((j) => j !== index);
+    } else {
+      // Do Now: one tick = one topic, so deleting unticks it and the quiz refills
+      // back up to the fixed length by cycling the topics that remain.
+      const subtopicId = oldIds[index];
+      if (subtopicId == null) return;
+      nextSelected = selected.filter((id) => id !== subtopicId);
+      survivors = allOld.filter((j) => oldIds[j] !== subtopicId);
     }
-    // Do Now: still one tick = one topic (no per-topic counts), so deleting
-    // unticks it entirely and the quiz refills back up to the fixed length
-    // by cycling whichever topics remain ticked.
-    const subtopicId = effectiveIds[index];
-    if (subtopicId == null) return;
-    setSelected((prev) => prev.filter((id) => id !== subtopicId));
+    const newIds = nextSelected.length === 0 ? []
+      : lengthMode === "custom" || lengthMode === "weekly" ? nextSelected
+      : Array.from({ length: targetCount }, (_, i) => nextSelected[i % nextSelected.length]);
+    const newKey = idsKeyOf(nextSelected);
+    const newNonces = {};
+    const newIndexOf = new Map();
+    survivors.forEach((oldIdx, newIdx) => {
+      if (newIds[newIdx] !== oldIds[oldIdx]) return; // not the same question any more: let it refill
+      newIndexOf.set(oldIdx, newIdx);
+      ["V1", "V2", "V3"].forEach((v) => {
+        const oldNonce = questionNonces[`${v}-${oldIdx}`] || 0;
+        const target = (seedFor(idsKey, v, salt) + oldIdx * 104729 + oldNonce * 999983) >>> 0;
+        const n = nonceToHoldSeed(target, seedFor(newKey, v, salt), newIdx);
+        if (n > 0) newNonces[`${v}-${newIdx}`] = n;
+      });
+    });
+    setQuestionNonces(newNonces);
+    // Keep the teacher's custom order: the survivors in the order they are shown now.
+    setQuestionOrder(orderedVisibleQuestions.map((v) => v.index).filter((j) => newIndexOf.has(j)).map((j) => newIndexOf.get(j)));
+    setSelected(nextSelected);
   };
   // Applies the drag-reorder state on top of visibleQuestions. questionOrder
   // only needs to record indices the teacher has actually dragged; anything
@@ -13247,10 +14091,10 @@ export default function QuizEngine() {
         </div>
 
         {q.render && (
-          <div className="qe-diagram" style={{ margin: "6px 0 2px 0", maxWidth: "100%", textAlign: "left" }}>
+          <DiagramBox>
             {q.render}
             {!q.accurateDiagram && <div style={{ fontSize: 8.5, fontStyle: "italic", color: "var(--paper-muted)", marginTop: 2 }}>Diagram NOT accurately drawn</div>}
-          </div>
+          </DiagramBox>
         )}
 
         <div style={{ flex: 1, minHeight: 16 }} />
